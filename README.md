@@ -40,6 +40,14 @@ pnpm dsh web
 
 `pnpm run build` prepares the repository artifacts. `pnpm dsh web` uses those built artifacts without rebuilding.
 
+For an editable development session that opens the same Web UI and rebuilds client bundles when source files change, run:
+
+```sh
+pnpm run source:web
+```
+
+The equivalent short Make command is `make source-web`. Pass Web options after the command, for example `pnpm run source:web --no-open --port 3081` or `make source-web ARGS='--no-open --port 3081'`. Keep the command running while you edit the app; press `Ctrl-C` to stop it.
+
 ## Community and support
 
 - Submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
@@ -54,7 +62,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
 
-`pnpm run dev:web` builds, serves, and rebuilds client bundles on source edits in one terminal, and `make help` lists the matching Make targets for Web and Desktop; the guide's application commands section owns the full table.
+`pnpm run dev:web` and its personal alias `pnpm run source:web` build, serve, and rebuild client bundles on source edits in one terminal. `make help` lists the matching Make targets for Web and Desktop; the guide's application commands section owns the full table.
 
 For agents, follow [AGENTS.md](AGENTS.md).
 
