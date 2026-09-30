@@ -40,7 +40,7 @@ The app opens at `http://127.0.0.1:3080` by default.
 
 ### Ways to open KairoForge
 
-All of these commands start the same KairoForge web app and open it in your browser:
+If you are inside the KairoForge folder, all of these commands start the same KairoForge web app and open it in your browser:
 
 ```sh
 pnpm run kairoforge
@@ -61,6 +61,23 @@ pnpm run go
 ```
 
 These commands are KairoForge launchers. You do not need to type the old upstream `dsh web` command.
+
+### Open KairoForge from anywhere
+
+Install the global shortcuts once:
+
+```sh
+cd /Users/franksmith/Documents/KalroForge
+pnpm run install:command
+```
+
+After that, you can run these from any folder, including `~`:
+
+```sh
+kairoforge
+kf
+kairoforge-open
+```
 
 To use another port:
 

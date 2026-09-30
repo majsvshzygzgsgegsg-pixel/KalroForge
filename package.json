@@ -214,6 +214,7 @@
     "serve": "node scripts/kairoforge-web.mjs",
     "go": "node scripts/kairoforge-web.mjs",
     "run:kairoforge": "node scripts/kairoforge-web.mjs",
+    "install:command": "bash scripts/install-kairoforge-command.sh",
     "open": "bash scripts/open-kairoforge.sh",
     "open:kairoforge": "bash scripts/open-kairoforge.sh",
     "launch": "bash scripts/open-kairoforge.sh",
