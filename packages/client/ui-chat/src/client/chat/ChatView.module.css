@@ -17,6 +17,10 @@
 
   overflow-x: visible;
   overflow-y: clip;
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, #7c3aed 10%, transparent) 0, transparent 28%),
+    radial-gradient(circle at 88% 0%, color-mix(in srgb, #06b6d4 9%, transparent) 0, transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-bg-base) 94%, #101827) 0%, var(--dsw-alias-bg-base) 52%);
 }
 
 .scroll {
@@ -25,7 +29,7 @@
   overflow-y: auto;
   /* Sides = composer clearance + 16px: on narrow viewports the transcript
      stays exactly 32px narrower than the input card (the shared width rule). */
-  padding: 16px calc(var(--dsh-composer-side-clearance) + 16px);
+  padding: 24px calc(var(--dsh-composer-side-clearance) + 16px) 20px;
   /* Inline-size query container: wide markdown tables size their breakout
      against this box's content width (100cqw in AssistantMarkdown's
      md-table-wide rule) — the CSS stand-in for deepsuite chat's JS-measured
@@ -55,11 +59,12 @@
    centered on the same axis as the input box (which caps at chat + 16px); the
    scroller itself stays full-bleed. */
 .column {
-  max-width: var(--dsh-chat-content-width);
+  max-width: min(var(--dsh-chat-content-width), 840px);
   width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  padding: 6px 0 12px;
 }
 
 /* `hidden="until-found"` retains a zero-height box so browser find can reveal
@@ -73,7 +78,7 @@
 /* Process rows sit 6px apart; an Assistant response is separated from its
    neighbours by 12px. */
 .flowItem[data-chat-group-part="response"] {
-  --dsh-chat-flow-gap: 12px;
+  --dsh-chat-flow-gap: 16px;
 }
 
 .column > [data-chat-group-part="response"]:not([hidden]):not(:empty)
@@ -122,6 +127,12 @@
   color: var(--dsw-alias-label-deep-diving);
   font-size: calc(var(--dsh-content-font-size, 14px) - 2px);
   line-height: calc(22px + var(--dsh-content-font-delta, 0px));
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l2) 42%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 72%, transparent);
+  box-shadow: 0 8px 28px color-mix(in srgb, #0f172a 8%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 /* The last visible row before the status must contain output, not an input.

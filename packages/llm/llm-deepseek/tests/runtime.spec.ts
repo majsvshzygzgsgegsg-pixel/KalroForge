@@ -1788,11 +1788,11 @@ describe('plugin registration and config', () => {
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
     expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
-      { provider: 'deepseek-official', id: 'deepseek-flash', name: 'DeepSeek-V41-Flash', inputModalities: ['text', 'image'] },
+      { provider: 'deepseek-official', id: 'deepseek-flash', name: 'KairoForge1.1 Flash', inputModalities: ['text', 'image'] },
       {
         provider: 'deepseek-official',
         id: 'deepseek-v4-pro',
-        name: 'DeepSeek-V4-Pro',
+        name: 'KairoForge1.1 Pro',
         description: 'Stronger agentic coding, knowledge, and difficult reasoning; suited to complex or quality-critical tasks at higher cost.',
         inputModalities: ['text'],
       },
@@ -1801,7 +1801,7 @@ describe('plugin registration and config', () => {
       .resolves.toMatchObject({
         provider: 'deepseek-official',
         id: 'deepseek-flash',
-        name: 'DeepSeek-V41-Flash',
+        name: 'KairoForge1.1 Flash',
         inputModalities: ['text', 'image'],
         systemPromptUpdate: 'in-history',
         context: { contextWindow: 1_000_000 },
@@ -1916,11 +1916,11 @@ describe('plugin registration and config', () => {
     await ctx.plugin(LlmRuntime)
     LlmDeepSeek.apply(ctx, LlmDeepSeek.Config({ baseURL: 'http://127.0.0.1:1' }))
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
-      { provider: 'deepseek-official', id: 'deepseek-flash', name: 'DeepSeek-V41-Flash', inputModalities: ['text', 'image'] },
+      { provider: 'deepseek-official', id: 'deepseek-flash', name: 'KairoForge1.1 Flash', inputModalities: ['text', 'image'] },
       {
         provider: 'deepseek-official',
         id: 'deepseek-v4-pro',
-        name: 'DeepSeek-V4-Pro',
+        name: 'KairoForge1.1 Pro',
         description: 'Stronger agentic coding, knowledge, and difficult reasoning; suited to complex or quality-critical tasks at higher cost.',
         inputModalities: ['text'],
       },
@@ -2308,7 +2308,7 @@ describe('plugin registration and config', () => {
     const adapter = adapterOf()
     expect(adapter).toBeInstanceOf(DeepSeekAdapter)
     await expect(adapter.listModels('deepseek-official')).resolves.toEqual([])
-    await expect(adapter.resolveModel('deepseek-official', 'deepseek-flash')).resolves.toMatchObject({ name: 'DeepSeek-V41-Flash' })
+    await expect(adapter.resolveModel('deepseek-official', 'deepseek-flash')).resolves.toMatchObject({ name: 'KairoForge1.1 Flash' })
   })
 
   it('resolves connection facts and the credential exactly once per stream call', async () => {

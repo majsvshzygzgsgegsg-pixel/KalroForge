@@ -69,13 +69,13 @@ const DeepSeekConfig = Schema.object({
   })).default([
     {
       id: 'deepseek-v4-flash',
-      name: 'DeepSeek-V4-Flash',
+      name: 'KairoForge1.1 Flash',
       description: '',
       contextWindow: 1_000_000,
     },
     {
       id: 'deepseek-v4-pro',
-      name: 'DeepSeek-V4-Pro',
+      name: 'KairoForge1.1 Pro',
       description: '',
       contextWindow: 1_000_000,
     },
@@ -85,11 +85,11 @@ const DeepSeekConfig = Schema.object({
 const DEFAULT_DEEPSEEK_MODELS = [
   {
     id: 'deepseek-v4-flash',
-    name: 'DeepSeek-V4-Flash',
+    name: 'KairoForge1.1 Flash',
     description: 'Preserved hidden detail',
     contextWindow: 1_000_000,
   },
-  { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
+  { id: 'deepseek-v4-pro', name: 'KairoForge1.1 Pro', contextWindow: 1_000_000 },
 ]
 
 function wireNamespaces(): SettingsNamespaceView[] {
@@ -1932,11 +1932,11 @@ it.each([en, zh])('edits the account model catalog without credential or endpoin
       value: [
         {
           id: 'deepseek-v4-mini',
-          name: 'DeepSeek-V4-Flash',
+          name: 'KairoForge1.1 Flash',
           description: 'Preserved hidden detail',
           contextWindow: 1_000_000,
         },
-        { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
+        { id: 'deepseek-v4-pro', name: 'KairoForge1.1 Pro', contextWindow: 1_000_000 },
       ],
     }],
     0,
@@ -1991,11 +1991,11 @@ it('opens the account row from the section and saves to its own namespace', asyn
       value: [
         {
           id: 'deepseek-v4-mini',
-          name: 'DeepSeek-V4-Flash',
+          name: 'KairoForge1.1 Flash',
           description: 'Preserved hidden detail',
           contextWindow: 1_000_000,
         },
-        { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
+        { id: 'deepseek-v4-pro', name: 'KairoForge1.1 Pro', contextWindow: 1_000_000 },
       ],
     }],
     0,

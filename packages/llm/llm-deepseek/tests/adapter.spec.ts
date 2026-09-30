@@ -141,7 +141,7 @@ describe('direct Messages HTTP', () => {
     expect(llm.providerInfo('deepseek-official')).toEqual({ id: 'deepseek-official', name: 'DeepSeek' })
     expect(await llm.listModels('deepseek-official')).toEqual([])
     expect(await llm.resolveModel('deepseek-official', 'deepseek-flash')).toMatchObject({
-      name: 'DeepSeek-V41-Flash', inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history',
+      name: 'KairoForge1.1 Flash', inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history',
     })
     expect(await llm.resolveModel('deepseek-official', MODEL)).toMatchObject({ id: MODEL })
     expect(llm.imageRequestPricing('deepseek-official', MODEL)).toBeDefined()
