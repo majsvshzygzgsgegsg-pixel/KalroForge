@@ -1,4 +1,15 @@
 {
+  "ui-chat/src/client/chat/MessageItem.module.css": [
+    ".bubble: border-radius: 24px 24px 8px 24px",
+    ".bubble: border-radius: 20px 20px 6px 20px",
+    ".bubble: border-radius: 24px 24px 7px 24px"
+  ],
+  "ui-conversation/src/client/skeleton/ConversationRoot.module.css": [
+    ".header: border-radius: 22px"
+  ],
+  "ui-conversation/src/client/skeleton/InputBar.module.css": [
+    ".card: border-radius: 28px"
+  ],
   "ui-deliverables/src/client/ChangedFiles.module.css": [
     ".tile: border-radius: 10px"
   ],
@@ -63,5 +74,9 @@
     ".keyBadge: border-radius: 10px",
     ".unbound: border-radius: 10px",
     ".recorder: border-radius: 10px"
+  ],
+  "ui-sidebar/src/client/SidebarRoot.module.css": [
+    ".root: border-radius: 0 28px 28px 0",
+    ".brand: border-radius: 18px"
   ]
 }

@@ -93,12 +93,17 @@ describe('official browser-brand plugin', () => {
 
   it('renders the official name independently from both requested mark sizes', () => {
     const name = render(<OfficialBrandName />)
-    expect(name.container.querySelector('svg')?.getAttribute('viewBox')).toBe('26 0 156 24')
+    // The official name is the wordmark itself, so it carries no mark geometry
+    // and no size to scale: the lattice artwork lives only in the mark slot.
+    expect(name.container.querySelector('svg')).toBeNull()
+    expect(name.getByText('KairoForge')).not.toBeNull()
     name.unmount()
 
     const mark = render(<OfficialBrandMark size={34} />)
+    expect(mark.container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 64 64')
     expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('34')
     mark.rerender(<OfficialBrandMark size={24} />)
+    expect(mark.container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 64 64')
     expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('24')
   })
 

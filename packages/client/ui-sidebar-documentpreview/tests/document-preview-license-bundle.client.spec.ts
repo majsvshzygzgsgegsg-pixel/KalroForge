@@ -34,17 +34,27 @@ function run(command: string, args: string[], cwd: string, timeout: number): str
 
 function runPnpm(args: string[], cwd: string, timeout: number): string {
   const entrypoint = process.env.npm_execpath
-  if (entrypoint === undefined || entrypoint === '') {
-    if (process.platform === 'win32') throw new Error('npm_execpath is required to run pnpm on Windows')
-    return run('pnpm', args, cwd, timeout)
+  // `npm_execpath` names the package manager that launched the suite: pnpm under
+  // this repo's own scripts, but npm under a bare `npx vitest`. Only pnpm's
+  // entrypoint may be reused — it is the packer whose artifact this suite
+  // inspects, and npm answers `pack --json` with the same fields in a different
+  // shape, so reusing npm silently asserts against the wrong tarball.
+  if (entrypoint !== undefined && /\bpnpm\b/iu.test(entrypoint)) {
+    return /\.[cm]?js$/iu.test(entrypoint)
+      ? run(process.execPath, [entrypoint, ...args], cwd, timeout)
+      : run(entrypoint, args, cwd, timeout)
   }
-  return /\.[cm]?js$/iu.test(entrypoint)
-    ? run(process.execPath, [entrypoint, ...args], cwd, timeout)
-    : run(entrypoint, args, cwd, timeout)
+  // pnpm ships as a shell shim on Windows, so it needs the npm_execpath entry.
+  if (process.platform === 'win32') throw new Error('npm_execpath must be pnpm to run pnpm on Windows')
+  return run('pnpm', args, cwd, timeout)
 }
 
 describe('published document preview licenses', () => {
-  it.skipIf(!existsSync(bundlePath))('keeps bundled licenses in the packed lazy chunks', ({ task }) => {
+  // The subprocess budget is this test's own timeout (`task.timeout`), and one
+  // `pnpm pack` of this package costs several seconds even warm — longer than
+  // vitest's 5s default. Left implicit, the pack dies as a spawn timeout and
+  // the test reports a missing artifact instead of what actually happened.
+  it.skipIf(!existsSync(bundlePath))('keeps bundled licenses in the packed lazy chunks', { timeout: 120_000 }, ({ task }) => {
     expect(existsSync(pdfChunkPath)).toBe(true)
     const output = mkdtempSync(join(tmpdir(), 'dsh-document-preview-pack-'))
     try {

@@ -1,1 +1,1 @@
-当前未登录 KairoForge 账号登录 KairoForge 账号获取专属 API Key登录
+当前未登录 KairoForge 账号登录 KairoForge 或添加 API Key 以开始使用登录

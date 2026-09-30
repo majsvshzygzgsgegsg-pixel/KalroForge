@@ -24,9 +24,19 @@ import {
   WELCOME_NOTICE_VERSION,
 } from '../src/onboarding-copy.ts'
 
+// The shipped notice, pinned for both locales. These strings are literal copies of
+// src/client/locales.ts so a stray locale edit fails here instead of redefining the fixture.
 const WELCOME_NOTICE_COPY = {
-  en: { title: en.welcomeTitle, body: en.welcomeBody, continueLabel: en.welcomeContinue },
-  zh: { title: zh.welcomeTitle, body: zh.welcomeBody, continueLabel: zh.welcomeContinue },
+  en: {
+    title: 'Preview Notice',
+    body: 'KairoForge is still in preview, and many areas need continued improvement and refinement. We welcome feedback and suggestions from all developers and users. The app now targets both clean chat and coding workflows, while developer-related advanced features can be enabled in the settings. KairoForge’s product features and plugin APIs are expected to continue rapid iteration and evolution, and will gradually stabilize over time.\n\nWe look forward to exploring the limits of intelligence together with users and developers around the world, building on open-source, reusable, and composable infrastructure. Welcome to KairoForge.',
+    continueLabel: 'Continue',
+  },
+  zh: {
+    title: '预览版说明',
+    body: 'KairoForge 仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，应用同时面向简洁聊天与代码工作流，开发者相关的进阶功能可在配置中开启使用。预计 KairoForge 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。\n\n我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎使用 KairoForge。',
+    continueLabel: '继续',
+  },
 }
 
 afterEach(() => {
@@ -107,7 +117,7 @@ describe('WelcomeNotice', () => {
   it('uses the exact owner copy in both GUI locales', () => {
     expect(WELCOME_NOTICE_COPY.en).toEqual({
       title: 'Preview Notice',
-      body: 'KairoForge 0.2 is still in preview, and many areas need continued improvement and refinement. We welcome feedback and suggestions from all developers and users. The new desktop app now targets a broad range of users, while developer-related advanced features can be enabled in the settings. KairoForge’s product features and plugin APIs are expected to continue rapid iteration and evolution, and will gradually stabilize over time.\n\nWe look forward to exploring the limits of intelligence together with users and developers around the world, building on open-source, reusable, and composable infrastructure. We welcome everyone to bring their ideas to life with KairoForge and participate in the community to enrich the plugin ecosystem.',
+      body: 'KairoForge is still in preview, and many areas need continued improvement and refinement. We welcome feedback and suggestions from all developers and users. The app now targets both clean chat and coding workflows, while developer-related advanced features can be enabled in the settings. KairoForge’s product features and plugin APIs are expected to continue rapid iteration and evolution, and will gradually stabilize over time.\n\nWe look forward to exploring the limits of intelligence together with users and developers around the world, building on open-source, reusable, and composable infrastructure. Welcome to KairoForge.',
       continueLabel: 'Continue',
     })
     expect(en.welcomeBody).toBe(WELCOME_NOTICE_COPY.en.body)

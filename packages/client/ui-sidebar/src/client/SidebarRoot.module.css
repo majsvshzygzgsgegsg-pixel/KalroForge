@@ -318,6 +318,9 @@
   padding: 5px 8px 5px 5px;
   border: 1px solid color-mix(in srgb, #8b5cf6 22%, transparent);
   border-radius: 999px;
+  /* Capsule ends stay round: the platform superellipse squares off an uncapped
+     radius (see ui-theme styles/corner-shape.css). */
+  corner-shape: round;
   background:
     linear-gradient(135deg,
       color-mix(in srgb, var(--dsw-alias-bg-layer-1) 78%, #172554 22%),
@@ -335,6 +338,8 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
+  /* A `50%` mark is a circle, not a superellipse: opt out explicitly. */
+  corner-shape: round;
   filter: drop-shadow(0 0 10px color-mix(in srgb, #22d3ee 42%, transparent));
 }
 
@@ -366,6 +371,8 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
+  /* The fallback mark is the same circle as the slotted one. */
+  corner-shape: round;
   background: linear-gradient(135deg, #7c3aed, #06b6d4 65%, #facc15);
   color: #020617;
   font-size: 13px;

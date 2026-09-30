@@ -1,7 +1,9 @@
 /* Settings shell chrome. The panel is a two-pane surface: a tinted navigation
  * rail that reads as a distinct place, and a raised content sheet that holds
  * the scroll. Depth comes from the elevation tokens rather than hard borders,
- * and every fill is an alias token so both themes resolve without a rule here.
+ * and every fill below is an alias token, so both themes resolve without a rule
+ * here; the one deliberate per-theme branch is the black panel surface at the
+ * foot of this file, which the dark appearance opts into.
  *
  * Geometry note: `.panel` declares `--dsh-scrollbar-*` for whichever
  * descendant actually scrolls, and the options column keeps the content
@@ -331,6 +333,28 @@
   min-height: 0;
   padding: 0 24px 24px;
   overflow-y: auto;
+}
+
+/* Black panel surface (dark appearance only). The dialog is the one surface the
+ * product paints as true black instead of the layered bluish-grey elevations,
+ * so it reads as its own black page against the themed app behind it.
+ *
+ * All three fills move together: the sheet (`.panel`) and the two panes that
+ * paint over it (`.nav` on the recessed base, `.content` on the raised sheet).
+ * Leaving either pane on its platform fill would show a grey column inside a
+ * black dialog. The seam the nav already casts is the hairline that keeps the
+ * panes legible as two places once their tone difference is gone, and the
+ * panel's elevation shadow still lifts the dialog off the mask.
+ *
+ * Scoped to `data-ds-dark-theme` on purpose. Sections render with the page's
+ * own label, border, and control tokens, and those only resolve to legible
+ * values over black in the dark palette; painting black under the light
+ * palette's dark-on-light tokens would make every section unreadable. Light
+ * appearance therefore keeps the platform fills declared above. */
+:global(body[data-ds-dark-theme]) .panel,
+:global(body[data-ds-dark-theme]) .nav,
+:global(body[data-ds-dark-theme]) .content {
+  background: var(--dsw-static-neutral-1000);
 }
 
 /* Visually-hidden text seat (close button accessible name from slot content). */

@@ -305,7 +305,12 @@ describe('ui-model-selection dual entry', () => {
       b.remote.emit('llm/adapters-updated', [])
       b.mint('s1')
       const options = await b.popup().options(projection('s1'), new AbortController().signal)
-      expect(options[0]?.group?.label).toBe(locale === 'zh' ? 'KairoForge Models 账号' : 'KairoForge Account')
+      // Source of truth: the `provider.account` entry of this plugin's own
+      // dictionaries (src/client/locales.ts), applied for the `deepseek-account`
+      // group id by optionsOf() in src/client/index.ts — the catalog's own name
+      // for that group is deliberately not shown.
+      expect(options[0]?.group?.label)
+        .toBe(locale === 'zh' ? 'KairoForge 模型' : 'KairoForge Models')
     } finally {
       await b.ctx.fiber.dispose()
     }
@@ -318,14 +323,19 @@ describe('ui-model-selection dual entry', () => {
       b.remote.emit('llm/adapters-updated', [])
       b.mint('s1')
       const before = await b.popup().options(projection('s1'), new AbortController().signal)
-      expect(before.some(option => option.group?.label === 'KairoForge Account')).toBe(true)
+      // The account heading is the localized `provider.account` copy when rendered
+      // (src/client/index.ts optionsOf → src/client/locales.ts), which is the same
+      // text the official provider carries as its catalog name — so the group is
+      // identified by its stable provider id, and its heading is pinned alongside.
+      expect(before.some(option =>
+        option.group?.name === 'deepseek-account' && option.group?.label === 'KairoForge Models')).toBe(true)
       b.setGroups(GROUPS)
       b.remote.emit('credentials/record-updated', ['deepseek-account-platform'])
       await vi.waitFor(() => {
         expect(b.ctx.modelDirectories.directoryFor(sid('s1')).store.getSnapshot().groups).toEqual(GROUPS)
       })
       const after = await b.popup().options(projection('s1'), new AbortController().signal)
-      expect(after.some(option => option.group?.label === 'KairoForge Account')).toBe(false)
+      expect(after.some(option => option.group?.name === 'deepseek-account')).toBe(false)
       expect(after.length).toBeGreaterThan(0)
     } finally {
       await b.ctx.fiber.dispose()

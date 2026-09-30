@@ -140,6 +140,9 @@
   padding: 8px 12px;
   border: 1px solid color-mix(in srgb, #22d3ee 24%, var(--dsw-alias-border-l2));
   border-radius: 999px;
+  /* Full-round capsule: opt out of the platform superellipse, which would
+     otherwise square off both ends (see ui-theme styles/corner-shape.css). */
+  corner-shape: round;
   background:
     linear-gradient(135deg,
       color-mix(in srgb, var(--dsw-alias-bg-layer-1) 78%, #172554 22%),

@@ -611,7 +611,10 @@ describe('SubagentHeaderLineage', () => {
     expect(screen.getByText('约2年3个月')).toBeTruthy()
     expect(screen.getByText('约1年')).toBeTruthy()
 
-    await vi.advanceTimersByTimeAsync(1_000)
+    // The running row's clock is React state driven by a faked 1s interval, so the
+    // advance must be act-wrapped (the file's convention for every ticking assertion)
+    // before the DOM is queried.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
     expect(screen.getByRole('treeitem', { name: /running.*4\.6K tok · 1分11秒/ })).toBeTruthy()
     expect(screen.getByRole('treeitem', { name: /finished.*已完成.*123 tok · 1小时02分03秒/ })).toBeTruthy()
     expect(screen.getByRole('treeitem', { name: /interrupted.*当前未运行.*123M tok · 6秒/ })).toBeTruthy()

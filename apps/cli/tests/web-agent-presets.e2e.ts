@@ -50,7 +50,7 @@ const MINIMAL_PROMPT = `You are KairoForge, a coding assistant inside the KairoF
 Your product identity is always KairoForge, regardless of which AI provider, gateway, or model is serving this session. Do not identify the app, product, or assistant as DeepSeek Harness.
 ${MODEL_IDENTITY_RULE}
 Answer clearly, preserve secrets, and only claim actions that actually happened.`
-const CHAT_PROMPT = `You are KairoForge, the AI assistant inside the KairoForge app.
+const CHAT_PROMPT = `You are KairoForge, the built-in AI assistant inside the KairoForge app.
 Your product identity is always KairoForge, regardless of which AI provider, gateway, or model is serving this conversation. Do not identify the app, product, or assistant as DeepSeek Harness.
 ${MODEL_IDENTITY_RULE}
 
@@ -76,7 +76,7 @@ const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
 /**
  * Boot the shipped Web composition, minus the rows that would bind a port,
  * touch the network, or write outside the test. Everything that decides an
- * agent's capabilities is the real thing, including both shipped presets.
+ * agent's capabilities is the real thing, including every shipped preset.
  */
 async function bootWeb(
   profileHome: string,
@@ -264,7 +264,8 @@ describe('the shipped Web composition', () => {
   it('supplies every shipped preset, and only those, from the system root', async () => {
     const listed = await ctx.agentPresets.list()
 
-    expect(listed.map(preset => preset.id).sort()).toEqual(['chat', 'cordis', 'minimal', 'ptc', 'standard'])
+    expect(listed.map(preset => preset.id).sort())
+      .toEqual(['builder', 'chat', 'cordis', 'minimal', 'ptc', 'self-edit', 'standard'])
     expect(listed.every(preset => !('path' in preset))).toBe(true)
     expect(ctx.agentPresets.defaultId).toBe('standard')
   })
@@ -416,9 +417,11 @@ describe('the shipped Web composition', () => {
       expect(scoped).toContain('editing-cordis-compositions')
       expect((await ctx.skills.list()).map(skill => skill.name)).not.toContain('editing-cordis-compositions')
 
-      // The persona is `standard`'s, pinned verbatim so the two declarations
-      // cannot drift apart: tool descriptions and the skill catalog carry
-      // every creation-mode instruction.
+      // Creator mode carries its own persona: the expansion that gave the
+      // mode project, plugin, preset, and publishing powers wrote those
+      // instructions into the prompt, so it deliberately no longer matches
+      // Standard's. The two still share the deployment suffix both modes
+      // declare, which is the invariant that can silently drift.
       const standard = await ctx.agents.create({
         sessionId: SessionId('preset-cordis-standard-persona'),
         setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'standard').then(() => undefined),
@@ -428,10 +431,55 @@ describe('the shipped Web composition', () => {
           .filter(section => section.name.startsWith('deployment:persona-'))
         const cordisPersona = await persona(handle.agent)
         expect(cordisPersona.map(section => section.name)).toEqual(['deployment:persona-prefix', 'deployment:persona-suffix'])
-        expect(cordisPersona).toEqual(await persona(standard.agent))
+        const creatorPrefix = cordisPersona.find(section => section.name === 'deployment:persona-prefix')?.text ?? ''
+        expect(creatorPrefix).toContain('You are in Creator mode')
+        expect(creatorPrefix).toContain('Creator workflow:')
+        expect(creatorPrefix).not.toContain('You are in Builder mode')
+        expect(cordisPersona.at(-1)).toEqual((await persona(standard.agent)).at(-1))
       } finally {
         await standard.dispose()
       }
+    } finally {
+      await handle.dispose()
+    }
+  })
+
+  it('composes the builder agent with its build-and-show toolset', async () => {
+    const handle = await ctx.agents.create({
+      sessionId: SessionId('preset-builder'),
+      setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'builder').then(() => undefined),
+    })
+    try {
+      const tools = toolNames(ctx, handle.agent)
+      // The intake is the mode's contract, so the asking tool and the tools
+      // that turn an answer into a running project must all be present.
+      expect(tools).toEqual(expect.arrayContaining([
+        'ask_user_question', 'bash', 'read', 'write', 'edit', 'skill', 'todo_write',
+      ]))
+      // Production deployment is the mode's other half: the deployment service
+      // composes into this preset's scope and registers its tools here, so a
+      // Builder session can publish, verify, read history, and roll back without
+      // leaving the mode.
+      expect(tools).toEqual(expect.arrayContaining([
+        'deployment_providers', 'deployment_plan', 'deployment_publish',
+        'deployment_status', 'deployment_verify', 'deployment_rollback', 'deployment_secrets_scan',
+      ]))
+      // Building websites and apps is not editing the runtime: the
+      // self-referential toolset stays out of this preset.
+      for (const absent of ['cordis_inspect_list', 'cordis_inspect_query', 'plugin_manager', 'cordis_define', 'cordis_run']) {
+        expect(tools).not.toContain(absent)
+      }
+      expect(ctx.commands.find(handle.agent, 'goal')).toBeDefined()
+
+      // The persona is what makes the interview a contract rather than a
+      // suggestion, so the mode's own copy is pinned here.
+      const sections = (await ctx.systemPrompt.assemble({ scope: handle.agent })).sections
+        .filter(section => section.name.startsWith('deployment:persona-'))
+      expect(sections.map(section => section.name)).toEqual(['deployment:persona-prefix', 'deployment:persona-suffix'])
+      const text = (name: string) => sections.find(section => section.name === name)?.text ?? ''
+      expect(text('deployment:persona-prefix')).toContain('You are in Builder mode')
+      expect(text('deployment:persona-prefix')).toContain('ask_user_question')
+      expect(text('deployment:persona-suffix')).toContain('Build new projects inside it.')
     } finally {
       await handle.dispose()
     }

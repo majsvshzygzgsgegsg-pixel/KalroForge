@@ -1,1 +1,1 @@
-KairoForge Accountdeepseek-accountModelsUsing the adapter defaultsAdd modelCancelApply
+KairoForge Modelsdeepseek-accountModelsUsing the adapter defaultsAdd modelCancelApply
