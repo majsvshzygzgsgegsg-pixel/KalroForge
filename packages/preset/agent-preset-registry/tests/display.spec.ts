@@ -16,6 +16,13 @@ describe('presetDisplayText', () => {
     })
   })
 
+  it('resolves the answer-only chat preset through its dictionary keys', () => {
+    expect(presetDisplayText({ id: 'chat' }, t)).toEqual({
+      name: 't:presetChatName',
+      description: 't:presetChatDescription',
+    })
+  })
+
   it('keeps user-authored metadata untranslated', () => {
     expect(presetDisplayText({ id: 'mine', name: '我的模式', description: '自述' }, t))
       .toEqual({ name: '我的模式', description: '自述' })

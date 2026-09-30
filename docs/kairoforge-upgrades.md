@@ -21,7 +21,7 @@ format, and local-first defaults. It does not copy or emulate any model's hidden
 | Security | Permission presets, approvals, sandbox policy | Unified audit log, secret posture, network/filesystem capability view |
 | Offline app | Relative asset build, manifest, desktop packaging | Full PWA cache policy, offline diagnostics, signed installers |
 | Design studio | Theme tokens, appearance settings, slot system | Live token editor, reusable themes, layout presets |
-| Mobile | Responsive shell foundations | Touch navigation, compact control room, installable mobile PWA |
+| Mobile | Responsive shell foundations, install metadata, Chat-mode PWA launch | Touch navigation and compact control room |
 
 ## Delivery rules
 

@@ -1,10 +1,16 @@
 {
   "name": "KairoForge",
   "short_name": "KairoForge",
-  "description": "A local-first workspace for building and supervising AI agent systems.",
-  "start_url": "./",
+  "description": "A local-first phone-ready Chat app and coding workspace for KairoForge.",
+  "start_url": "./?mode=chat",
   "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "orientation": "any",
   "background_color": "#0c1020",
   "theme_color": "#6d5dfc",
   "icons": [

@@ -421,7 +421,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    await page.getByText('Standard mode', { exact: true }).waitFor({ timeout: 10_000 })
+    await page.getByText('KairoForge', { exact: true }).first().waitFor({ timeout: 10_000 })
   }, 120_000)
 
   afterAll(async () => {

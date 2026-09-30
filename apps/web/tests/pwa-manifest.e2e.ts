@@ -16,10 +16,16 @@ it('ships install metadata with the built web application', async () => {
   expect(manifest).toEqual({
     name: 'KairoForge',
     short_name: 'KairoForge',
-    description: 'A local-first workspace for building and supervising AI agent systems.',
-    start_url: './',
+    description: 'A local-first phone-ready Chat app and coding workspace for KairoForge.',
+    start_url: './?mode=chat',
     scope: './',
     display: 'standalone',
+    display_override: [
+      'standalone',
+      'minimal-ui',
+      'browser',
+    ],
+    orientation: 'any',
     background_color: '#0c1020',
     theme_color: '#6d5dfc',
     icons: [{
@@ -29,6 +35,15 @@ it('ships install metadata with the built web application', async () => {
       purpose: 'any',
     }],
   })
+})
+
+it('marks the document as a phone-friendly standalone web app', async () => {
+  const index = await readFile(join(DIST_ROOT, 'index.html'), 'utf8')
+  expect(index).toContain('<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />')
+  expect(index).toContain('<meta name="mobile-web-app-capable" content="yes" />')
+  expect(index).toContain('<meta name="apple-mobile-web-app-capable" content="yes" />')
+  expect(index).toContain('<meta name="apple-mobile-web-app-title" content="KairoForge" />')
+  expect(index).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />')
 })
 
 it('ships fixed-color favicons selected by document media queries', async () => {

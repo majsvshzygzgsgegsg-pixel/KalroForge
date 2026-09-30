@@ -4,7 +4,10 @@
     - text: /
     - 'button "Switch subagent: event-sourcing researcher"': event-sourcing researcher
     - button "1 subagent"
-  - text: Standard mode
+  - text: KairoForge
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for 2026-09-29-kairoforge-chat-code-modes.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-29-kairoforge-chat-code-modes.md
+/agent-note-kairoforge-chat-and-coding-modes-are-separate-presets:
+  en: bf38ec40c6920396
+  zh: ca7011a8ccf6d133
+/agent-note-kairoforge-chat-and-coding-modes-are-separate-presets/problem:
+  en: fa17bb3673405f0f
+  zh: 7ad42da8133c10f0
+/agent-note-kairoforge-chat-and-coding-modes-are-separate-presets/decision:
+  en: a22badb0cb76c090
+  zh: 9b03d8635397b8cb
+/agent-note-kairoforge-chat-and-coding-modes-are-separate-presets/alternatives-considered:
+  en: 124dbcad147634d4
+  zh: 8dca42366e582fbe
+/agent-note-kairoforge-chat-and-coding-modes-are-separate-presets/verification:
+  en: 9afb826842c31dd4
+  zh: ea50a65f1779116c
+/agent-note-kairoforge-chat-and-coding-modes-are-separate-presets/consequences:
+  en: 529c5b7957ed6f45
+  zh: 78c9caaef3b8dae1

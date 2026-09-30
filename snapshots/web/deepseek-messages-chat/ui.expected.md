@@ -1,6 +1,9 @@
 - banner:
   - navigation "会话层级": 只回复 MESSAGES_WEB_READY，不调用
-  - text: 标准模式
+  - text: KairoForge
+  - group "选择聊天或 KairoForge 编程模式":
+    - button "聊天"
+    - button "KairoForge" [pressed]
   - button "更多操作"
   - button "打开右侧边栏"
   - tablist:

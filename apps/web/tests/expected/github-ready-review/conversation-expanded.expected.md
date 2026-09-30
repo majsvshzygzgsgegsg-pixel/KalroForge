@@ -10,7 +10,10 @@
 
 - banner:
   - navigation "Session hierarchy": Review deepseek-ai/deepseek-harness#314
-  - text: Standard mode
+  - text: KairoForge
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

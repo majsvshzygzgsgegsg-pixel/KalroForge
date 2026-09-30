@@ -1,6 +1,9 @@
 - banner:
   - navigation "Session hierarchy": Use web_search once with queries
-  - text: Standard mode
+  - text: KairoForge
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

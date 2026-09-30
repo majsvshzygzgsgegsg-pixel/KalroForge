@@ -1,6 +1,9 @@
 - banner:
   - navigation "Session hierarchy": Use one run_code program to
   - text: PTC mode
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

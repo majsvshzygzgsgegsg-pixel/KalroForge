@@ -16,6 +16,8 @@ import { AgentPresetLabel } from '../src/client/AgentPresetLabel.tsx'
 import type { AgentPresetLabelProps } from '../src/client/AgentPresetLabel.tsx'
 import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSeatProps } from '../src/client/AgentPresetSeat.tsx'
+import { KairoModeSwitch } from '../src/client/KairoModeSwitch.tsx'
+import type { KairoModeSwitchProps } from '../src/client/KairoModeSwitch.tsx'
 import type { AgentPresetSettingsState } from '../src/client/settings-store.ts'
 import type { AgentPresetSeatState } from '../src/client/seat-store.ts'
 import { en } from '../src/client/locales.ts'
@@ -91,6 +93,37 @@ function renderLabel(
   } as unknown as AgentPresetLabelProps)} />)
   return { load, view }
 }
+
+function renderMode(preset: string, switchMode = vi.fn(() => Promise.resolve(undefined))) {
+  const sessions = createSnapshotStore({
+    byId: { s1: { projectionValues: { agentPreset: preset } } },
+  })
+  render(<KairoModeSwitch {...({
+    sessionId: 's1',
+    useSessions: bindSnapshotSelector(sessions),
+    switchMode,
+    t: translate,
+  } as unknown as KairoModeSwitchProps)} />)
+  return switchMode
+}
+
+describe('the top-right product mode switch', () => {
+  it('shows Chat and KairoForge while marking the session mode', () => {
+    renderMode('chat')
+
+    const group = screen.getByRole('group', { name: en.modeSwitchLabel })
+    expect(group).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.presetChatName }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: en.presetStandardName }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('requests the answer-only mode without changing the current session locally', () => {
+    const switchMode = renderMode('standard')
+
+    fireEvent.click(screen.getByRole('button', { name: en.presetChatName }))
+    expect(switchMode).toHaveBeenCalledWith('s1', 'chat')
+  })
+})
 
 describe('the new-session chip', () => {
   it('renders nothing while Developer tools are off', () => {

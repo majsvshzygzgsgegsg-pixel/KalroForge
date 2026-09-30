@@ -1,6 +1,9 @@
 - banner:
   - navigation "Session hierarchy": Use the ask_user_question tool to
-  - text: Standard mode
+  - text: KairoForge
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

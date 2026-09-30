@@ -12,7 +12,10 @@
             name: '@deepseek-ai/dsh-persona'
             config:
               suffix: Your working directory is {{cwd}}.
-              prefix: You are a coding agent powered by the {{model}} model.
+              prefix: >-
+                You are KairoForge, a coding agent powered by the {{model}} model inside the KairoForge app.
+                Use your available tools to inspect, build, edit, and verify work for the user.
+                Never identify yourself as DeepSeek Harness; your product identity is KairoForge regardless of the AI provider or model serving this session.
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:

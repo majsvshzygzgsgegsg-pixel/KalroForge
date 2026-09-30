@@ -16,7 +16,7 @@
   - button "Open right sidebar"
 - text: Into the Unknown Preview
 - button "Choose workspace": workspace
-- button "Standard mode"
+- button "KairoForge"
 - textbox "Describe what you want to build, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write

@@ -9,6 +9,7 @@
 
 /** Dictionary keys carrying one shipped preset's display copy. */
 export type BuiltInPresetCopyKey =
+  | 'presetChatName' | 'presetChatDescription'
   | 'presetStandardName' | 'presetStandardDescription'
   | 'presetPtcName' | 'presetPtcDescription'
   | 'presetMinimalName' | 'presetMinimalDescription'
@@ -38,6 +39,7 @@ interface PresetLocaleKeys {
 }
 
 const BUILT_IN_PRESET_KEYS: Readonly<Partial<Record<string, PresetLocaleKeys>>> = {
+  chat: { name: 'presetChatName', description: 'presetChatDescription' },
   standard: { name: 'presetStandardName', description: 'presetStandardDescription' },
   ptc: { name: 'presetPtcName', description: 'presetPtcDescription' },
   minimal: { name: 'presetMinimalName', description: 'presetMinimalDescription' },

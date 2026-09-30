@@ -1,6 +1,9 @@
 - banner:
   - navigation "Session hierarchy": "Plan a small change: add"
-  - text: Standard mode
+  - text: KairoForge
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat mode only answers and has no tools"
+    - button "KairoForge mode can code and take actions" [pressed]
   - button "More actions"
   - tablist:
     - tab "Chat" [selected]

@@ -1,6 +1,9 @@
 - banner:
   - navigation "Session hierarchy": /user-invoke-demo @"meeting notes-this-i
-  - text: Standard mode
+  - text: KairoForge
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

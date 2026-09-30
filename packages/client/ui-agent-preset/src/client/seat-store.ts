@@ -48,6 +48,8 @@ export interface AgentPresetStage {
   id: string | undefined
   /** Whether the receiving chip should announce the applied choice once. */
   introduce: boolean
+  /** Core Chat/KairoForge picks stay available even when advanced preset controls are hidden. */
+  core: boolean
 }
 
 /** Stages the next session's preset and applies it when one appears. */
@@ -73,7 +75,7 @@ export class AgentPresetSeatController {
       SessionSummary,
       'id' | 'blank' | 'projectionValues'
     > | undefined,
-    private readonly staged: AgentPresetStage = { id: undefined, introduce: false },
+    private readonly staged: AgentPresetStage = { id: undefined, introduce: false, core: false },
   ) {}
 
   private set(patch: Partial<AgentPresetSeatState>): void {
@@ -83,6 +85,7 @@ export class AgentPresetSeatController {
   private clearStage(): void {
     this.staged.id = undefined
     this.staged.introduce = false
+    this.staged.core = false
   }
 
   /** Developer tools are the single gate over preset selection. */
@@ -104,7 +107,7 @@ export class AgentPresetSeatController {
     }
     const { presets } = roster.value
     // A stage outlives the screen that made it; Developer tools may have gone off since.
-    if (!this.selectionAvailable()) this.clearStage()
+    if (!this.selectionAvailable() && !this.staged.core) this.clearStage()
     this.fallback = presets.find(preset => preset.isDefault)?.id ?? presets[0]?.id ?? ''
     const session = this.currentSession()
     this.set({
@@ -140,6 +143,13 @@ export class AgentPresetSeatController {
     return await this.apply()
   }
 
+  /** Select one of the two product modes independently of the advanced-preset preference. */
+  async selectCore(id: 'chat' | 'standard'): Promise<string | undefined> {
+    if (this.store.getSnapshot().busy) return undefined
+    this.stageCore(id)
+    return await this.apply()
+  }
+
   /**
    * Stage a pick WITHOUT the immediate apply, for a flow that starts the
    * receiving session after the pick (the settings section's creator entry).
@@ -154,7 +164,16 @@ export class AgentPresetSeatController {
   stage(id: string, introduce = false): void {
     this.staged.id = id
     this.staged.introduce = introduce
+    this.staged.core = false
     this.set({ current: id, error: null, introduce })
+  }
+
+  /** Stage a Chat/KairoForge pick for the next session without the advanced-preset gate. */
+  stageCore(id: 'chat' | 'standard'): void {
+    this.staged.id = id
+    this.staged.introduce = false
+    this.staged.core = true
+    this.set({ current: id, error: null, introduce: false })
   }
 
   /**
@@ -203,7 +222,7 @@ export class AgentPresetSeatController {
     if (this.store.getSnapshot().busy) return
     const available = this.selectionAvailable()
     // A stage made while Developer tools were on must not outlive them.
-    if (!available) this.clearStage()
+    if (!available && !this.staged.core) this.clearStage()
     const staged = this.staged.id
     const session = this.currentSession()
     if (staged === undefined) {

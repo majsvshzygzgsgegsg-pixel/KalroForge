@@ -101,7 +101,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     expect(beforeReload).not.toBeNull()
     await page.reload({ waitUntil: 'load' })
     await page.locator('[data-composer-input]').first().waitFor({ timeout: 15_000 })
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'KairoForge', exact: true }).first().waitFor({ timeout: 15_000 })
     await page.getByRole('button', { name: 'Select model, current DeepSeek-V4-Flash' }).waitFor({ timeout: 15_000 })
     await expect.poll(() => page.evaluate(() => localStorage.getItem('dsh.sessions.current'))).toBe(beforeReload)
     if (MODE !== 'record') {
@@ -222,7 +222,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     const paragraphs = system.split('\n\n')
     expect(paragraphs.slice(0, 2)).toEqual([
       'You are an AI agent powered by DeepSeek Harness.',
-      'You are a coding agent powered by the deepseek-v4-flash model.',
+      'You are KairoForge, a coding agent powered by the deepseek-v4-flash model inside the KairoForge app. Use your available tools to inspect, build, edit, and verify work for the user. Never identify yourself as DeepSeek Harness; your product identity is KairoForge regardless of the AI provider or model serving this session.',
     ])
     const suffix = paragraphs.slice(-3).join('\n\n')
       .split(REPO_ROOT).join('{{sourceRoot}}')
