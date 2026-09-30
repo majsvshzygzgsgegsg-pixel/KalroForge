@@ -1,5 +1,8 @@
 .trigger { width: 28px; padding: 0; flex: none; }
+.triggerGroup { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .triggerAnchor { display: inline-flex; flex: none; }
+.callTrigger { height: 28px; min-width: 48px; padding: 0 10px; border-radius: 999px; corner-shape: round; font-size: 12px; font-weight: 650; letter-spacing: -0.01em; color: var(--dsw-alias-label-primary); background: linear-gradient(135deg, color-mix(in oklab, var(--dsw-alias-state-business-primary) 22%, transparent), color-mix(in oklab, var(--dsw-alias-state-success-primary) 18%, transparent)); border-color: color-mix(in oklab, var(--dsw-alias-state-business-primary) 28%, var(--dsw-alias-border-l1)); }
+.callTrigger:hover:not(:disabled) { background: linear-gradient(135deg, color-mix(in oklab, var(--dsw-alias-state-business-primary) 34%, transparent), color-mix(in oklab, var(--dsw-alias-state-success-primary) 28%, transparent)); }
 .captureRow { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 34px; }
 .roundButton { width: 32px; height: 32px; padding: 0; border-radius: 50%; corner-shape: round; flex: none; background: var(--dsw-specific-selector); }
 .roundButton:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover-solid); }

@@ -6,6 +6,11 @@ export const NS = 'voice-input'
 /** Chinese dictionary and key source. */
 export const zh = {
   dictate: '听写',
+  callShort: '通话',
+  callTooltip: 'KairoForge 语音通话：说话后自动发送，并朗读回复',
+  callStart: '开始 KairoForge 语音通话',
+  callRequesting: '请允许麦克风，KairoForge 将把你的语音发送到聊天…',
+  callTranscribingShort: '正在识别并发送到聊天…',
   'setupPrompt.title': '使用语音输入前需要安装',
   'setupPrompt.body': '语音输入插件已开启。首次使用需要在本机下载并准备识别模型，请前往插件详情页查看空间、内存和时间说明，再开始安装。',
   'setupPrompt.later': '稍后',
@@ -102,6 +107,11 @@ export type VoiceKey = keyof typeof zh
 /** English dictionary with the same complete key set. */
 export const en: Record<VoiceKey, string> = {
   dictate: 'Dictate',
+  callShort: 'Call',
+  callTooltip: 'KairoForge voice call: speak, auto-send, and hear the reply',
+  callStart: 'Start KairoForge voice call',
+  callRequesting: 'Please allow microphone access. KairoForge will send your speech to chat…',
+  callTranscribingShort: 'Transcribing and sending to chat…',
   'setupPrompt.title': 'Set up voice input before recording',
   'setupPrompt.body': 'Voice input is enabled. First use requires downloading and preparing local recognition models. Open the plugin details to review disk space, memory and time estimates before starting setup.',
   'setupPrompt.later': 'Later',

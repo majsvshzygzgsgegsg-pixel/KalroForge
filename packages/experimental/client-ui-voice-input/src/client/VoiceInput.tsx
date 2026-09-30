@@ -1,5 +1,5 @@
 /** Click-to-record toolbar activity; transcripts remain in the original Session draft. */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { TokenSpan } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { TranscriptionRequest } from '@deepseek-ai/dsh-experimental-api-speech-to-text/types'
@@ -35,6 +35,7 @@ export type VoiceInputProps = Pick<PropsRuntime<'conversation.input.activity'>, 
   & PropsLocale<typeof NS> & InjectFace<VoiceInputInjected>
 
 type Phase = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'feedback'
+type CaptureMode = 'dictation' | 'call'
 interface ActiveRecording {
   readonly capture: Recording
   readonly abort: AbortController
@@ -42,6 +43,7 @@ interface ActiveRecording {
   readonly selection: SpeechSelection
   readonly maxDurationSeconds: number
   readonly maxAudioBytes: number
+  readonly mode: CaptureMode
   phase: 'requesting' | 'recording' | 'transcribing'
   timer?: ReturnType<typeof setTimeout> | undefined
 }
@@ -52,6 +54,52 @@ async function disposeRecording(capture: Recording): Promise<void> {
   }
 }
 
+const VOICE_CALL_TIMEOUT_MS = 90_000
+
+function firstAssistantReplyText(): string {
+  const nodes = [...document.querySelectorAll<HTMLElement>('[data-chat-flow-kind="assistant-step"]')]
+  for (let index = nodes.length - 1; index >= 0; index--) {
+    const rawText = nodes[index]?.innerText ?? nodes[index]?.textContent ?? ''
+    const text = rawText.trim().replace(/\s+/g, ' ')
+    if (text !== '' && !/^(thinking|analyzing|working|正在)/i.test(text)) return text
+  }
+  return ''
+}
+
+function speakKairoForgeReply(text: string): void {
+  const speech = globalThis.speechSynthesis
+  if (speech === undefined || text.trim() === '') return
+  speech.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = 1
+  utterance.pitch = 1.04
+  utterance.volume = 1
+  const voice = speech.getVoices().find(candidate =>
+    /samantha|alex|ava|allison|victoria|google us english|english/i.test(candidate.name))
+  if (voice !== undefined) utterance.voice = voice
+  speech.speak(utterance)
+}
+
+function speakNextAssistantReply(): void {
+  if (typeof MutationObserver === 'undefined') return
+  const before = firstAssistantReplyText()
+  let spoken = false
+  const started = Date.now()
+  const observer = new MutationObserver(() => {
+    if (spoken) return
+    const text = firstAssistantReplyText()
+    if (text !== '' && text !== before) {
+      spoken = true
+      observer.disconnect()
+      speakKairoForgeReply(text)
+    } else if (Date.now() - started > VOICE_CALL_TIMEOUT_MS) {
+      observer.disconnect()
+    }
+  })
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+  window.setTimeout(() => { observer.disconnect() }, VOICE_CALL_TIMEOUT_MS)
+}
+
 /** Render a compact microphone or an expanded capture, transcription, or retry row. */
 export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
   createRecording, transcribe, openSettings, useSpeechReadiness, t }: VoiceInputProps) {
@@ -60,6 +108,7 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
   const usable = readiness.connected && (provider?.preparation.phase === 'ready' || provider?.preparation.phase === 'standby'
     || provider?.preparation.phase === 'waking')
   const [phase, setPhase] = useState<Phase>('idle'), [message, setMessage] = useState(''), [pending, setPending] = useState('')
+  const [mode, setMode] = useState<CaptureMode>('dictation')
   const [setupOpen, setSetupOpen] = useState(false)
   useEffect(() => { if (usable) setSetupOpen(false) }, [usable])
   const current = useRef<ActiveRecording>(), generation = useRef(0)
@@ -112,19 +161,24 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
       if (!result.ok) { feedback(t('failed', { message: result.error.message })); return }
       if (result.value.text === '') { feedback(t('empty')); return }
       if (!inputActions.insertText(result.value.text, active.span)) { setPending(result.value.text); feedback(t('conflict')); return }
+      if (active.mode === 'call') {
+        speakNextAssistantReply()
+        inputActions.submit()
+      }
       setPhase('idle')
     } catch (failure) {
       await disposeRecording(active.capture)
       if (run === generation.current) feedback(failureText(failure))
     } finally { if (run === generation.current) current.current = undefined }
   }
-  const start = async (): Promise<void> => {
+  const start = useCallback(async (captureMode: CaptureMode = 'dictation'): Promise<void> => {
     if (!catalog || !usable || locked || current.current) return
     const run = ++generation.current
     const active: ActiveRecording = { capture: createRecording(), abort: new AbortController(),
       span: inputActions.captureInsertion(), selection: catalog.selection,
-      maxDurationSeconds: catalog.maxDurationSeconds, maxAudioBytes: catalog.maxAudioBytes, phase: 'requesting' }
+      maxDurationSeconds: catalog.maxDurationSeconds, maxAudioBytes: catalog.maxAudioBytes, mode: captureMode, phase: 'requesting' }
     current.current = active
+    setMode(captureMode)
     setMessage(''); setPending(''); setPhase('requesting')
     try {
       await active.capture.start((failure) => {
@@ -141,14 +195,22 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
       await disposeRecording(active.capture)
       if (run === generation.current) { current.current = undefined; feedback(failureText(failure)) }
     }
-  }
+  }, [catalog, createRecording, failureText, inputActions, locked, usable])
   if (!expanded) return <>
-    <Tooltip label={t('dictate')} disabled={!usable} side="top" portal>
-      <span className={css.triggerAnchor}><Button className={css.trigger} size="sm" disabled={locked}
-        aria-label={t(usable ? 'start' : 'setupPrompt.trigger')} aria-haspopup={usable ? undefined : 'dialog'}
-        onMouseDown={(event) => { event.preventDefault() }}
-        onClick={() => { if (usable) void start(); else setSetupOpen(true) }}><IconMicrophoneOutlineRegular size={18} /></Button></span>
-    </Tooltip>
+    <span className={css.triggerGroup}>
+      <Tooltip label={t('dictate')} disabled={!usable} side="top" portal>
+        <span className={css.triggerAnchor}><Button className={css.trigger} size="sm" disabled={locked}
+          aria-label={t(usable ? 'start' : 'setupPrompt.trigger')} aria-haspopup={usable ? undefined : 'dialog'}
+          onMouseDown={(event) => { event.preventDefault() }}
+          onClick={() => { if (usable) void start('dictation'); else setSetupOpen(true) }}><IconMicrophoneOutlineRegular size={18} /></Button></span>
+      </Tooltip>
+      <Tooltip label={t('callTooltip')} disabled={!usable} side="top" portal>
+        <span className={css.triggerAnchor}><Button className={css.callTrigger} size="sm" disabled={locked}
+          aria-label={t('callStart')} aria-haspopup={usable ? undefined : 'dialog'}
+          onMouseDown={(event) => { event.preventDefault() }}
+          onClick={() => { if (usable) void start('call'); else setSetupOpen(true) }}>{t('callShort')}</Button></span>
+      </Tooltip>
+    </span>
     <VoiceSetupDialog open={setupOpen && !usable}
       needsInstallation={readiness.connected && provider?.location === 'host-local' && provider.preparation.phase === 'unprepared'}
       onDismiss={() => { setSetupOpen(false) }} onOpenDetails={() => { setSetupOpen(false); openSettings() }} t={t} />
@@ -159,8 +221,8 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
     {phase === 'recording' ? <Waveform recording={current.current?.capture} label={t('recording')} />
       : <span className={css.activityMessage} role="status" title={pending || message}>
         {(phase === 'requesting' || phase === 'transcribing') && <StateDot state="ongoing" />}
-        {phase === 'feedback' ? message : t(phase === 'requesting' ? 'requesting'
-          : provider?.preparation.phase === 'waking' ? 'wakingShort' : 'transcribingShort')}</span>}
+        {phase === 'feedback' ? message : t(phase === 'requesting' ? mode === 'call' ? 'callRequesting' : 'requesting'
+          : provider?.preparation.phase === 'waking' ? 'wakingShort' : mode === 'call' ? 'callTranscribingShort' : 'transcribingShort')}</span>}
     {phase === 'recording' && <Button type="button" className={css.roundButton} size="sm" aria-label={t('stop')}
       onClick={() => { void finish() }}><IconStopFillRegular size={14} /></Button>}
     {phase === 'feedback' && (pending

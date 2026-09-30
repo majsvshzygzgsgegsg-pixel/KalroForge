@@ -59,6 +59,41 @@ it('clicks to record, shows measured audio, and stops to insert without sending 
   expect(b.props.onActiveChange).toHaveBeenLastCalledWith(false)
 })
 
+it('voice call records, inserts the transcript, submits it, and speaks the next assistant reply', async () => {
+  const speak = vi.fn(), cancel = vi.fn(), observe = vi.fn(), disconnect = vi.fn()
+  vi.stubGlobal('speechSynthesis', { speak, cancel, getVoices: () => [{ name: 'Samantha' }] })
+  vi.stubGlobal('SpeechSynthesisUtterance', class {
+    text: string
+    rate = 1
+    pitch = 1
+    volume = 1
+    voice: unknown
+    constructor(text: string) { this.text = text }
+  })
+  let callback: MutationCallback | undefined
+  vi.stubGlobal('MutationObserver', class {
+    constructor(cb: MutationCallback) { callback = cb }
+    observe = observe
+    disconnect = disconnect
+  })
+  const b = fixture()
+  fireEvent.click(screen.getByRole('button', { name: zh.callStart }))
+  await screen.findByRole('button', { name: zh.stop })
+  stop()
+  await waitFor(() => { expect(b.inputActions.insertText).toHaveBeenCalledWith(transcript.text, { start: 3, end: 3, draftRev: 1 }) })
+  expect(b.inputActions.submit).toHaveBeenCalledOnce()
+  expect(observe).toHaveBeenCalledWith(document.body, { childList: true, subtree: true, characterData: true })
+  const reply = document.createElement('div')
+  reply.setAttribute('data-chat-flow-kind', 'assistant-step')
+  reply.textContent = 'KairoForge voice reply'
+  document.body.append(reply)
+  act(() => { callback?.([], {} as MutationObserver) })
+  expect(cancel).toHaveBeenCalledOnce()
+  expect(speak).toHaveBeenCalledOnce()
+  expect(speak.mock.calls[0]?.[0]).toMatchObject({ text: 'KairoForge voice reply' })
+  reply.remove()
+})
+
 it.each(['cancel', 'escape', 'blur', 'hidden'])('releases a recording without transcription on %s', async (how) => {
   const b = fixture(); await start()
   if (how === 'cancel') fireEvent.click(screen.getByRole('button', { name: zh.cancel }))
