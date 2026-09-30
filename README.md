@@ -44,17 +44,23 @@ All of these commands start the same KairoForge web app and open it in your brow
 
 ```sh
 pnpm run kairoforge
+pnpm run web
 pnpm run open
 pnpm run open:kairoforge
 pnpm run launch
 pnpm run launch:kairoforge
 pnpm run start:kairoforge
+pnpm run run:kairoforge
 pnpm run kf
 pnpm run app
+pnpm run serve
+pnpm run go
 ./scripts/open-kairoforge.sh
 ./scripts/kairoforge
 ./scripts/start-kairoforge
 ```
+
+These commands are KairoForge launchers. You do not need to type the old upstream `dsh web` command.
 
 To use another port:
 

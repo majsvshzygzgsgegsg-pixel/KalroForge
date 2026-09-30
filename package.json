@@ -8,6 +8,11 @@
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },
+  "bin": {
+    "kairoforge": "./scripts/kairoforge",
+    "kairoforge-web": "./scripts/kairoforge",
+    "kf": "./scripts/kairoforge"
+  },
   "workspaces": [
     "vendor/*",
     "packages/*/*",
@@ -204,7 +209,11 @@
     "demo:ptc": "node scripts/demo-ptc.mjs",
     "demo:inspector": "node --import tsx/esm apps/cli/src/bin.ts web --patch ./packages/experimental/inspector/cordis.source.patch.yml",
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
-    "start:web": "node --import tsx/esm apps/cli/src/bin.ts web",
+    "start:web": "node scripts/kairoforge-web.mjs",
+    "web": "node scripts/kairoforge-web.mjs",
+    "serve": "node scripts/kairoforge-web.mjs",
+    "go": "node scripts/kairoforge-web.mjs",
+    "run:kairoforge": "node scripts/kairoforge-web.mjs",
     "open": "bash scripts/open-kairoforge.sh",
     "open:kairoforge": "bash scripts/open-kairoforge.sh",
     "launch": "bash scripts/open-kairoforge.sh",
