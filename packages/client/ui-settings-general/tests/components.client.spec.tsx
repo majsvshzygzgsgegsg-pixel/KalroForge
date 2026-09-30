@@ -107,6 +107,8 @@ it('shows a searchable 200-plus connection catalog and explains real account lin
   expect(screen.queryByText('GitHub')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
   expect(screen.getByRole('status').textContent).toContain('Gmail is ready to wire up')
+  expect(screen.getByRole('dialog', { name: 'Connect Gmail' })).toBeTruthy()
+  expect(screen.getByText('Prepare Gmail for KairoForge.')).toBeTruthy()
 })
 
 describe('chrome content', () => {

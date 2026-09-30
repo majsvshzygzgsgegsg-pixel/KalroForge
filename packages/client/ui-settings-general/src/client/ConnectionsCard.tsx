@@ -1,5 +1,6 @@
 /** KairoForge connection catalog shown from General Settings. */
 import { useMemo, useState } from 'react'
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import css from './ConnectionsCard.module.css'
 
@@ -30,7 +31,7 @@ const CATEGORIES = ['All', ...Array.from(new Set(SERVICES.map(service => service
 export function ConnectionsCard({ t }: PropsRuntime<'settings.general.item'> & PropsLocale<'settings'>) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('All')
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<ConnectionService | null>(null)
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return SERVICES.filter(service =>
@@ -59,14 +60,39 @@ export function ConnectionsCard({ t }: PropsRuntime<'settings.general.item'> & P
           <div className={css.name} title={service.name}>{service.name}</div>
           <div className={css.category}>{service.category}</div>
         </div>
-        <button type="button" className={css.connect} onClick={() => { setSelected(service.name) }}>
+        <button type="button" className={css.connect} onClick={() => { setSelected(service) }}>
           {t('connections.connect')}
         </button>
       </div>)}
     </div>}
     <div className={css.notice} role={selected === null ? undefined : 'status'}>
-      {selected === null ? t('connections.notice') : t('connections.selected', { service: selected })}
+      {selected === null ? t('connections.notice') : t('connections.selected', { service: selected.name })}
     </div>
+    <Modal
+      open={selected !== null}
+      onClose={() => { setSelected(null) }}
+      title={selected === null ? t('connections.setupTitleFallback') : t('connections.setupTitle', { service: selected.name })}
+      {...selected !== null && { description: t('connections.setupDescription', { service: selected.name }) }}
+      closeLabel={t('close')}
+    >
+      {selected !== null && (
+        <div className={css.modalBody}>
+          <div className={css.setupHero}>
+            <div className={css.setupMark}>{selected.name.slice(0, 1).toUpperCase()}</div>
+            <div>
+              <div className={css.setupName}>{selected.name}</div>
+              <div className={css.setupCategory}>{selected.category}</div>
+            </div>
+          </div>
+          <ol className={css.setupSteps}>
+            <li>{t('connections.setupStepAuth', { service: selected.name })}</li>
+            <li>{t('connections.setupStepCredentials')}</li>
+            <li>{t('connections.setupStepTools')}</li>
+          </ol>
+          <div className={css.setupNotice}>{t('connections.setupNotice')}</div>
+        </div>
+      )}
+    </Modal>
   </div>
 }
 

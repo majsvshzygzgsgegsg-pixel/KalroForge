@@ -146,3 +146,74 @@
   font-size: 12px;
   line-height: 18px;
 }
+
+.modalBody {
+  display: grid;
+  gap: 14px;
+  min-width: min(520px, calc(100vw - 72px));
+}
+
+.setupHero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-business-primary) 35%, var(--dsw-alias-border-l2));
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 20% 10%, color-mix(in oklab, var(--dsw-alias-state-business-primary) 22%, transparent), transparent 38%),
+    var(--dsw-alias-bg-layer-1);
+  padding: 14px;
+}
+
+.setupMark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #22d3ee, #8b5cf6 58%, #facc15);
+  color: white;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 800;
+}
+
+.setupName {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 750;
+}
+
+.setupCategory {
+  margin-top: 2px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.setupSteps {
+  margin: 0;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--dsw-alias-bg-layer-1) 86%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  padding: 12px 16px 12px 30px;
+  font-size: 12px;
+  line-height: 19px;
+}
+
+.setupNotice {
+  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+@media (max-width: 560px) {
+  .modalBody {
+    min-width: 0;
+  }
+}

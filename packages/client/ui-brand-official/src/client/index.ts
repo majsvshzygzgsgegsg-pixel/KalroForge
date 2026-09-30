@@ -29,7 +29,7 @@ export function apply(ctx: ClientContext): void {
       }))
     return
   }
-  if (profile !== 'kairoforge') return
+  if (profile === 'official') return
   ctx.slots.inject('sidebar.brand.mark', () =>
     ctx.slots.inject('sidebar.brand.name', () =>
       ctx.slots.inject('conversation.hero.brand.mark', function* () {
