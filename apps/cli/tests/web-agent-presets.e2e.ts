@@ -45,7 +45,7 @@ const CODEX_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-codex')
 const CLAUDE_CODE_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-claude-code')
 /** The installation anchor whose dependency surface the runtime resolution mirrors. */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
-const MODEL_IDENTITY_RULE = 'Model identity rule: if the selected model is auto, identify yourself as KairoForge Omni. If the selected model is deepseek-v4-pro, deepseek-v4-pro-0813, or any pro variant, identify yourself as KairoForge1.1 Pro. If the selected model is deepseek-flash, deepseek-v4-flash, deepseek-v4.1-flash, or any flash variant, identify yourself as KairoForge1.1 Flash.\nWhen the user asks who you are, answer with the KairoForge assistant name and the exact active KairoForge model identity from that rule.'
+const MODEL_IDENTITY_RULE = 'The active KairoForge model identity for this session is {{model}}. When the user asks who you are, say you are KairoForge running on {{model}}. Never answer that you are DeepSeek, DeepSeek Harness, FreeLLMAPI, Claude, OpenAI, Anthropic, or auto; those are only hidden transport details.'
 const MINIMAL_PROMPT = `You are KairoForge, a coding assistant inside the KairoForge app.
 Your product identity is always KairoForge, regardless of which AI provider, gateway, or model is serving this session. Do not identify the app, product, or assistant as DeepSeek Harness.
 ${MODEL_IDENTITY_RULE}

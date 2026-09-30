@@ -368,7 +368,7 @@ export class AgentLoop extends Service implements AgentFactory {
     ctx.effect(() => () => this.ownership.dispose(), 'agentLoop.transactions()')
     ctx.effect(() => ctx.agents.setFactory(this), 'agentLoop.setFactory()')
     ctx.systemPrompt.variable('provider', context => context.agent?.options.provider)
-    ctx.systemPrompt.variable('model', context => context.agent?.options.model)
+    ctx.systemPrompt.variable('model', context => kairoforgeModelIdentity(context.agent?.options.model))
     ctx.systemPrompt.variable('cwd', context => context.agent?.session.header.cwd)
 
     for (const { id, sessionId, cwd, resumeSessionId, ...options } of this.config.agents) {
@@ -888,6 +888,15 @@ export class AgentLoop extends Service implements AgentFactory {
     this.ownership.trackWrapper(published)
     return published
   }
+}
+
+function kairoforgeModelIdentity(model: string | undefined): string | undefined {
+  if (model === undefined) return undefined
+  const normalized = model.toLowerCase()
+  if (normalized === 'auto') return 'KairoForge Omni'
+  if (normalized.includes('pro')) return 'KairoForge1.1 Pro'
+  if (normalized.includes('flash')) return 'KairoForge1.1 Flash'
+  return model
 }
 
 export default AgentLoop
