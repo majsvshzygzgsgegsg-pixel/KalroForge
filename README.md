@@ -38,6 +38,30 @@ pnpm run kairoforge
 
 The app opens at `http://127.0.0.1:3080` by default.
 
+### Ways to open KairoForge
+
+All of these commands start the same KairoForge web app and open it in your browser:
+
+```sh
+pnpm run kairoforge
+pnpm run open
+pnpm run open:kairoforge
+pnpm run launch
+pnpm run launch:kairoforge
+pnpm run start:kairoforge
+pnpm run kf
+pnpm run app
+./scripts/open-kairoforge.sh
+./scripts/kairoforge
+./scripts/start-kairoforge
+```
+
+To use another port:
+
+```sh
+KAIROFORGE_PORT=3090 pnpm run open
+```
+
 ## KairoForge ML scaffold
 
 ```sh
