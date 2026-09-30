@@ -43,7 +43,7 @@ describe.each(['inputModalities', 'input'] as const)('%s input types', (field) =
     expect(model).not.toHaveProperty(field)
   })
 
-  it('removes KairoForge Cloud image limits when images are unchecked', () => {
+  it('removes KairoForge Models image limits when images are unchecked', () => {
     const onChange = vi.fn()
     const model = { id: 'vision', [field]: ['text', 'image'], description: 'kept', imagePixelBudget: 'low', imageMaxBytes: 12345 }
     render(<ModelInputTypes model={model} field={field} position={1} disabled={false} t={key => en[key]} onChange={onChange} />)

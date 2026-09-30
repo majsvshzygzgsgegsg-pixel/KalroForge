@@ -1181,7 +1181,7 @@ describe('configurable-provider directory', () => {
   it('keeps the previous directory when a route collides with another adapter family', async () => {
     const ctx = await bootWithSettings({})
     ctx.llm.registerConfigurableProviders([
-      { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [] },
+      { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [] },
     ])
     const before = ctx.llm.listConfigurableProviders().length
     expect(before).toBeGreaterThan(30)

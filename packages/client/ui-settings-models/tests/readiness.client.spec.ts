@@ -10,7 +10,7 @@ function row(overrides: Partial<ProviderRow> = {}): ProviderRow {
   return {
     entry: {
       provider: 'deepseek-official',
-      displayName: 'KairoForge Cloud',
+      displayName: 'KairoForge Models',
       settingsNs: 'llm-deepseek',
       settingsPath: [],
       active: true,

@@ -270,7 +270,7 @@ describe('request-level dynamic configuration', () => {
       maxDelayMs: 100,
       jitterRatio: 0.2,
     })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Cloud' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Models' }])
     expect(observed).toEqual([['deepseek-official']])
   })
 

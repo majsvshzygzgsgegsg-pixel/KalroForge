@@ -29,7 +29,7 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
     this.files = dependencies.resolveFiles?.() ?? new DeepSeekFileStore()
   }
 
-  override providerInfo(provider: string) { return { id: provider, name: this.dependencies.providerName ?? 'KairoForge Cloud' } }
+  override providerInfo(provider: string) { return { id: provider, name: this.dependencies.providerName ?? 'KairoForge Models' } }
   override providerRetryPolicy(_provider: string) { return this.dependencies.options().retryPolicy }
   override async listModels(provider: string) {
     return this.dependencies.discoverModels?.(provider) ?? []

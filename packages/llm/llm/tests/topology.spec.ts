@@ -107,13 +107,13 @@ describe('configurable-provider directory', () => {
     const events = vi.fn()
     ctx.on('llm/adapters-updated', events)
     ctx.llm.registerConfigurableProviders([
-      entry({ provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [] }),
+      entry({ provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [] }),
       entry(),
     ])
     expect(events).toHaveBeenCalledTimes(1)
     const listed = ctx.llm.listConfigurableProviders()
     expect(listed).toEqual([
-      { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [] },
+      { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [] },
       { provider: 'openai', displayName: 'OpenAI', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] },
     ])
     listed[0]!.displayName = 'mutated'

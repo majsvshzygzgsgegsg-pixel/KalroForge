@@ -1,5 +1,5 @@
 /**
- * KairoForge Cloud search through an Anthropic-compatible Messages model call with the native
+ * KairoForge Models search through an Anthropic-compatible Messages model call with the native
  * `web_search_20250305` server tool. Each search costs a model turn, but returns structured
  * result blocks; absence of those blocks is an error rather than a prose-scraping fallback.
  * The wire format and native `fetch` client are provider-private and do not use `ctx.llm`.
@@ -33,7 +33,7 @@ export const DEEPSEEK_PROVIDER_ID = 'deepseek-official'
  */
 export const DEEPSEEK_DEFAULT_BASE_URL = 'https://api.deepseek.com/anthropic/v1'
 
-/** Default Anthropic-format model name (aligned with the repo's KairoForge Cloud model vocabulary). */
+/** Default Anthropic-format model name (aligned with the repo's KairoForge Models model vocabulary). */
 export const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash'
 
 /** Default `anthropic-version` header value. */
@@ -49,7 +49,7 @@ export const DEEPSEEK_DEFAULT_MAX_USES = 5
 const USER_AGENT = 'kairoforge/0.0.1'
 
 /**
- * Exact secret-free KairoForge Cloud Messages request recorded immediately before one
+ * Exact secret-free KairoForge Models Messages request recorded immediately before one
  * auxiliary search dispatch.
  */
 export interface KairoForgeCloudSearchLlmRequest {
@@ -78,7 +78,7 @@ export interface KairoForgeCloudSearchLlmRequest {
 
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
-    /** Secret-free auxiliary KairoForge Cloud search request recorded before dispatch. */
+    /** Secret-free auxiliary KairoForge Models search request recorded before dispatch. */
     'web/deepseek-search-llm-request': KairoForgeCloudSearchLlmRequest
   }
 }
@@ -86,14 +86,14 @@ declare module '@deepseek-ai/dsh-session/types' {
 /** Resolved provider options (the plugin's `apply` supplies credential and constant defaults). */
 export interface KairoForgeCloudSearchProviderOptions {
   /**
-   * Resolve the KairoForge Cloud account token for one search endpoint. A token takes
+   * Resolve the KairoForge Models account token for one search endpoint. A token takes
    * precedence over every API key and is sent only as `x-dsh-auth-token`;
    * `undefined` selects API-key authentication.
    */
   resolveAccountToken?: (endpoint: string) => Promise<string | undefined>
-  /** Literal KairoForge Cloud API key; when present it wins over {@link resolveApiKey}. */
+  /** Literal KairoForge Models API key; when present it wins over {@link resolveApiKey}. */
   apiKey?: string
-  /** Resolve the current KairoForge Cloud API key for one search operation. */
+  /** Resolve the current KairoForge Models API key for one search operation. */
   resolveApiKey?: () => Promise<string | undefined>
   /** Credential reference named by missing-credential diagnostics. */
   apiKeyEnv?: CredentialRef
@@ -137,7 +137,7 @@ export function citationSnippets(blocks: readonly ContentBlock[]): Map<string, s
 }
 
 /**
- * Map a KairoForge Cloud Anthropic Messages response to a normalized search result. Walks
+ * Map a KairoForge Models Anthropic Messages response to a normalized search result. Walks
  * `web_search_tool_result` blocks for citeable `web_search_result` items, joins each to its
  * citation excerpt as `snippet`, and dedupes by `url` (a `max_uses > 1` request can surface
  * the same URL across searches). The web service owns the final `maxResults` truncation, so
@@ -154,7 +154,7 @@ export function mapAnthropicResponse(response: AnthropicResponse): WebSearchResu
   )
   if (resultBlocks.length === 0) {
     throw new WebError(
-      'KairoForge Cloud returned no web_search_tool_result blocks; the request may not have triggered native web search',
+      'KairoForge Models returned no web_search_tool_result blocks; the request may not have triggered native web search',
       'WEB_PROVIDER_ERROR',
     )
   }
@@ -180,14 +180,14 @@ export function mapAnthropicResponse(response: AnthropicResponse): WebSearchResu
 
 /** Authentication headers for one search, tagged by the credential that produced them. */
 interface SearchAuth {
-  /** `account` for a KairoForge Cloud account token, `api-key` for an API key. */
+  /** `account` for a KairoForge Models account token, `api-key` for an API key. */
   readonly kind: 'account' | 'api-key'
   /** Headers carrying the credential. */
   readonly headers: Readonly<Record<string, string>>
 }
 
 /**
- * The KairoForge Cloud-backed search provider. HTTP redirects fail as `WEB_PROVIDER_ERROR`;
+ * The KairoForge Models-backed search provider. HTTP redirects fail as `WEB_PROVIDER_ERROR`;
  * failures after dispatch name the endpoint and tell the model how the user can configure it.
  */
 export class KairoForgeCloudSearchProvider implements WebSearchProvider {
@@ -252,14 +252,14 @@ export class KairoForgeCloudSearchProvider implements WebSearchProvider {
       if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
       throw searchEndpointError(
         endpoint,
-        `KairoForge Cloud search request failed: ${String(error)}`,
+        `KairoForge Models search request failed: ${String(error)}`,
         error,
       )
     }
 
     if (!response.ok) {
       const status = response.status
-      let message = `KairoForge Cloud API error (HTTP ${status})`
+      let message = `KairoForge Models API error (HTTP ${status})`
       try {
         const parsed = await response.json() as AnthropicError
         const detail = typeof parsed.error === 'string' ? parsed.error : parsed.error?.message ?? parsed.message
@@ -286,7 +286,7 @@ export class KairoForgeCloudSearchProvider implements WebSearchProvider {
       if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
       const message = error instanceof WebError
         ? error.message
-        : `KairoForge Cloud returned an unprocessable response body: ${String(error)}`
+        : `KairoForge Models returned an unprocessable response body: ${String(error)}`
       throw searchEndpointError(endpoint, message, error)
     }
   }
@@ -307,7 +307,7 @@ export class KairoForgeCloudSearchProvider implements WebSearchProvider {
       : await resolveCredential(() => resolveAccountToken(endpoint), signal)
     if (token !== undefined && token.length > 0) return { kind: 'account', headers: { 'x-dsh-auth-token': token } }
     const apiKey = await this.apiKey(options, signal)
-    // Official KairoForge Cloud expects `x-api-key`; an Anthropic-compatible proxy
+    // Official KairoForge Models expects `x-api-key`; an Anthropic-compatible proxy
     // may expect `Authorization: Bearer` — send both so either resolves.
     return { kind: 'api-key', headers: { 'x-api-key': apiKey, 'authorization': `Bearer ${apiKey}` } }
   }
@@ -326,7 +326,7 @@ export class KairoForgeCloudSearchProvider implements WebSearchProvider {
     if (resolved !== undefined && resolved.length > 0) return resolved
     const ref = options.apiKeyEnv ?? 'DEEPSEEK_API_KEY'
     throw new WebError(
-      `KairoForge Cloud search has no API key for "${ref}"; store it through the credentials service`
+      `KairoForge Models search has no API key for "${ref}"; store it through the credentials service`
       + ' (the web Models page writes it), export it in the launching environment, or set a literal'
       + ' "apiKey" in the web-search-deepseek config; a conversation using a KairoForge Account model'
       + ' searches with the account sign-in instead',
@@ -352,18 +352,18 @@ async function resolveCredential(
   } catch (error: unknown) {
     if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
     throw new WebError(
-      `KairoForge Cloud search credential resolution failed: ${String(error)}`,
+      `KairoForge Models search credential resolution failed: ${String(error)}`,
       'WEB_PROVIDER_ERROR',
       { cause: error },
     )
   }
 }
 
-/** Replace endpoint guidance with sign-in guidance when KairoForge Cloud rejects the account token. */
+/** Replace endpoint guidance with sign-in guidance when KairoForge Models rejects the account token. */
 function accountRejectedError(message: string): WebError {
   return new WebError(
-    `${message}\n\nKairoForge Cloud rejected the account sign-in used for this web search. `
-    + 'Guide the user to sign in to KairoForge Cloud again; the search endpoint does not need changing.',
+    `${message}\n\nKairoForge Models rejected the account sign-in used for this web search. `
+    + 'Guide the user to sign in to KairoForge Models again; the search endpoint does not need changing.',
     'WEB_PROVIDER_ERROR',
   )
 }
@@ -413,7 +413,7 @@ function throwIfSearchAborted(signal?: AbortSignal): void {
 
 /** Build the provider's stable cancellation error while retaining the caller's reason. */
 function searchAborted(signal?: AbortSignal, fallback?: unknown): WebError {
-  return new WebError('KairoForge Cloud search aborted', 'WEB_ABORTED', {
+  return new WebError('KairoForge Models search aborted', 'WEB_ABORTED', {
     cause: signal?.aborted === true ? signal.reason : fallback,
   })
 }
@@ -423,7 +423,7 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
-/** True for KairoForge Cloud request limits that can be sent to the Messages API. */
+/** True for KairoForge Models request limits that can be sent to the Messages API. */
 function isPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0
 }

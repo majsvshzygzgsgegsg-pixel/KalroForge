@@ -25,7 +25,7 @@ const sid = (k: string): SessionId => k as SessionId
 
 const GROUPS = [{
   id: 'deepseek-official',
-  name: 'KairoForge Cloud',
+  name: 'KairoForge Models',
   models: [
     {
       id: 'deepseek-v4-flash',
@@ -232,7 +232,7 @@ describe('ui-model-selection dual entry', () => {
     expect(options.map((o: SelectOption) => o.label)).toEqual([
       'KairoForge1.1 Flash', 'KairoForge1.1 Pro', 'External Flash',
     ])
-    expect(options.map(option => option.group?.label)).toEqual(['KairoForge Cloud', 'KairoForge Cloud', 'External Provider'])
+    expect(options.map(option => option.group?.label)).toEqual(['KairoForge Models', 'KairoForge Models', 'External Provider'])
     expect(options.every(option => option.detail === undefined)).toBe(true)
     expect(b.popup().searchMode).toBe('fuzzy-label')
     expect(options[0]?.active).toBe(true)
@@ -305,7 +305,7 @@ describe('ui-model-selection dual entry', () => {
       b.remote.emit('llm/adapters-updated', [])
       b.mint('s1')
       const options = await b.popup().options(projection('s1'), new AbortController().signal)
-      expect(options[0]?.group?.label).toBe(locale === 'zh' ? 'KairoForge Cloud 账号' : 'KairoForge Account')
+      expect(options[0]?.group?.label).toBe(locale === 'zh' ? 'KairoForge Models 账号' : 'KairoForge Account')
     } finally {
       await b.ctx.fiber.dispose()
     }

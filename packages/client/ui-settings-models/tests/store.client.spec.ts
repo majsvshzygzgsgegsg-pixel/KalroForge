@@ -46,7 +46,7 @@ function remoteFail<T>(message: string): RemoteAnswer<T> {
 }
 
 const DIRECTORY = [
-  { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
+  { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
   { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true },
   { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: false },
   { provider: 'ghost', displayName: 'Ghost', settingsNs: '', settingsPath: [], active: true },

@@ -1,5 +1,5 @@
 ---
-description: "ctx.web 的 KairoForge Cloud 搜索提供方：部署方如何通过 Anthropic 兼容 Messages API 挂载 KairoForge Cloud 原生 web 搜索，并逐次解析凭据。"
+description: "ctx.web 的 KairoForge Models 搜索提供方：部署方如何通过 Anthropic 兼容 Messages API 挂载 KairoForge Models 原生 web 搜索，并逐次解析凭据。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-有了 `dsh-web-search-deepseek`，harness 可以通过 KairoForge Cloud 原生搜索检索 web，使用 KairoForge Cloud 账号登录或部署已有的 `DEEPSEEK_API_KEY`。当部署希望使用 KairoForge Cloud 原生搜索、并接受一次搜索在延迟与 token 上消耗一个完整模型轮次时选择它，因为 KairoForge Cloud 不提供专用搜索端点。结果来自 KairoForge Cloud 返回的结构化搜索块，绝不会从回复文本中抓取。凭据缺失时调用以结构化错误失败；响应缺少搜索结果块时会明确报错，而非降级。面向模型的 `web_search` 工具位于 `dsh-tool-web`。
+有了 `dsh-web-search-deepseek`，harness 可以通过 KairoForge Models 原生搜索检索 web，使用 KairoForge Models 账号登录或部署已有的 `DEEPSEEK_API_KEY`。当部署希望使用 KairoForge Models 原生搜索、并接受一次搜索在延迟与 token 上消耗一个完整模型轮次时选择它，因为 KairoForge Models 不提供专用搜索端点。结果来自 KairoForge Models 返回的结构化搜索块，绝不会从回复文本中抓取。凭据缺失时调用以结构化错误失败；响应缺少搜索结果块时会明确报错，而非降级。面向模型的 `web_search` 工具位于 `dsh-tool-web`。
 
 ## 目录
 
@@ -29,7 +29,7 @@ kind: "package-reference"
 
 ### 何时选择
 
-当部署希望使用 KairoForge Cloud 原生服务端 web 搜索、且其用户登录 KairoForge Cloud 账号或持有 `DEEPSEEK_API_KEY` 时选择此后端——提供方按[鉴权](#authentication)所述复用这些凭据。一次搜索比专用检索端点更重：KairoForge Cloud 在完整模型轮次内执行搜索，因此每次搜索都要预期一次 Messages 调用的延迟与生成 token，每次请求最多 `maxUses` 次服务端搜索。当单次搜索的成本或延迟占主导时避免使用它。
+当部署希望使用 KairoForge Models 原生服务端 web 搜索、且其用户登录 KairoForge Models 账号或持有 `DEEPSEEK_API_KEY` 时选择此后端——提供方按[鉴权](#authentication)所述复用这些凭据。一次搜索比专用检索端点更重：KairoForge Models 在完整模型轮次内执行搜索，因此每次搜索都要预期一次 Messages 调用的延迟与生成 token，每次请求最多 `maxUses` 次服务端搜索。当单次搜索的成本或延迟占主导时避免使用它。
 
 ### 最小配置
 
@@ -45,7 +45,7 @@ kind: "package-reference"
 
 | 字段 | 默认值 | 含义 |
 |---|---|---|
-| `apiKey` | 未设置 | KairoForge Cloud API 密钥字面值；优先使用 `apiKeyEnv`，避免密钥进入配置。非空字面值优先于 `apiKeyEnv`；账号 token 优先于两者 |
+| `apiKey` | 未设置 | KairoForge Models API 密钥字面值；优先使用 `apiKeyEnv`，避免密钥进入配置。非空字面值优先于 `apiKeyEnv`；账号 token 优先于两者 |
 | `apiKeyEnv` | `DEEPSEEK_API_KEY` | 每次搜索通过 `ctx.credentials` 解析的凭据引用；没有该服务时从进程环境解析。需要 API 密钥却解析不到时，搜索以 `WEB_PROVIDER_CREDENTIAL_MISSING` 失败 |
 | `baseURL` | `https://api.deepseek.com/anthropic/v1` | Anthropic 兼容端点基址；追加 `/messages`。缺省时回退到 `$DEEPSEEK_SEARCH_BASE_URL`；无法解析时提供方不可用 |
 | `model` | `deepseek-v4-flash` | Anthropic 格式模型名称 |
@@ -58,15 +58,15 @@ kind: "package-reference"
 <a id="authentication"></a>
 ### 鉴权
 
-当发起会话最近的 `request/context` 事件指明 `deepseek-account` 提供方路由，且 `ctx.deepseekAccount` 为搜索端点解析出 token 时，搜索使用 KairoForge Cloud 账号鉴权。账号服务仅在已登录时、且仅对部署配置的推理 origin（默认 `https://api.deepseek.com`）解析 token。这类搜索只发送 `x-dsh-auth-token`，即使配置了 API 密钥也是如此。其余所有搜索，包括没有发起会话的调用以及端点属于其他 origin 的搜索，都把 API 密钥同时作为 `x-api-key` 与 `Authorization: Bearer` 发送。账号鉴权的搜索收到 HTTP 401 时以 `WEB_PROVIDER_ERROR` 失败，附带登录指引而非端点指引，账号保持登录。
+当发起会话最近的 `request/context` 事件指明 `deepseek-account` 提供方路由，且 `ctx.deepseekAccount` 为搜索端点解析出 token 时，搜索使用 KairoForge Models 账号鉴权。账号服务仅在已登录时、且仅对部署配置的推理 origin（默认 `https://api.deepseek.com`）解析 token。这类搜索只发送 `x-dsh-auth-token`，即使配置了 API 密钥也是如此。其余所有搜索，包括没有发起会话的调用以及端点属于其他 origin 的搜索，都把 API 密钥同时作为 `x-api-key` 与 `Authorization: Bearer` 发送。账号鉴权的搜索收到 HTTP 401 时以 `WEB_PROVIDER_ERROR` 失败，附带登录指引而非端点指引，账号保持登录。
 
 ### 搜索返回什么
 
-`content` 始终省略：KairoForge Cloud 的提供方文本不作为答案受到信任。`sources[]` 来自 `web_search_tool_result` 块内的 `web_search_result` 条目——`url` 和 `title` 直接取自同名字段，`publishedAt` 取自 `page_age`——snippet 在存在摘录时按 URL 关联的 `cited_text` 条目拼接。结果按 URL 去重，且由于 KairoForge Cloud 不公开结果数量旋钮，服务通过截断并标记来强制执行 `maxResults`。
+`content` 始终省略：KairoForge Models 的提供方文本不作为答案受到信任。`sources[]` 来自 `web_search_tool_result` 块内的 `web_search_result` 条目——`url` 和 `title` 直接取自同名字段，`publishedAt` 取自 `page_age`——snippet 在存在摘录时按 URL 关联的 `cited_text` 条目拼接。结果按 URL 去重，且由于 KairoForge Models 不公开结果数量旋钮，服务通过截断并标记来强制执行 `maxResults`。
 
 ### 请求日志
 
-由发起 agent（智能体）运行的搜索会在发出请求前一刻，追加仅用于日志的 `web/deepseek-search-llm-request` 会话事件。其中包含已解析端点、API 版本，以及发送给 KairoForge Cloud 且不含密钥的精确 JSON 请求体；不包含标头和凭据。发出请求前发生凭据失败或取消时不会创建事件，而发出请求后的 HTTP 或响应失败会保留本次请求尝试的持久记录。
+由发起 agent（智能体）运行的搜索会在发出请求前一刻，追加仅用于日志的 `web/deepseek-search-llm-request` 会话事件。其中包含已解析端点、API 版本，以及发送给 KairoForge Models 且不含密钥的精确 JSON 请求体；不包含标头和凭据。发出请求前发生凭据失败或取消时不会创建事件，而发出请求后的 HTTP 或响应失败会保留本次请求尝试的持久记录。
 
 ### 失败与恢复
 
@@ -86,7 +86,7 @@ kind: "package-reference"
 
 本提供方建立在两项承诺之上：
 
-- **只取结构化块。** KairoForge Cloud 在服务端执行搜索并返回结构化的 `web_search_tool_result` 块；提供方解析这些块，绝不从模型文本中抓取 URL。严格模式下，没有此类块的响应会抛出 `WEB_PROVIDER_ERROR`，而非降级。
+- **只取结构化块。** KairoForge Models 在服务端执行搜索并返回结构化的 `web_search_tool_result` 块；提供方解析这些块，绝不从模型文本中抓取 URL。严格模式下，没有此类块的响应会抛出 `WEB_PROVIDER_ERROR`，而非降级。
 - **会话凭据，逐次解析。** 提供方不新增密钥：来自账号路由会话的搜索使用该账号的 token，其余搜索复用 `DEEPSEEK_API_KEY` 引用。辅助请求端点通过 `$DEEPSEEK_SEARCH_BASE_URL` 保持独立。已挂载的凭据服务具有权威性；没有该服务时回退到启动进程的环境。按次解析意味着在 Web 的 Models 页中存储或轮换的密钥，或一次账号登录，无需重启即可用于下一次搜索。
 
 ### 源码地图
@@ -94,7 +94,7 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Config schema 与每次搜索的选项捕获 |
-| [`src/provider.ts`](src/provider.ts) | `KairoForge CloudSearchProvider`：Messages 请求分发、块解析、引用拼接、凭据解析 |
+| [`src/provider.ts`](src/provider.ts) | `KairoForge ModelsSearchProvider`：Messages 请求分发、块解析、引用拼接、凭据解析 |
 | [`src/types.ts`](src/types.ts) | 搜索响应的 Anthropic 协议类型 |
 | — | 不发布运行时不变量配套入口；本包会在分发前发出日志事件，但没有后续的权威分发事件可与之关联；精确的请求包络相等性改由提供方边界保障。 |
 
@@ -123,11 +123,11 @@ kind: "package-reference"
 <a id="model-experience"></a>
 ## 模型体验
 
-### 辅助 KairoForge Cloud 搜索请求
+### 辅助 KairoForge Models 搜索请求
 
 #### 模型看到的内容
 
-独立的 KairoForge Cloud 模型会原样接收 `Perform a web search for the query: <query>` 作为用户文本，并收到一个原生 `web_search` 服务器工具定义。该请求不属于会话模型上下文。
+独立的 KairoForge Models 模型会原样接收 `Perform a web search for the query: <query>` 作为用户文本，并收到一个原生 `web_search` 服务器工具定义。该请求不属于会话模型上下文。
 
 #### Token 影响
 
@@ -141,7 +141,7 @@ kind: "package-reference"
 
 #### 模型看到的内容
 
-通过 `dsh-tool-web`，会话模型会看到结构化搜索块中去重后的 URL、标题、日期与引用 snippet；提供方文本不会作为答案受到信任。该提供方的具体失败消息包括带有处理指引的凭据缺失消息（其中也提到 KairoForge Cloud 账号登录）、`KairoForge Cloud search credential resolution failed: <error>` 和 `KairoForge Cloud search aborted`。账号鉴权的搜索收到 HTTP 401 时，会追加引导用户重新登录 KairoForge Cloud 的指引。其他请求、HTTP、原生搜索和响应正文失败会追加已解析端点及前述条件式配置指引。错误包装属于消费方。
+通过 `dsh-tool-web`，会话模型会看到结构化搜索块中去重后的 URL、标题、日期与引用 snippet；提供方文本不会作为答案受到信任。该提供方的具体失败消息包括带有处理指引的凭据缺失消息（其中也提到 KairoForge Models 账号登录）、`KairoForge Models search credential resolution failed: <error>` 和 `KairoForge Models search aborted`。账号鉴权的搜索收到 HTTP 401 时，会追加引导用户重新登录 KairoForge Models 的指引。其他请求、HTTP、原生搜索和响应正文失败会追加已解析端点及前述条件式配置指引。错误包装属于消费方。
 
 #### Token 影响
 
@@ -158,7 +158,7 @@ kind: "package-reference"
 
 这些限制说明提供方在哪些情况下昂贵或不完整。它们是当前包约束。
 
-- **一次搜索消耗一个完整的 Messages 模型轮次**——产生延迟与生成 token，最多执行 `maxUses` 次服务端搜索；KairoForge Cloud 不公开专用检索端点。
+- **一次搜索消耗一个完整的 Messages 模型轮次**——产生延迟与生成 token，最多执行 `maxUses` 次服务端搜索；KairoForge Models 不公开专用检索端点。
 - **动态凭据的可用性在操作内部解析**——同步可用性检查可以确认解析器存在，但无法查询异步凭据存储，因此选中的无密钥提供方会使搜索以 `WEB_PROVIDER_CREDENTIAL_MISSING` 失败；稳定的 `web_search` schema 仍保持注册。
 - **超量返回的来源仍消耗 token**——协议没有结果数量旋钮，`maxResults` 只能由服务在事后截断。
 - **未引用的结果没有 `snippet`**——只有当文本块引用（`cited_text`）匹配其 URL 时，来源才会获得 snippet。
@@ -173,6 +173,6 @@ kind: "package-reference"
 
 #### 未来：专用检索端点
 
-能够避免完整模型轮次的 KairoForge Cloud 原生搜索端点将消除主要成本；在 KairoForge Cloud 公开此类端点之前，本提供方仍是 Messages 调用适配器。
+能够避免完整模型轮次的 KairoForge Models 原生搜索端点将消除主要成本；在 KairoForge Models 公开此类端点之前，本提供方仍是 Messages 调用适配器。
 
 </details>

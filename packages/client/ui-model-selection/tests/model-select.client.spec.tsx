@@ -37,7 +37,7 @@ function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryStat
     routable: true,
     groups: [{
       id: 'deepseek-official',
-      name: 'KairoForge Cloud',
+      name: 'KairoForge Models',
       models: [{
         id: 'deepseek-v4-flash',
         name: 'KairoForge1.1 Flash',
@@ -209,7 +209,7 @@ describe('ModelSelect reasoning effort', () => {
   it.each([false, true])('announces rejected selections with ownership guidance only for held writers (%s)', async (sessionInUse) => {
     const groups = [{
       id: 'deepseek-official',
-      name: 'KairoForge Cloud',
+      name: 'KairoForge Models',
       models: [
         { id: 'deepseek-v4-flash', name: 'KairoForge1.1 Flash', reasoning },
         { id: 'deepseek-v4-pro', name: 'KairoForge1.1 Pro' },
@@ -253,7 +253,7 @@ describe('ModelSelect reasoning effort', () => {
   it('spins on the trigger and the chosen model row until the selection settles, across pane changes', async () => {
     const groups = [{
       id: 'deepseek-official',
-      name: 'KairoForge Cloud',
+      name: 'KairoForge Models',
       models: [
         { id: 'deepseek-v4-flash', name: 'KairoForge1.1 Flash', reasoning },
         { id: 'deepseek-v4-pro', name: 'KairoForge1.1 Pro' },
@@ -750,7 +750,7 @@ describe('ModelSelect search', () => {
     const directory = createSnapshotStore(state({
       current: { provider: 'deepseek-official', model: 'beta' },
       groups: [
-        { id: 'deepseek-official', name: 'KairoForge Cloud', models: [{ id: 'alpha', name: 'Alpha' }, { id: 'beta', name: 'Beta' }] },
+        { id: 'deepseek-official', name: 'KairoForge Models', models: [{ id: 'alpha', name: 'Alpha' }, { id: 'beta', name: 'Beta' }] },
         { id: 'other', name: 'Other', models: [
           { id: 'delta', name: 'Delta' }, { id: 'epsilon', name: 'Epsilon' }, { id: 'gamma', name: 'Gamma' },
         ] },
@@ -821,7 +821,7 @@ describe('ModelSelect search', () => {
     expect(screen.getAllByRole('menuitemradio').map(row => row.textContent)).toEqual(['Gemini Flash'])
     expect(screen.getByRole('searchbox')).toBe(search)
     expect(document.activeElement).toBe(search)
-    expect(screen.queryByRole('group', { name: 'KairoForge Cloud' })).toBeNull()
+    expect(screen.queryByRole('group', { name: 'KairoForge Models' })).toBeNull()
     expect(trigger.textContent).toContain('KairoForge1.1 Flash')
     fireEvent.change(search, { target: { value: 'zzzz' } })
     const status = screen.getByRole('status')
@@ -904,16 +904,16 @@ it.each([en, zh])('localizes the account group while preserving external names',
 
 it('restores the account model name after login without changing the saved route', () => {
   const groups = [{ id: 'deepseek-account', name: 'KairoForge Account', models: [
-    { id: 'deepseek-flash', name: 'KairoForge Cloud Flash', reasoning },
+    { id: 'deepseek-flash', name: 'KairoForge Models Flash', reasoning },
   ] }]
   const selected = { provider: 'deepseek-account', model: 'deepseek-flash', reasoningEffort: 'high' }
   const directory = createSnapshotStore(state({ current: selected, groups, retainedEffort: 'High' }))
   render(<ModelSelect locked={false} available directory={directory} load={vi.fn()} select={vi.fn()} t={t} />)
-  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('KairoForge Cloud FlashHigh')
+  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('KairoForge Models FlashHigh')
   act(() => { directory.update((snapshot) => { snapshot.groups = []; snapshot.routable = false }) })
   expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent)
     .toMatchInlineSnapshot('"deepseek-account/deepseek-flashHigh"')
   act(() => { directory.update((snapshot) => { snapshot.groups = groups; snapshot.routable = true }) })
-  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('KairoForge Cloud FlashHigh')
+  expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('KairoForge Models FlashHigh')
   expect(directory.getSnapshot().current).toEqual(selected)
 })

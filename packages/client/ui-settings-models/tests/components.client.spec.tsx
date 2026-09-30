@@ -31,7 +31,7 @@ afterEach(cleanup)
 const t: ModelsSectionInjected['t'] = key => en[key]
 const OPENAI_TARGET = { provider: 'openai', displayName: 'openai' }
 const openaiCopy = (template: string): string => providerCopy(template, OPENAI_TARGET)
-const DEEPSEEK_TARGET = { provider: 'deepseek-official', displayName: 'KairoForge Cloud' }
+const DEEPSEEK_TARGET = { provider: 'deepseek-official', displayName: 'KairoForge Models' }
 const deepSeekCopy = (template: string): string => providerCopy(template, DEEPSEEK_TARGET)
 
 /** Open one row's capacity disclosure (1-based, as the labels read). */
@@ -193,11 +193,11 @@ function scriptedFace(overrides: {
   const face = {
     llm: {
       listProviders: vi.fn(() => Promise.resolve(remoteOk([
-        { id: 'deepseek-official', name: 'KairoForge Cloud' },
+        { id: 'deepseek-official', name: 'KairoForge Models' },
         { id: 'openai', name: 'openai' },
       ]))),
       listConfigurableProviders: vi.fn(() => Promise.resolve(remoteOk([
-        { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
+        { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
         { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true },
         { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: false },
         { provider: 'zombie', displayName: 'zombie', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'zombie'], active: false },
@@ -308,7 +308,7 @@ async function mountSection(overrides: Parameters<typeof scriptedFace>[0] = {}) 
 
 /**
  * Mount for a user who cannot reach any provider yet: no credential is stored
- * anywhere, so the whole-section KairoForge Cloud route owns the first-run setup card.
+ * anywhere, so the whole-section KairoForge Models route owns the first-run setup card.
  */
 async function mountFirstRun(overrides: Parameters<typeof scriptedFace>[0] = {}) {
   const scripted = scriptedFace(overrides)
@@ -320,8 +320,8 @@ async function mountFirstRun(overrides: Parameters<typeof scriptedFace>[0] = {})
 }
 
 /**
- * Mount and open the KairoForge Cloud editor. The shared fixture already has a usable
- * openai route, so KairoForge Cloud is an ordinary row whose card opens through Edit
+ * Mount and open the KairoForge Models editor. The shared fixture already has a usable
+ * openai route, so KairoForge Models is an ordinary row whose card opens through Edit
  * rather than by itself.
  */
 async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] = {}) {
@@ -377,10 +377,10 @@ describe('ModelsSection', () => {
     const scripted = scriptedFace()
     const failure = 'The provider configuration needs repair'
     scripted.face.llm.listProviders.mockResolvedValue(remoteOk([
-      { id: 'deepseek-official', name: 'KairoForge Cloud' },
+      { id: 'deepseek-official', name: 'KairoForge Models' },
     ]))
     scripted.face.llm.listConfigurableProviders.mockResolvedValue(remoteOk([
-      { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [], error: failure },
+      { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [], error: failure },
     ]))
     scripted.face.credentials.describe.mockResolvedValue(remoteOk({
       DEEPSEEK_API_KEY: { configured: false, writable: true },
@@ -436,7 +436,7 @@ describe('ModelsSection', () => {
     const { renderSlot, face, controller } = await mountSection()
     fireEvent.click(screen.getByRole('button', { name: en.add }))
     const directory = [
-      { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
+      { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
       { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true },
     ].map(({ active: _active, ...entry }) => entry)
     face.llm.listConfigurableProviders.mockImplementation(() => Promise.resolve(remoteOk(directory)))
@@ -448,9 +448,9 @@ describe('ModelsSection', () => {
   })
   it('renders the unkeyed whole-section provider as an open setup card in the first-run posture', async () => {
     await mountFirstRun()
-    // Nothing is reachable yet, and KairoForge Cloud has no configured credential and
+    // Nothing is reachable yet, and KairoForge Models has no configured credential and
     // no stored apiKey → setup card.
-    expect(screen.getByText('KairoForge Cloud')).toBeTruthy()
+    expect(screen.getByText('KairoForge Models')).toBeTruthy()
     expect(screen.getByLabelText(en.keyInput)).toBeTruthy()
     expect(screen.getByText('openai')).toBeTruthy()
     expect(screen.queryByText('Active')).toBeNull()
@@ -468,7 +468,7 @@ describe('ModelsSection', () => {
     expect(configured.className).toContain('credentialDotConfigured')
     expect(configured.closest('li')?.textContent).toContain('openai')
     const missing = screen.getByRole('img', { name: en.credentialMissing })
-    expect(missing.closest('li')?.textContent).toContain('KairoForge Cloud')
+    expect(missing.closest('li')?.textContent).toContain('KairoForge Models')
     // The card is still one click away.
     fireEvent.click(screen.getByRole('button', { name: deepSeekCopy(en.editProvider) }))
     expect(screen.getByLabelText(en.keyInput)).toBeTruthy()
@@ -543,9 +543,9 @@ describe('ModelsSection', () => {
   })
 
   it('uses one stable provider identity in action copy', () => {
-    const target = { provider: 'deepseek-official', displayName: 'KairoForge Cloud' }
-    expect(providerTargetLabel(target)).toBe('KairoForge Cloud (deepseek-official)')
-    expect(providerCopy(en.deleteTitle, target)).toBe('Delete KairoForge Cloud (deepseek-official)?')
+    const target = { provider: 'deepseek-official', displayName: 'KairoForge Models' }
+    expect(providerTargetLabel(target)).toBe('KairoForge Models (deepseek-official)')
+    expect(providerCopy(en.deleteTitle, target)).toBe('Delete KairoForge Models (deepseek-official)?')
     expect(providerTargetLabel(OPENAI_TARGET)).toBe('openai')
   })
 
@@ -569,7 +569,7 @@ describe('ModelsSection', () => {
     // mirror, so the reload shows as a directory read rather than a describe.
     await waitFor(() => { expect(face.llm.listProviders.mock.calls.length).toBeGreaterThan(1) })
     expect((await screen.findByRole('status')).textContent).toBe(
-      providerCopy(en.savedProvider, { provider: 'deepseek-official', displayName: 'KairoForge Cloud' }),
+      providerCopy(en.savedProvider, { provider: 'deepseek-official', displayName: 'KairoForge Models' }),
     )
     fireEvent.click(screen.getByText(en.add))
     expect(screen.queryByRole('status')).toBeNull()
@@ -586,7 +586,7 @@ describe('ModelsSection', () => {
 
     render(<ProviderEditor
       provider="deepseek-official"
-      displayName="KairoForge Cloud"
+      displayName="KairoForge Models"
       hideTitle
       namespace={wireNamespaces()[0]!}
       schema={settingsSchema}
@@ -656,7 +656,7 @@ describe('ModelsSection', () => {
     ])
   })
 
-  it('materializes inherited models and adds an arbitrary KairoForge Cloud id', async () => {
+  it('materializes inherited models and adds an arbitrary KairoForge Models id', async () => {
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(remoteOk(wireNamespaces()[0]))),
     })
@@ -691,7 +691,7 @@ describe('ModelsSection', () => {
     ])
   })
 
-  it('edits the KairoForge Cloud endpoint and credential without a protocol selection', async () => {
+  it('edits the KairoForge Models endpoint and credential without a protocol selection', async () => {
     const namespace: SettingsNamespaceView = {
       ...wireNamespaces()[0]!,
       ns: 'llm-deepseek',
@@ -704,7 +704,7 @@ describe('ModelsSection', () => {
     const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
     render(<ProviderEditor
       provider="deepseek-official"
-      displayName="KairoForge Cloud"
+      displayName="KairoForge Models"
       namespace={namespace}
       schema={settingsSchema}
       settingsPath={[]}
@@ -736,7 +736,7 @@ describe('ModelsSection', () => {
     ]])
   })
 
-  it('rejects duplicate KairoForge Cloud model ids before writing', async () => {
+  it('rejects duplicate KairoForge Models model ids before writing', async () => {
     const { mutate } = await mountDeepSeekCard()
     fireEvent.click(screen.getByText(en.customized))
     fireEvent.click(screen.getByText(en.addModel))
@@ -886,7 +886,7 @@ describe('ModelsSection', () => {
     const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
     render(<ProviderEditor
       provider="deepseek-official"
-      displayName="KairoForge Cloud"
+      displayName="KairoForge Models"
       namespace={overridden}
       schema={settingsSchema}
       settingsPath={[]}
@@ -1116,7 +1116,7 @@ describe('ModelsSection', () => {
     const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
     render(<ProviderEditor
       provider="deepseek-official"
-      displayName="KairoForge Cloud"
+      displayName="KairoForge Models"
       namespace={bare}
       schema={settingsSchema}
       settingsPath={[]}
@@ -1507,7 +1507,7 @@ describe('ModelsSection', () => {
   it('opens on the custom mode when every catalog provider is already configured', async () => {
     const scripted = scriptedFace()
     scripted.face.llm.listConfigurableProviders.mockResolvedValue(remoteOk([
-      { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [] },
+      { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [] },
       { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] },
     ]))
     await mountFace(scripted)
@@ -1560,7 +1560,7 @@ describe('ModelsSection', () => {
   it('picks a catalog target when the catalog becomes addable after the card opened', async () => {
     const scripted = scriptedFace()
     const exhausted = [
-      { provider: 'deepseek-official', displayName: 'KairoForge Cloud', settingsNs: 'llm-deepseek', settingsPath: [] },
+      { provider: 'deepseek-official', displayName: 'KairoForge Models', settingsNs: 'llm-deepseek', settingsPath: [] },
       { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] },
     ]
     scripted.face.llm.listConfigurableProviders.mockResolvedValue(remoteOk(exhausted))
@@ -1741,10 +1741,10 @@ describe('ModelsSection', () => {
     fireEvent.click(screen.getAllByText(en.cancel)[0] as HTMLElement)
     // The add card kept its draft…
     expect(screen.getByLabelText(en.provider)).toBeTruthy()
-    // …and KairoForge Cloud collapsed to an ordinary row carrying the missing-key dot.
+    // …and KairoForge Models collapsed to an ordinary row carrying the missing-key dot.
     expect(screen.getAllByLabelText(en.keyInput)).toHaveLength(1)
     expect(screen.getAllByRole('img', { name: en.credentialMissing })
-      .some(dot => dot.closest('li')?.textContent?.includes('KairoForge Cloud') === true)).toBe(true)
+      .some(dot => dot.closest('li')?.textContent?.includes('KairoForge Models') === true)).toBe(true)
     // Its card reopens through Edit, which closes the add card as any row does.
     fireEvent.click(screen.getByRole('button', { name: deepSeekCopy(en.editProvider) }))
     expect(screen.getAllByLabelText(en.keyInput)).toHaveLength(1)
@@ -1762,7 +1762,7 @@ describe('ModelsSection', () => {
       t={t}
       renderSlot={() => null}
     />)
-    await screen.findByText('KairoForge Cloud')
+    await screen.findByText('KairoForge Models')
   })
 
   it('removes by unsetting the profile path, never by rebuilding the section', async () => {
@@ -1944,7 +1944,7 @@ it.each([en, zh])('edits the account model catalog without credential or endpoin
   expect(set).not.toHaveBeenCalled()
 })
 
-it('keeps the KairoForge Cloud editor for an account route under a renamed settings entry', async () => {
+it('keeps the KairoForge Models editor for an account route under a renamed settings entry', async () => {
   const namespace = accountNamespace('team-account-entry')
   const mutate = vi.fn(() => Promise.resolve(remoteOk(namespace)))
   const ops = operationsWith(scriptedFace({ mutate }).face)

@@ -138,7 +138,7 @@ describe('direct Messages HTTP', () => {
       'user-agent': expect.stringContaining('kairoforge/') as string, 'x-kairoforge-user-id': 'test-user',
       'x-kairoforge-session-id': 'session-test', 'x-kairoforge-compact': '1',
     }, body: { thinking: { type: 'enabled' }, output_config: { effort: 'high' } } })
-    expect(llm.providerInfo('deepseek-official')).toEqual({ id: 'deepseek-official', name: 'KairoForge Cloud' })
+    expect(llm.providerInfo('deepseek-official')).toEqual({ id: 'deepseek-official', name: 'KairoForge Models' })
     expect(await llm.listModels('deepseek-official')).toEqual([])
     expect(await llm.resolveModel('deepseek-official', 'deepseek-flash')).toMatchObject({
       name: 'KairoForge1.1 Flash', inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history',

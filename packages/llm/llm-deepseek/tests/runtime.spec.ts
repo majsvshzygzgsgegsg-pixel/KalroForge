@@ -1750,10 +1750,10 @@ describe('plugin registration and config', () => {
     const fiber = await ctx.plugin(LlmDeepSeek, {
       baseURL: server.url,
     })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Cloud' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Models' }])
     expect(ctx.llm.listConfigurableProviders()).toEqual([{
       provider: 'deepseek-official',
-      displayName: 'KairoForge Cloud',
+      displayName: 'KairoForge Models',
       settingsNs: 'llm-deepseek-api-key',
       settingsPath: [],
     }])
@@ -1786,7 +1786,7 @@ describe('plugin registration and config', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Cloud' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Models' }])
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
       { provider: 'deepseek-official', id: 'deepseek-flash', name: 'KairoForge1.1 Flash', inputModalities: ['text', 'image'] },
       {
@@ -2212,7 +2212,7 @@ describe('plugin registration and config', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {})
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Cloud' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Models' }])
   })
 
   it('loads keyless with an empty catalog and fails requests actionably', async () => {
@@ -2220,7 +2220,7 @@ describe('plugin registration and config', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Cloud' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Models' }])
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toHaveLength(2)
     const first = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
     expect(first.finish).toMatchObject({ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } })
@@ -2301,7 +2301,7 @@ describe('plugin registration and config', () => {
     await ctx.plugin(LlmRuntime)
     // Registration succeeds; no call is made (would hit api.deepseek.com).
     await ctx.plugin(LlmDeepSeek, {})
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Cloud' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'KairoForge Models' }])
   })
 
   it('adapter is constructible directly for embedding over the shared resolver', async () => {
