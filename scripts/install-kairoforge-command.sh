@@ -12,11 +12,13 @@ commands=(
   kairoforge-open
   kairoforge-launch
   kairoforge-start
+  kairoforge-phone
   kforge
   forge
   kf
   kf-web
   kf-open
+  kf-phone
   web
   launch
 )
@@ -61,6 +63,8 @@ echo
 echo "Use any of these from any folder, for example:"
 echo "  kairoforge"
 echo "  kf"
+echo "  kairoforge-phone"
+echo "  kf-phone"
 echo "  web"
 echo "  launch"
 echo

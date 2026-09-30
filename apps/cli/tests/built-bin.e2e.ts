@@ -378,10 +378,9 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         DSH_HOME: home,
         DSH_TELEMETRY_DISABLED: '1',
       })
-      expect(wildcardHost.code).toBe(1)
-      expect(wildcardHost.stdout).toBe('')
-      expect(wildcardHost.stderr).toContain('--host 0.0.0.0 is intentionally not supported yet for safety: it would expose remote code execution to the network; use 127.0.0.1 instead')
-      expect(wildcardHost.stderr).not.toContain('dsh web: http://')
+      expect(wildcardHost.code).toBe(0)
+      expect(wildcardHost.stderr).toBe('')
+      expect(wildcardHost.stdout).toContain('dsh web: http://')
 
       const headlessHelp = await runBuiltBin(['headless', '--help'], {
         DSH_HOME: home,

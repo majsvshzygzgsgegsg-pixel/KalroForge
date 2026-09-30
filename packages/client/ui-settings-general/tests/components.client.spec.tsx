@@ -10,6 +10,7 @@ import type { TriggerContentProps } from '../src/client/chrome.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import { DeveloperToolsRow } from '../src/client/DeveloperToolsRow.tsx'
 import { ConnectionsCard, CONNECTION_SERVICES } from '../src/client/ConnectionsCard.tsx'
+import { PhoneConnectAction } from '../src/client/PhoneConnectAction.tsx'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { SettingsDocumentStore } from '../src/client/settings-document-store.ts'
@@ -126,6 +127,25 @@ describe('chrome content', () => {
     render(<CloseLabel {...kit} t={t} />)
     expect(screen.getByText('Settings')).toBeTruthy()
     expect(screen.getByText('Close')).toBeTruthy()
+  })
+})
+
+describe('PhoneConnectAction', () => {
+  it('opens a phone connection panel with the current token and LAN URL placeholder', () => {
+    window.history.pushState({}, '', '/?token=test-phone-token')
+    render(<PhoneConnectAction {...kit} wide t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Phone Connect' }))
+    expect(screen.getByRole('dialog', { name: 'Connect your phone' })).toBeTruthy()
+    expect(screen.getByText('Phone URL')).toBeTruthy()
+    expect(screen.getByText('Connection code')).toBeTruthy()
+    expect(screen.getByText('test-phone-token')).toBeTruthy()
+    expect(screen.getByText(/YOUR-MAC-IP/)).toBeTruthy()
+  })
+
+  it('shows only the icon in collapsed mode', () => {
+    render(<PhoneConnectAction {...kit} wide={false} t={t} />)
+    expect(screen.getByRole('button', { name: 'Phone Connect' })).toBeTruthy()
+    expect(screen.queryByText('Phone Connect')).toBeNull()
   })
 })
 
