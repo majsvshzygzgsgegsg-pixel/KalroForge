@@ -1,0 +1,9 @@
+.kairoForgeWordmark {
+  color: var(--dsw-alias-brand-text);
+  font-family: var(--dsw-font-family-brand);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 24px;
+  white-space: nowrap;
+}

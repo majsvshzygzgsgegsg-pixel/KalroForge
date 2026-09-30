@@ -22,6 +22,12 @@ const OFFICIAL_CLIENT_BUILD_ENVIRONMENT = {
   DSH_CLIENT_TITLE: 'DeepSeek Harness',
 } as const
 
+/** Public identity embedded in KairoForge builds of this fork. */
+const KAIROFORGE_CLIENT_BUILD_ENVIRONMENT = {
+  DSH_CLIENT_BUILD_PROFILE: 'kairoforge',
+  DSH_CLIENT_TITLE: 'KairoForge',
+} as const
+
 /** Public variable carrying the source commit embedded in client artifacts. */
 const CLIENT_COMMIT_HASH_VARIABLE = 'DSH_CLIENT_COMMIT_HASH'
 
@@ -204,7 +210,13 @@ export function resolveClientBuildEnvironment(
       ...OFFICIAL_CLIENT_BUILD_ENVIRONMENT,
     }
   }
-  throw new Error(`unknown client build profile ${JSON.stringify(profile)}; expected "official"`)
+  if (profile === 'kairoforge') {
+    return {
+      ...clientBuildEnvironment(environment),
+      ...KAIROFORGE_CLIENT_BUILD_ENVIRONMENT,
+    }
+  }
+  throw new Error(`unknown client build profile ${JSON.stringify(profile)}; expected "official" or "kairoforge"`)
 }
 
 /**

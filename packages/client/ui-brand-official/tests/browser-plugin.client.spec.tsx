@@ -4,7 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { apply, inject } from '../src/client/index.ts'
-import { OfficialBrandMark, OfficialBrandName } from '../src/client/Brand.tsx'
+import {
+  KairoForgeBrandMark,
+  KairoForgeBrandName,
+  OfficialBrandMark,
+  OfficialBrandName,
+} from '../src/client/Brand.tsx'
 import { apply as hostApply } from '../src/index.ts'
 
 afterEach(() => {
@@ -18,6 +23,7 @@ const HOLES = [
 ] as const
 
 const HERO_HOLE = 'conversation.hero.brand.mark'
+const KAIROFORGE_HOLES = [...HOLES, HERO_HOLE] as const
 
 async function bench(declare = true) {
   const ctx = new Context()
@@ -78,6 +84,13 @@ describe('official browser-brand plugin', () => {
     expect(subject.slots.entries(HERO_HOLE)).toHaveLength(0)
   })
 
+  it('fills the sidebar and hero with the KairoForge profile', async () => {
+    vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'kairoforge')
+    const subject = await bench()
+    await subject.ctx.plugin({ inject: [...inject], apply }).await()
+    for (const hole of KAIROFORGE_HOLES) expect(subject.slots.entries(hole)).toHaveLength(1)
+  })
+
   it('renders the official name independently from both requested mark sizes', () => {
     const name = render(<OfficialBrandName />)
     expect(name.container.querySelector('svg')?.getAttribute('viewBox')).toBe('26 0 156 24')
@@ -86,6 +99,18 @@ describe('official browser-brand plugin', () => {
     const mark = render(<OfficialBrandMark size={34} />)
     expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('34')
     mark.rerender(<OfficialBrandMark size={24} />)
+    expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('24')
+  })
+
+  it('renders the original KairoForge name and scalable lattice mark', () => {
+    const name = render(<KairoForgeBrandName />)
+    expect(name.getByText('KairoForge')).not.toBeNull()
+    name.unmount()
+
+    const mark = render(<KairoForgeBrandMark size={34} />)
+    expect(mark.container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 64 64')
+    expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('34')
+    mark.rerender(<KairoForgeBrandMark size={24} />)
     expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('24')
   })
 })

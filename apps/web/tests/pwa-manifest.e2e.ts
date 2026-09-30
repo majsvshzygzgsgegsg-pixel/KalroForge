@@ -14,11 +14,14 @@ it('ships install metadata with the built web application', async () => {
   // so only an absent `id`, which defaults to the resolved `start_url`, gives
   // each mount its own identity. `public-mount.e2e.ts` reads the resolved form.
   expect(manifest).toEqual({
-    name: 'DeepSeek Harness',
-    short_name: 'DSH',
+    name: 'KairoForge',
+    short_name: 'KairoForge',
+    description: 'A local-first workspace for building and supervising AI agent systems.',
     start_url: './',
     scope: './',
-    display: 'fullscreen',
+    display: 'standalone',
+    background_color: '#0c1020',
+    theme_color: '#6d5dfc',
     icons: [{
       src: 'favicon.svg',
       sizes: 'any',
@@ -35,7 +38,8 @@ it('ships fixed-color favicons selected by document media queries', async () => 
   const light = await readFile(join(DIST_ROOT, 'favicon.svg'), 'utf8')
   const dark = await readFile(join(DIST_ROOT, 'favicon-dark.svg'), 'utf8')
   expect(light).not.toContain('<style>')
-  expect(light).toContain('fill="#000"')
-  expect(dark).toContain('fill="#fff"')
-  expect(dark.replace('fill="#fff"', 'fill="#000"')).toBe(light)
+  expect(light).toContain('linearGradient id="k"')
+  expect(light).toContain('#22d3ee')
+  expect(dark).toContain('#67e8f9')
+  expect(dark).not.toBe(light)
 })

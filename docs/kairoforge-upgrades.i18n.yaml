@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for kairoforge-upgrades.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/kairoforge-upgrades.md
+/kairoforge-upgrade-blueprint:
+  en: 761b8e32f7ecf062
+  zh: 8c9b41782dd37a4a
+/kairoforge-upgrade-blueprint/capability-map:
+  en: f763bcf81e4c1181
+  zh: 45d7e93cc5a91cfd
+/kairoforge-upgrade-blueprint/delivery-rules:
+  en: 1845b31dcf0e85c5
+  zh: 6c6ebbaf137a7e31
+/kairoforge-upgrade-blueprint/brand-profile:
+  en: 916133ee9f4fcfba
+  zh: 0bb92f4bc6a97c6e

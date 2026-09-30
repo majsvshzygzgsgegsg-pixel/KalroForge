@@ -1,8 +1,12 @@
-# DeepSeek Harness
+# KairoForge
 
 English | [中文](README.zh.md)
 
-DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
+KairoForge is a local-first AI agent development workspace built from the open-source
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) project. It keeps the
+upstream `dsh` runtime and safety model while adding an original product identity and a
+focused path toward visual orchestration, team supervision, memory controls, evaluation,
+voice, security, and installable desktop-quality Web use.
 
 It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
 
@@ -26,27 +30,29 @@ npx @deepseek-ai/dsh web
 
 The command starts the Web UI at `http://127.0.0.1:3080` by default and opens it in the default browser for a local launch. An SSH launch only prints the host URL because the SSH client or editor owns the local forwarded address. Pass `--no-open` to run the server without opening a browser. See [Web UI guide](docs/user/guide/index.md).
 
-### Run from source
+<a id="run-from-source"></a>
+
+### Run KairoForge from source
 
 To run from a repository checkout:
 
 ```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
+git clone https://github.com/majsvshzygzgsgegsg-pixel/deepseek-harness.git
 cd deepseek-harness
 pnpm install
-pnpm run build
-pnpm dsh web
+pnpm run kairoforge
 ```
 
-`pnpm run build` prepares the repository artifacts. `pnpm dsh web` uses those built artifacts without rebuilding.
+`pnpm run kairoforge` builds the KairoForge profile, opens the Web app, and keeps rebuilding
+client bundles while you edit the source. The equivalent short command is `make kairoforge`.
 
-For an editable development session that opens the same Web UI and rebuilds client bundles when source files change, run:
+Pass Web options after the command, for example `pnpm run kairoforge --no-open --port 3081`
+or `make kairoforge ARGS='--no-open --port 3081'`. `pnpm run source:web` and
+`make source-web` remain aliases. Keep the command running while you edit the app; press
+`Ctrl-C` to stop it.
 
-```sh
-pnpm run source:web
-```
-
-The equivalent short Make command is `make source-web`. Pass Web options after the command, for example `pnpm run source:web --no-open --port 3081` or `make source-web ARGS='--no-open --port 3081'`. Keep the command running while you edit the app; press `Ctrl-C` to stop it.
+See the [KairoForge upgrade blueprint](docs/kairoforge-upgrades.md) for the implementation
+map and the boundaries between shipped, experimental, and planned capabilities.
 
 ## Community and support
 
@@ -62,7 +68,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
 
-`pnpm run dev:web` and its personal alias `pnpm run source:web` build, serve, and rebuild client bundles on source edits in one terminal. `make help` lists the matching Make targets for Web and Desktop; the guide's application commands section owns the full table.
+`pnpm run kairoforge` and `make kairoforge` build, serve, and rebuild the branded client on
+source edits in one terminal. `pnpm run dev:web` remains the neutral upstream development
+entry point. `make help` lists the matching Make targets for Web and Desktop.
 
 For agents, follow [AGENTS.md](AGENTS.md).
 

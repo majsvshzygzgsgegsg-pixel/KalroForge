@@ -48,6 +48,7 @@ import {
   CLIENT_BUILD_PROFILE_SELECTOR,
   clientBuildProcessEnvironment,
   repositoryClientBuildEnvironment,
+  resolveClientBuildEnvironment,
 } from './client-build-environment.ts'
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
@@ -75,7 +76,12 @@ export function devWebBuildEnvironment(
   root: string,
   environment: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  return clientBuildProcessEnvironment(environment, repositoryClientBuildEnvironment(root, environment))
+  const repositoryEnvironment = repositoryClientBuildEnvironment(root, environment)
+  const clientEnvironment = resolveClientBuildEnvironment(
+    repositoryEnvironment,
+    environment[CLIENT_BUILD_PROFILE_SELECTOR],
+  )
+  return clientBuildProcessEnvironment(environment, clientEnvironment)
 }
 
 /** Resolved `dev-web` command line: the script's own flags plus the arguments forwarded to `dsh web`. */
@@ -86,6 +92,8 @@ export interface DevWebArguments {
   readonly serve: boolean
   /** Source-watcher polling interval in milliseconds; undefined selects native watching. */
   readonly pollInterval: number | undefined
+  /** Optional named client identity passed to both the initial build and watchers. */
+  readonly clientProfile: string | undefined
   /** Arguments forwarded verbatim to `dsh web`, in order. */
   readonly appArgs: readonly string[]
 }
@@ -106,6 +114,7 @@ export function parseDevWebArguments(argv: readonly string[]): DevWebArguments {
   let skipBuild = false
   let serve = true
   let pollInterval: number | undefined
+  let clientProfile: string | undefined
   const appArgs: string[] = []
   for (const arg of argv) {
     // `pnpm run` forwards a `--` separator verbatim; it carries no meaning here.
@@ -115,12 +124,15 @@ export function parseDevWebArguments(argv: readonly string[]): DevWebArguments {
     else if (arg === '--poll' || arg.startsWith('--poll=')) {
       pollInterval = arg === '--poll' ? DEFAULT_POLL_INTERVAL : Number(arg.slice('--poll='.length))
       if (!Number.isInteger(pollInterval) || pollInterval <= 0) throw new Error(`dev-web: invalid --poll interval "${arg}"`)
+    } else if (arg.startsWith('--client-profile=')) {
+      clientProfile = arg.slice('--client-profile='.length)
+      if (clientProfile.length === 0) throw new Error('dev-web: --client-profile requires a value')
     } else appArgs.push(arg)
   }
   if (!serve && appArgs.length > 0) {
     throw new Error(`dev-web: --no-serve leaves no dsh web process for ${appArgs[0] ?? ''}`)
   }
-  return { skipBuild, serve, pollInterval, appArgs }
+  return { skipBuild, serve, pollInterval, clientProfile, appArgs }
 }
 
 /**
@@ -338,6 +350,10 @@ if (isMain) {
     console.error(error instanceof Error ? error.message : error)
     console.error('dev-web: usage: pnpm run dev:web [--skip-build] [--no-serve] [--poll[=ms]] [dsh web arguments]')
     process.exit(1)
+  }
+
+  if (options.clientProfile !== undefined) {
+    process.env[CLIENT_BUILD_PROFILE_SELECTOR] = options.clientProfile
   }
 
   // Shutdown is requested once, by a terminal signal or by a stage exiting on

@@ -1,9 +1,12 @@
 {
-  "name": "DeepSeek Harness",
-  "short_name": "DSH",
+  "name": "KairoForge",
+  "short_name": "KairoForge",
+  "description": "A local-first workspace for building and supervising AI agent systems.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
+  "background_color": "#0c1020",
+  "theme_color": "#6d5dfc",
   "icons": [
     {
       "src": "favicon.svg",

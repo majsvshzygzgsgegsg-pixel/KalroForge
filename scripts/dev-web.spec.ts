@@ -76,7 +76,9 @@ describe('StageSupervisor', () => {
 
 describe('parseDevWebArguments', () => {
   it('builds, serves, and watches natively by default', () => {
-    expect(parseDevWebArguments([])).toEqual({ skipBuild: false, serve: true, pollInterval: undefined, appArgs: [] })
+    expect(parseDevWebArguments([])).toEqual({
+      skipBuild: false, serve: true, pollInterval: undefined, clientProfile: undefined, appArgs: [],
+    })
   })
 
   it('reads the polling interval with its 500ms default', () => {
@@ -90,8 +92,16 @@ describe('parseDevWebArguments', () => {
 
   it('separates its own flags from the arguments forwarded to dsh web', () => {
     expect(parseDevWebArguments(['--skip-build', '--poll', '--no-open', '--port', '8080'])).toEqual({
-      skipBuild: true, serve: true, pollInterval: 500, appArgs: ['--no-open', '--port', '8080'],
+      skipBuild: true, serve: true, pollInterval: 500, clientProfile: undefined,
+      appArgs: ['--no-open', '--port', '8080'],
     })
+  })
+
+  it('selects a client identity without forwarding it to dsh web', () => {
+    expect(parseDevWebArguments(['--client-profile=kairoforge', '--no-open'])).toMatchObject({
+      clientProfile: 'kairoforge', appArgs: ['--no-open'],
+    })
+    expect(() => parseDevWebArguments(['--client-profile='])).toThrow('--client-profile requires a value')
   })
 
   it('runs only the rebuild watchers with --no-serve', () => {
@@ -131,8 +141,9 @@ it('samples one local environment at startup without validating watcher outputs'
       DSH_CLIENT_EXTRA: 'launch-value',
     })).toEqual({
       PATH: '/bin',
+      DSH_CLIENT_BUILD_PROFILE: 'official',
       DSH_CLIENT_COMMIT_HASH: 'abc1234',
-      DSH_CLIENT_EXTRA: 'launch-value',
+      DSH_CLIENT_TITLE: 'DeepSeek Harness',
       DSH_CLIENT_VERSION: '1.2.3',
     })
   } finally {

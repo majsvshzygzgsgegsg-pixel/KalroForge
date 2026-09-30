@@ -1,8 +1,10 @@
-# DeepSeek Harness
+# KairoForge
 
 [English](README.md) | 中文
 
-DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
+KairoForge 是基于开源 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+构建的本地优先 AI 智能体开发工作区。它保留上游 `dsh` 运行时与安全模型，同时加入原创品牌，
+并为可视化编排、团队监管、记忆控制、评测、语音、安全和可安装 Web 应用提供统一演进路径。
 
 它构建于**一切皆插件**的架构之上，由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
 
@@ -30,19 +32,22 @@ npx @deepseek-ai/dsh web
 
 <a id="run-from-source"></a>
 
-### 从源码运行
+### 从源码运行 KairoForge
 
 如需从仓库源码运行：
 
 ```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
+git clone https://github.com/majsvshzygzgsgegsg-pixel/deepseek-harness.git
 cd deepseek-harness
 pnpm install
-pnpm run build
-pnpm dsh web
+pnpm run kairoforge
 ```
 
-`pnpm run build` 会准备仓库产物。`pnpm dsh web` 会直接使用这些已构建产物，不会重新构建。
+`pnpm run kairoforge` 会构建 KairoForge profile、打开 Web 应用，并在修改源码时持续重建
+client bundle。对应的短命令是 `make kairoforge`。可在命令后传递 Web 参数，例如
+`pnpm run kairoforge --no-open --port 3081`。
+
+实现范围与各能力的稳定性见 [KairoForge 升级蓝图](docs/kairoforge-upgrades.zh.md)。
 
 ## 社区与支持
 
@@ -73,7 +78,9 @@ pnpm dsh web
 
 请先阅读[开发指南](docs/development.zh.md)与[架构文档](docs/architecture.zh.md)。
 
-`pnpm run dev:web` 会在一个终端里完成构建、启动，并在源码修改时重建 client bundle；`make help` 列出 Web 与 Desktop 对应的 Make target。完整表格见开发指南的「应用命令」一节。
+`pnpm run kairoforge` 与 `make kairoforge` 会在一个终端中构建、启动品牌化客户端，并在
+源码修改时重建 client bundle。`pnpm run dev:web` 仍是中性的上游开发入口；`make help`
+列出 Web 与 Desktop 对应的 Make target。
 
 面向 agent：请遵循 [AGENTS.md](AGENTS.md)。
 
