@@ -11,6 +11,11 @@
   "bin": {
     "kairoforge": "./scripts/kairoforge",
     "kairoforge-web": "./scripts/kairoforge",
+    "kairoforge-open": "./scripts/kairoforge",
+    "kairoforge-launch": "./scripts/kairoforge",
+    "kairoforge-start": "./scripts/kairoforge",
+    "kforge": "./scripts/kairoforge",
+    "forge": "./scripts/kairoforge",
     "kf": "./scripts/kairoforge"
   },
   "workspaces": [
