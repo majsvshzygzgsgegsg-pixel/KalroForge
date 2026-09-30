@@ -54,7 +54,8 @@ type PanelProps = {
 function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
-  const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
+  const activeRow = rows.find(r => r.id === activeId) ?? rows[0]
+  const active = activeRow?.id
   const titleId = useId()
 
   const panel = useRef<HTMLDivElement>(null)
@@ -89,6 +90,13 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
         </nav>
         <div className={css.content}>
           <div className={css.header}>
+            {/* The content pane names the section it is showing. The nav row
+                already carries this text, so the heading is presentational:
+                aria-hidden keeps the section's own content the only thing a
+                screen reader meets after the nav. */}
+            <div className={css.sectionTitle} aria-hidden="true">
+              {activeRow !== undefined && <>{navIcon(activeRow.id)}<span className={css.sectionTitleText}>{activeRow.label}</span></>}
+            </div>
             <div className={css.actions}>{renderSlot('settings.action', {})}</div>
             <button type="button" className={css.close} onClick={onClose}>
               <IconCloseOutlineRegular size={14} />

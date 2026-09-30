@@ -1,3 +1,12 @@
+/* Settings shell chrome. The panel is a two-pane surface: a tinted navigation
+ * rail that reads as a distinct place, and a raised content sheet that holds
+ * the scroll. Depth comes from the elevation tokens rather than hard borders,
+ * and every fill is an alias token so both themes resolve without a rule here.
+ *
+ * Geometry note: `.panel` declares `--dsh-scrollbar-*` for whichever
+ * descendant actually scrolls, and the options column keeps the content
+ * rhythm (24px gutters) the sections were designed against. */
+
 .triggerRow {
   position: relative;
   flex: none;
@@ -33,6 +42,7 @@
   font-family: inherit;
   font-size: 14px;
   line-height: 22px;
+  transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .trigger:hover {
@@ -75,13 +85,10 @@
   backdrop-filter: var(--dsw-mask-blur);
 }
 
-/* Settings uses a shared 800×800 panel; longer sections scroll
-   inside the options column; the navigation scrolls independently. One height for
-   every section, taken from the viewport rather than the content, because a
-   content-sized panel would resize under the pointer on every nav click.
-   The viewport height leaves 24px of air above and below, widened to the
-   frame's published overlay inset on both sides, so the panel sits centered
-   and clear of the strip. */
+/* The panel: a wide two-pane sheet sized from the viewport, never the content,
+ * so switching sections cannot resize the window under the pointer. The mask
+ * fade-in is shared with the Modal primitive's enter curve so the settings
+ * dialog and every other dialog open with the same motion. */
 .panel {
   position: relative;
   z-index: 1;
@@ -91,8 +98,11 @@
   max-width: calc(100vw - 48px);
   border-radius: var(--dsw-radius-panel);
   overflow: hidden;
+  /* The content sheet paints the panel fill; the rail sits on the recessed
+   * base so the two panes separate by tone alone, with no divider rule. */
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: var(--dsw-elevation-prominent);
+  animation: panelEnter var(--ds-transition-duration) var(--ds-ease-in-out);
   /* Elevated surface: the scrollbar thumb takes the l2 elevation tokens.
      Declared on the panel rather than the scrolling `.options` child so the
      elevation choice sits with the surface; the custom properties inherit
@@ -102,47 +112,81 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+@keyframes panelEnter {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+
 .panel:focus {
   outline: none;
 }
 
-/* Nav rail (figma .Setting-nav 501:29958): 188 wide, pad (12,22,12,0),
-   gap 18, no own fill — the panel white shows through. */
+/* Nav rail: a recessed pane that carries the dialog title, the section list,
+ * and the seam against the content sheet. `bg-module-platform` is the app's
+ * recessed surface in BOTH themes (bluish-60 light, bluish-800 dark), so the
+ * two panes separate by tone without a rule and without a per-theme branch. */
 .nav {
+  position: relative;
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  width: 188px;
-  padding: 22px 12px 0;
+  width: 208px;
+  /* No bottom padding: the list is the pane's only flexible child, so it must
+   * own every pixel left under the title at the shortest supported viewport.
+   * The e2e nav-scroll contract asserts the shipped sections do not overflow a
+   * 720px panel, and any reserved strip here pushes the list past it. */
+  padding: 22px 14px 0;
   box-sizing: border-box;
+  background: var(--dsw-alias-bg-module-platform);
+  /* The pane edge is a hairline that reads as a seam rather than a divider. */
+  box-shadow: inset -0.5px 0 0 var(--dsw-alias-border-l2);
 }
 
-/* Title row (figma 501:29959): 16/500 lh24, 12px side padding. */
+/* Title row: the pane's heading, with the gear glyph tinted to the accent so
+ * the dialog opens on a branded note. */
 .navTitle {
-  padding: 0 12px;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 500;
-  color: var(--dsw-alias-label-primary);
-}
-
-/* Cell stack (figma 501:29961): gap 4. */
-.navList {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  overflow-y: auto;
-}
-
-/* Nav cell (figma .Setting-nav-cell 501:29962): 164x40, r12, pad
-   (12,9,16,9), gap 8; label 14/400 lh22; selected fill #EBEEF2. */
-.navCell {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
-  padding: 9px 16px 9px 12px;
+  padding: 0 10px;
+  min-height: 24px;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* Cell stack: the section list, scrollable when a composition registers more
+ * sections than fit. `min-height: 0` lets the flex parent actually constrain
+ * the box, and the rows below keep their height (`flex: none`) so surplus rows
+ * overflow it instead of being compressed — that pair is what makes this the
+ * pane's scroller. Rebound to the l1 thumb pair because this pane scrolls on
+ * the recessed base, not on the raised sheet the panel declared. */
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l1);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l1);
+}
+
+/* Nav cell: a rounded row that lifts on hover and takes the accent rail when
+ * active. The active fill plus a 3px accent bar make the current section
+ * unmistakable without relying on color contrast alone. `flex: none` holds the
+ * row's height under a constrained list so the list scrolls rather than
+ * squashing its rows. */
+.navCell {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
   box-sizing: border-box;
   border: none;
   border-radius: var(--dsw-radius-md);
@@ -152,20 +196,51 @@
   font-size: 14px;
   line-height: 22px;
   font-weight: 400;
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-label-secondary);
   text-align: left;
+  transition:
+    background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+/* Accent bar: pinned to the cell's leading edge, revealed only when active. */
+.navCell::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 2px 2px 0;
+  background: var(--dsw-alias-state-business-primary);
+  transform: translateY(-50%);
+  transition: height var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .navCell:hover {
   background: var(--dsw-specific-sidebar-nav-item-hover);
+  color: var(--dsw-alias-label-primary);
 }
 
 .navCell.active {
   background: var(--dsw-specific-sidebar-nav-item-active);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.navCell.active::before {
+  height: 18px;
 }
 
 .navIcon {
   flex: none;
+  color: var(--dsw-alias-label-secondary);
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
+
+.navCell:hover .navIcon,
+.navCell.active .navIcon {
+  color: var(--dsw-alias-label-primary);
 }
 
 .navLabel {
@@ -176,24 +251,45 @@
   text-overflow: ellipsis;
 }
 
-/* Content column (figma Content 501:29980): header + options. */
+/* Content column: header + options, on the raised panel fill. */
 .content {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  background: var(--dsw-alias-bg-layer-2);
 }
 
-/* Header (figma .Header 501:29981): h54, pad (10,20,14,8), close right. */
+/* Header: the current section's name on the left, its actions and the close
+ * control on the right. Aligned to the same 24px gutter as the content below
+ * so nothing floats out of column. */
 .header {
   flex: none;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  height: 54px;
-  padding: 20px 14px 8px 10px;
+  align-items: center;
+  gap: 12px;
+  height: 62px;
+  padding: 0 20px 0 24px;
   box-sizing: border-box;
+}
+
+/* The pane's own heading. Presentational only — the nav row it mirrors is the
+ * accessible control, so this is aria-hidden and never focusable. */
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.sectionTitleText {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .actions {
@@ -205,26 +301,31 @@
   margin-left: auto;
 }
 
-/* Compact close control. */
+/* Compact close control: a quiet icon button that firms up on hover. */
 .close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: none;
   border-radius: var(--dsw-radius-sm);
   background: transparent;
   cursor: pointer;
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-label-secondary);
+  transition:
+    background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .close:hover {
   background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
 }
 
-/* Options area (figma Options 501:29983): pad (24,0,24,24), scrolls. */
+/* Options area: the scrolling content column, on the same gutter as the
+ * header so the section's rows line up under its actions. */
 .options {
   flex: 1;
   min-height: 0;
@@ -240,6 +341,15 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+  .navCell::before,
+  .navCell,
+  .navIcon,
+  .trigger,
+  .close { transition: none; }
 }
 
 /* No app-region rule here: the overlay portals beside #root (SettingsRoot), so
