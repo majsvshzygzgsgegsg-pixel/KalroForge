@@ -11,6 +11,7 @@
 export type BuiltInPresetCopyKey =
   | 'presetChatName' | 'presetChatDescription'
   | 'presetStandardName' | 'presetStandardDescription'
+  | 'presetSelfEditName' | 'presetSelfEditDescription'
   | 'presetPtcName' | 'presetPtcDescription'
   | 'presetMinimalName' | 'presetMinimalDescription'
   | 'presetCordisName' | 'presetCordisDescription'
@@ -41,6 +42,7 @@ interface PresetLocaleKeys {
 const BUILT_IN_PRESET_KEYS: Readonly<Partial<Record<string, PresetLocaleKeys>>> = {
   chat: { name: 'presetChatName', description: 'presetChatDescription' },
   standard: { name: 'presetStandardName', description: 'presetStandardDescription' },
+  'self-edit': { name: 'presetSelfEditName', description: 'presetSelfEditDescription' },
   ptc: { name: 'presetPtcName', description: 'presetPtcDescription' },
   minimal: { name: 'presetMinimalName', description: 'presetMinimalDescription' },
   cordis: { name: 'presetCordisName', description: 'presetCordisDescription' },

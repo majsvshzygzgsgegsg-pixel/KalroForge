@@ -33,6 +33,7 @@
     "cordis.patch.yml",
     "presets/chat.patch.yml",
     "presets/standard.patch.yml",
+    "presets/self-edit.patch.yml",
     "presets/ptc.patch.yml",
     "presets/minimal.patch.yml",
     "presets/cordis.patch.yml",
@@ -45,6 +46,7 @@
         "./cordis.patch.yml",
         "./presets/chat.patch.yml",
         "./presets/standard.patch.yml",
+        "./presets/self-edit.patch.yml",
         "./presets/ptc.patch.yml",
         "./presets/minimal.patch.yml",
         "./presets/cordis.patch.yml"
