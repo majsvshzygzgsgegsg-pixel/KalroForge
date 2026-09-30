@@ -1,0 +1,10 @@
+cloud:
+  provider: unset
+  region: unset
+  gpu_type: unset
+  gpu_count: 1
+  hourly_price_usd: null
+  max_budget_usd: null
+  persistent_storage_uri: null
+  auto_shutdown_minutes: 30
+  require_manual_approval: true

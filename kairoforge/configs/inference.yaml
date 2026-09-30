@@ -1,0 +1,11 @@
+inference:
+  model_id: kairoforge
+  adapter_path: adapters/kairoforge-v0.1
+  base_model: Qwen/Qwen2.5-Coder-1.5B-Instruct
+  host: 127.0.0.1
+  port: 8090
+  require_api_key: true
+  api_key_env: KAIROFORGE_API_KEY
+  max_new_tokens: 1024
+  temperature: 0.2
+  top_p: 0.95

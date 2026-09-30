@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kairoforge"
+version = "0.1.0"
+description = "Training, evaluation, and inference scaffold for the KairoForge coding model."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+]
+
+[project.optional-dependencies]
+ml = [
+  "accelerate>=0.34",
+  "bitsandbytes>=0.43; platform_system == 'Linux'",
+  "datasets>=2.20",
+  "peft>=0.12",
+  "torch>=2.4",
+  "transformers>=4.44",
+  "trl>=0.10",
+]
+server = [
+  "fastapi>=0.112",
+  "uvicorn[standard]>=0.30",
+]
+dev = [
+  "pytest>=8.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

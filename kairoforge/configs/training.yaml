@@ -1,0 +1,18 @@
+training:
+  base_model: Qwen/Qwen2.5-Coder-1.5B-Instruct
+  output_dir: adapters/kairoforge-v0.1
+  dataset_path: data/processed/examples.sft.jsonl
+  epochs: 1
+  learning_rate: 0.0002
+  batch_size: 1
+  gradient_accumulation: 8
+  max_sequence_length: 2048
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  precision: bf16
+  checkpoint_interval: 50
+  evaluation_interval: 50
+  random_seed: 1337

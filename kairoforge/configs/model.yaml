@@ -1,0 +1,9 @@
+model:
+  name: kairoforge-v0.1
+  base_model: Qwen/Qwen2.5-Coder-1.5B-Instruct
+  parameter_count: 1.5B
+  context_length: 32768
+  license: Apache-2.0
+  source: https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct
+  expected_vram: "8-16 GiB for QLoRA smoke tests; larger runs need more VRAM."
+  training_notes: "Use QLoRA first. Upgrade to a larger coding base model after the data and eval pipeline are verified."

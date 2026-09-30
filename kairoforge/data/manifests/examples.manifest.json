@@ -1,0 +1,14 @@
+{
+  "created_at": "2026-09-30T12:44:22.585186+00:00",
+  "input": "data/raw/examples.jsonl",
+  "output": "data/processed/examples.sft.jsonl",
+  "records_in": 2,
+  "records_out": 2,
+  "output_sha256": "d498d81eb166735281d7d87bab41e3638d30fe626efa687689d2d75f89d871aa",
+  "sources": [
+    "local-demo"
+  ],
+  "licenses": [
+    "MIT"
+  ]
+}
