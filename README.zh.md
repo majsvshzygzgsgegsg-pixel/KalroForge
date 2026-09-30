@@ -2,99 +2,52 @@
 
 [English](README.md) | 中文
 
-KairoForge 是基于开源 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-构建的本地优先 AI 智能体开发工作区。它保留上游 `dsh` 运行时与安全模型，同时加入原创品牌，
-并为可视化编排、团队监管、记忆控制、评测、语音、安全和可安装 Web 应用提供统一演进路径。
+KairoForge 是一个本地优先的 AI 聊天与代码工作区。它在同一个 Web 应用里提供两种模式：
 
-它构建于**一切皆插件**的架构之上，由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
+- 简洁的普通聊天模式，用于日常问答；
+- 代码 / Agent 模式，用于仓库、文件、终端、工具和自动化工作流。
 
-文档：[https://deepseek-harness.github.io/deepseek-harness/](https://deepseek-harness.github.io/deepseek-harness/)
+此项目已经加入 KairoForge 品牌、专用 Web profile、模型显示名更新，以及新的 `kairoforge/` 机器学习脚手架，用于未来的开源权重训练实验。
 
-## 开发者预览
+## 已包含内容
 
-DeepSeek Harness 处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
+- KairoForge Web 品牌、图标、应用 manifest 和聊天界面样式。
+- 普通聊天与代码工作流的右上角模式切换。
+- 模型选择器中的 KairoForge 模型显示名。
+- 适合手机使用的 PWA 风格 Web 入口。
+- `kairoforge/` 训练脚手架：数据准备、LoRA/QLoRA dry run、评测占位、带成本保护的云部署脚本，以及 OpenAI 兼容 API 服务骨架。
 
-运行本项目前，请阅读[安全说明](SAFETY.zh.md)。
+## 当前模型状态
 
-<a id="run"></a>
+KairoForge 的模型训练脚手架已经存在，但还没有执行真实云 GPU 训练。
 
-## 运行
+- KairoForge 训练后 checkpoint：**未完成**
+- 云 GPU 资源：**未创建**
+- 当前云成本：**$0**
 
-### 通过 `npm` 运行
+详见 [`kairoforge/docs/final-status.md`](kairoforge/docs/final-status.md)。
 
-安装 `Node.js`，然后运行：
-
-```sh
-npx @deepseek-ai/dsh web
-```
-
-该命令默认会在 `http://127.0.0.1:3080` 启动 Web UI，本机启动时还会用默认浏览器打开页面。通过 SSH 启动时只打印宿主机 URL，因为本地转发地址由 SSH 客户端或编辑器持有。传入 `--no-open` 可仅运行服务器而不打开浏览器。详见 [Web UI 指南](docs/user/guide/index.zh.md)。
-
-<a id="run-from-source"></a>
-
-### 从源码运行 KairoForge
-
-如需从仓库源码运行：
+## 从源码运行
 
 ```sh
-git clone https://github.com/majsvshzygzgsgegsg-pixel/deepseek-harness.git
-cd deepseek-harness
+git clone https://github.com/majsvshzygzgsgegsg-pixel/kairoforge.git
+cd kairoforge
 pnpm install
 pnpm run kairoforge
 ```
 
-`pnpm run kairoforge` 会构建 KairoForge profile、打开 Web 应用，并在修改源码时持续重建
-client bundle。对应的短命令是 `make kairoforge`。可在命令后传递 Web 参数，例如
-`pnpm run kairoforge --no-open --port 3081`。
+应用默认会在 `http://127.0.0.1:3080` 启动。
 
-实现范围与各能力的稳定性见 [KairoForge 升级蓝图](docs/kairoforge-upgrades.zh.md)。
+## KairoForge ML 脚手架
 
-## 社区与支持
-
-- 通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。
-- 为你的插件仓库添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin) 话题，便于被发现。
-- 欢迎加入 DeepSeek Harness 企微群！扫描下方二维码填写入群问卷，小助手会定期发送入群邀请。
-
-<table>
-  <thead>
-    <tr>
-      <th align="center">入群问卷</th>
-      <th align="center">微信公众号</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center"><a href="https://trtgsjkv6r.feishu.cn/share/base/form/shrcnIt5twSVdLGD52KJBckGCgg"><img src="https://cdn.deepseek.com/harness/readme/community-wecom-survey.png" alt="DeepSeek Harness 入群问卷二维码" width="180" height="180"></a></td>
-      <td align="center"><img src="https://cdn.deepseek.com/harness/readme/community-wechat-official-account.png" alt="DeepSeek Harness 团队微信公众号二维码" width="180" height="180"></td>
-    </tr>
-  </tbody>
-</table>
-
-## 参与贡献
-
-参见 [CONTRIBUTING.md](CONTRIBUTING.zh.md)。
-
-## 开发
-
-请先阅读[开发指南](docs/development.zh.md)与[架构文档](docs/architecture.zh.md)。
-
-`pnpm run kairoforge` 与 `make kairoforge` 会在一个终端中构建、启动品牌化客户端，并在
-源码修改时重建 client bundle。`pnpm run dev:web` 仍是中性的上游开发入口；`make help`
-列出 Web 与 Desktop 对应的 Make target。
-
-面向 agent：请遵循 [AGENTS.md](AGENTS.md)。
-
-## 引用
-
-```bibtex
-@misc{deepseek-harness2026,
-  title={DeepSeek Harness: Everything is a Plugin},
-  author={DeepSeek-AI},
-  year={2026},
-  publisher={GitHub},
-  howpublished={\url{https://github.com/deepseek-ai/deepseek-harness}},
-}
+```sh
+cd kairoforge
+python3.11 scripts/prepare_data.py --input data/raw/examples.jsonl --output data/processed/examples.sft.jsonl --manifest data/manifests/examples.manifest.json
+PYTHONPATH=src python3.11 scripts/train.py --config configs/training.yaml --dry-run
+PYTHONPATH=src python3.11 scripts/evaluate.py --config configs/training.yaml --dry-run
 ```
+
+部署脚本会拒绝任何付费云操作，直到填写并批准云提供商、GPU、小时价格和最大预算。
 
 ## 许可证
 

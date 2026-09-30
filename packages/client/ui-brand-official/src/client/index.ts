@@ -1,4 +1,4 @@
-/** DeepSeek Harness and KairoForge occupants for generic browser-brand slots. */
+/** KairoForge occupants for generic browser-brand slots. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'

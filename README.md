@@ -2,89 +2,52 @@
 
 English | [中文](README.zh.md)
 
-KairoForge is a local-first AI agent development workspace built from the open-source
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) project. It keeps the
-upstream `dsh` runtime and safety model while adding an original product identity and a
-focused path toward visual orchestration, team supervision, memory controls, evaluation,
-voice, security, and installable desktop-quality Web use.
+KairoForge is a local-first AI chat and coding workspace. It gives you two modes in one web app:
 
-It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
+- a clean normal chat mode for everyday answers;
+- a coding/agent mode for repository work, files, terminals, tools, and automation.
 
-Documentation: [https://deepseek-harness.github.io/deepseek-harness/](https://deepseek-harness.github.io/deepseek-harness/)
+The project includes KairoForge branding, a custom web profile, model-label updates, and a new `kairoforge/` machine-learning scaffold for future open-weight training experiments.
 
-## Developer preview
+## What is included
 
-DeepSeek Harness is in _developer preview_ and iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
+- KairoForge web branding, icons, app manifest, and chat styling.
+- Top-right mode switching between normal chat and coding workflow.
+- KairoForge model display names in the model picker.
+- A phone-ready PWA-style web entry.
+- A no-cost `kairoforge/` training scaffold with data preparation, LoRA/QLoRA dry runs, evaluation placeholders, cost-gated cloud deployment scripts, and an OpenAI-compatible API server skeleton.
 
-Review the [safety notice](SAFETY.md) before running the project.
+## Current model status
 
-## Run
+KairoForge’s model-training scaffold exists, but no real cloud GPU training has been run yet.
 
-### Run from `npm`
+- Trained KairoForge checkpoint: **not completed**
+- Cloud GPU resources: **not created**
+- Running cloud cost: **$0**
 
-Install `Node.js`, then run:
+See [`kairoforge/docs/final-status.md`](kairoforge/docs/final-status.md).
 
-```sh
-npx @deepseek-ai/dsh web
-```
-
-The command starts the Web UI at `http://127.0.0.1:3080` by default and opens it in the default browser for a local launch. An SSH launch only prints the host URL because the SSH client or editor owns the local forwarded address. Pass `--no-open` to run the server without opening a browser. See [Web UI guide](docs/user/guide/index.md).
-
-<a id="run-from-source"></a>
-
-### Run KairoForge from source
-
-To run from a repository checkout:
+## Run from source
 
 ```sh
-git clone https://github.com/majsvshzygzgsgegsg-pixel/deepseek-harness.git
-cd deepseek-harness
+git clone https://github.com/majsvshzygzgsgegsg-pixel/kairoforge.git
+cd kairoforge
 pnpm install
 pnpm run kairoforge
 ```
 
-`pnpm run kairoforge` builds the KairoForge profile, opens the Web app, and keeps rebuilding
-client bundles while you edit the source. The equivalent short command is `make kairoforge`.
+The app opens at `http://127.0.0.1:3080` by default.
 
-Pass Web options after the command, for example `pnpm run kairoforge --no-open --port 3081`
-or `make kairoforge ARGS='--no-open --port 3081'`. `pnpm run source:web` and
-`make source-web` remain aliases. Keep the command running while you edit the app; press
-`Ctrl-C` to stop it.
+## KairoForge ML scaffold
 
-See the [KairoForge upgrade blueprint](docs/kairoforge-upgrades.md) for the implementation
-map and the boundaries between shipped, experimental, and planned capabilities.
-
-## Community and support
-
-- Submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
-- Add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic to your plugin repository for discoverability.
-- Join <a href="https://discord.gg/4MrtZUhpxg">DeepSeek Harness Discord community</a>.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Development
-
-Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
-
-`pnpm run kairoforge` and `make kairoforge` build, serve, and rebuild the branded client on
-source edits in one terminal. `pnpm run dev:web` remains the neutral upstream development
-entry point. `make help` lists the matching Make targets for Web and Desktop.
-
-For agents, follow [AGENTS.md](AGENTS.md).
-
-## Citation
-
-```bibtex
-@misc{deepseek-harness2026,
-  title={DeepSeek Harness: Everything is a Plugin},
-  author={DeepSeek-AI},
-  year={2026},
-  publisher={GitHub},
-  howpublished={\url{https://github.com/deepseek-ai/deepseek-harness}},
-}
+```sh
+cd kairoforge
+python3.11 scripts/prepare_data.py --input data/raw/examples.jsonl --output data/processed/examples.sft.jsonl --manifest data/manifests/examples.manifest.json
+PYTHONPATH=src python3.11 scripts/train.py --config configs/training.yaml --dry-run
+PYTHONPATH=src python3.11 scripts/evaluate.py --config configs/training.yaml --dry-run
 ```
+
+The deploy script refuses paid cloud work until provider, GPU, hourly price, and max budget are filled in and approved.
 
 ## License
 
