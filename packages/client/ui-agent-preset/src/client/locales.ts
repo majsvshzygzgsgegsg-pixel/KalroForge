@@ -66,7 +66,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
     'The agent works using only a terminal tool. Useful for testing and comparing its basic performance.',
   presetCordisName: 'Creator mode',
   presetCordisDescription:
-    'Advanced builder mode. KairoForge can create projects, clone GitHub repos, build plugins, UI, tools, prompts, workflows, model settings, and custom modes, then verify, commit, and push them when you ask.',
+    'Advanced builder mode. KairoForge can create projects, clone GitHub repos, build plugins, UI, tools, prompts, workflows, model settings, and custom modes, then verify and automatically publish repo updates unless you say not to.',
   presetBuilderName: 'Builder mode',
   presetBuilderDescription:
     'Live website and app builder. KairoForge builds, deploys, verifies a public URL you can open on phone or laptop, and can rename the app URL when you ask.',
