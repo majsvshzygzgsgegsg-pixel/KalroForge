@@ -64,7 +64,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
     'The agent works using only a terminal tool. Useful for testing and comparing its basic performance.',
   presetCordisName: 'Creator mode',
   presetCordisDescription:
-    'Customize DSH through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
+    'Advanced builder mode. KairoForge can design and build plugins, UI, tools, prompts, workflows, model settings, and custom modes, then verify and publish them when you ask.',
 
   inUse: 'New task default',
 
@@ -106,7 +106,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetMinimalName: '极简模式',
   presetMinimalDescription: 'Agent 仅使用终端工具完成任务，适合测试和对比其基础表现。',
   presetCordisName: '创造模式',
-  presetCordisDescription: '用对话定制 DSH：让 Agent 编写插件，添加新功能或界面；也能组合工具和提示词，创建自己的模式。',
+  presetCordisDescription: '高级构建模式。KairoForge 可以设计并构建插件、界面、工具、提示词、工作流、模型设置和自定义模式，并在你要求时验证和发布。',
 
   inUse: '新任务默认',
 

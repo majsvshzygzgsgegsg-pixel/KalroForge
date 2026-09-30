@@ -51,14 +51,14 @@ export const guideEn = {
     '> Run the tests for this project, find the cause of the failure, and make the smallest fix. Run the relevant tests again and report the result.',
     'Run the same task separately in Standard and Minimal modes from the same starting state. Compare task completion, tool calls, and the resulting changes. Minimal mode performs the work through terminal commands.',
   ].join('\n\n'),
-  guideCordisIntro: 'Choose Creator mode for a new task. Describe the capability you want, where it should appear, and how you will verify it.',
+  guideCordisIntro: 'Choose Creator mode for a new build task. Describe what you want KairoForge to create, where it should appear, and what “done” should look like.',
   guideCordisExplanation: [
     '### What you can create',
-    'Creator mode includes the standard task tools plus runtime inspection, persistent plugin management, and guidance for authoring Cordis plugins and agent presets. It can create a plugin that adds a capability or UI, or a preset that combines tools and prompts for a particular job.',
+    'Creator mode includes the standard coding tools plus runtime inspection, persistent plugin management, workflow tools, subagents, and guidance for authoring KairoForge plugins and agent presets. It is built for creating app features, tools, UI, commands, settings, prompts, model/provider entries, workflows, and custom modes.',
     '### Plugins and modes',
-    'A plugin adds capabilities to DSH, such as a tool, a service connection, or a UI entry. A mode is an agent preset that selects tools and defines how the agent works in a task. A plugin can be included in a custom preset.',
+    'A plugin adds capabilities to KairoForge, such as a tool, a service connection, a UI entry, or a background behavior. A mode is an agent preset that selects tools and defines how the agent works in a task. A plugin can be included in a custom preset.',
     '### How the result takes effect',
-    'Ask the agent to install and verify the result, not just generate source code. A plugin may load immediately or require a restart, depending on what it changes. A newly created preset is selected when starting a new task.',
+    'Ask the agent to install, verify, publish, restart, and open the result, not just generate source code. A plugin may load immediately or require a restart, depending on what it changes. A newly created preset is selected when starting a new task.',
   ].join('\n\n'),
   guideCordisUsage: [
     '### Add a UI',
