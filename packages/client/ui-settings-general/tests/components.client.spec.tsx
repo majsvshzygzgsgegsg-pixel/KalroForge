@@ -9,6 +9,7 @@ import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.
 import type { TriggerContentProps } from '../src/client/chrome.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import { DeveloperToolsRow } from '../src/client/DeveloperToolsRow.tsx'
+import { ConnectionsCard, CONNECTION_SERVICES } from '../src/client/ConnectionsCard.tsx'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { SettingsDocumentStore } from '../src/client/settings-document-store.ts'
@@ -31,7 +32,11 @@ afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
 // The seat's key domain is settings ∪ common; the stub answers from the
 // package dictionary and falls back to the key like the real chain.
-const t: TriggerContentProps['t'] = key => (en as Record<string, string>)[key] ?? key
+const t: TriggerContentProps['t'] = (key, params) => {
+  let text = (en as Record<string, string>)[key] ?? key
+  for (const [name, value] of Object.entries(params ?? {})) text = text.replaceAll(`{${name}}`, String(value))
+  return text
+}
 
 // Global standard kit stubs: none of these components consume the hooks.
 const unusedHook = (() => { throw new Error('unused by settings-general components') }) as never
@@ -89,6 +94,18 @@ it('toggles developer tools using the accepted setting and disables duplicate wr
   finish()
   await waitFor(() => { expect(toggle.getAttribute('aria-checked')).toBe('true') })
   expect(toggle.hasAttribute('disabled')).toBe(false)
+})
+
+it('shows a searchable 200-plus connection catalog and explains real account linking', () => {
+  expect(CONNECTION_SERVICES.length).toBeGreaterThanOrEqual(200)
+  render(<ConnectionsCard {...kit} t={t} />)
+  expect(screen.getByText('Connections')).toBeTruthy()
+  expect(screen.getByText(`${CONNECTION_SERVICES.length}+ services`)).toBeTruthy()
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search services' }), { target: { value: 'gmail' } })
+  expect(screen.getByText('Gmail')).toBeTruthy()
+  expect(screen.queryByText('GitHub')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+  expect(screen.getByRole('status').textContent).toContain('Gmail is ready to wire up')
 })
 
 describe('chrome content', () => {
