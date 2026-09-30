@@ -58,7 +58,7 @@ export const guideEn = {
     '### Plugins and modes',
     'A plugin adds capabilities to KairoForge, such as a tool, a service connection, a UI entry, or a background behavior. A mode is an agent preset that selects tools and defines how the agent works in a task. A plugin can be included in a custom preset.',
     '### How the result takes effect',
-    'Ask the agent to install, verify, publish, restart, and open the result, not just generate source code. A plugin may load immediately or require a restart, depending on what it changes. A newly created preset is selected when starting a new task.',
+    'Ask the agent to install, verify, commit, push, restart, and open the result, not just generate source code. Creator mode publishes directly to the configured GitHub branch when you ask; it should only make a pull request if you ask for one or direct push is blocked. A plugin may load immediately or require a restart, depending on what it changes. A newly created preset is selected when starting a new task.',
   ].join('\n\n'),
   guideCordisUsage: [
     '### Add a UI',

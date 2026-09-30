@@ -55,7 +55,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
     'Coding and agent mode. KairoForge can inspect projects, edit files, run commands, search, and use other available tools.',
   presetSelfEditName: 'Self-Edit + GitHub',
   presetSelfEditDescription:
-    'Repository-builder mode. KairoForge can edit its own app files, run checks, create commits, and publish with Git when you ask.',
+    'Repository-builder mode. KairoForge can edit its own app files, run checks, add files, commit, and push directly to GitHub when you ask.',
   presetPtcName: 'PTC mode',
   presetPtcDescription:
     'Includes all Standard mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
@@ -64,7 +64,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
     'The agent works using only a terminal tool. Useful for testing and comparing its basic performance.',
   presetCordisName: 'Creator mode',
   presetCordisDescription:
-    'Advanced builder mode. KairoForge can design and build plugins, UI, tools, prompts, workflows, model settings, and custom modes, then verify and publish them when you ask.',
+    'Advanced builder mode. KairoForge can design and build plugins, UI, tools, prompts, workflows, model settings, and custom modes, then verify, commit, and push them when you ask.',
 
   inUse: 'New task default',
 
@@ -100,13 +100,13 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetStandardName: 'KairoForge',
   presetStandardDescription: '编程与 Agent 模式。KairoForge 可以检查项目、编辑文件、运行命令、检索并使用其他可用工具。',
   presetSelfEditName: '自我编辑 + GitHub',
-  presetSelfEditDescription: '仓库构建模式。KairoForge 可以编辑自己的应用文件、运行检查、创建提交，并在你要求时用 Git 发布。',
+  presetSelfEditDescription: '仓库构建模式。KairoForge 可以编辑自己的应用文件、运行检查、添加文件、提交，并在你要求时直接推送到 GitHub。',
   presetPtcName: 'PTC 模式',
   presetPtcDescription: '包含标准模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
   presetMinimalName: '极简模式',
   presetMinimalDescription: 'Agent 仅使用终端工具完成任务，适合测试和对比其基础表现。',
   presetCordisName: '创造模式',
-  presetCordisDescription: '高级构建模式。KairoForge 可以设计并构建插件、界面、工具、提示词、工作流、模型设置和自定义模式，并在你要求时验证和发布。',
+  presetCordisDescription: '高级构建模式。KairoForge 可以设计并构建插件、界面、工具、提示词、工作流、模型设置和自定义模式，并在你要求时验证、提交并推送。',
 
   inUse: '新任务默认',
 
