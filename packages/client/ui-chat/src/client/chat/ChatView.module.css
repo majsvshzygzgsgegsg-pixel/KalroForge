@@ -18,9 +18,19 @@
   overflow-x: visible;
   overflow-y: clip;
   background:
-    radial-gradient(circle at 12% 8%, color-mix(in srgb, #7c3aed 10%, transparent) 0, transparent 28%),
-    radial-gradient(circle at 88% 0%, color-mix(in srgb, #06b6d4 9%, transparent) 0, transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-bg-base) 94%, #101827) 0%, var(--dsw-alias-bg-base) 52%);
+    linear-gradient(90deg, color-mix(in srgb, #7c3aed 9%, transparent) 0 1px, transparent 1px 100%),
+    linear-gradient(0deg, color-mix(in srgb, #06b6d4 7%, transparent) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 20% 12%, color-mix(in srgb, #7c3aed 20%, transparent) 0, transparent 30%),
+    radial-gradient(circle at 82% 2%, color-mix(in srgb, #06b6d4 18%, transparent) 0, transparent 26%),
+    radial-gradient(circle at 70% 78%, color-mix(in srgb, #f59e0b 7%, transparent) 0, transparent 22%),
+    linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-bg-base) 86%, #020617 14%) 0%, var(--dsw-alias-bg-base) 58%);
+  background-size:
+    42px 42px,
+    42px 42px,
+    auto,
+    auto,
+    auto,
+    auto;
 }
 
 .scroll {
@@ -59,12 +69,12 @@
    centered on the same axis as the input box (which caps at chat + 16px); the
    scroller itself stays full-bleed. */
 .column {
-  max-width: min(var(--dsh-chat-content-width), 840px);
+  max-width: min(var(--dsh-chat-content-width), 880px);
   width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding: 6px 0 12px;
+  padding: 16px 0 20px;
 }
 
 /* `hidden="until-found"` retains a zero-height box so browser find can reveal
@@ -128,11 +138,16 @@
   font-size: calc(var(--dsh-content-font-size, 14px) - 2px);
   line-height: calc(22px + var(--dsh-content-font-delta, 0px));
   padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l2) 42%, transparent);
+  border: 1px solid color-mix(in srgb, #22d3ee 24%, var(--dsw-alias-border-l2));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base) 72%, transparent);
-  box-shadow: 0 8px 28px color-mix(in srgb, #0f172a 8%, transparent);
-  backdrop-filter: blur(10px);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--dsw-alias-bg-layer-1) 78%, #172554 22%),
+      color-mix(in srgb, var(--dsw-alias-bg-layer-1) 72%, #312e81 28%));
+  box-shadow:
+    0 12px 34px color-mix(in srgb, #0f172a 18%, transparent),
+    0 0 22px color-mix(in srgb, #06b6d4 12%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 /* The last visible row before the status must contain output, not an input.

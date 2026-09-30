@@ -26,11 +26,11 @@
   max-width: 100%;
   background:
     linear-gradient(135deg,
-      color-mix(in srgb, var(--dsw-specific-bubble) 82%, #7c3aed 18%),
-      color-mix(in srgb, var(--dsw-specific-bubble) 86%, #06b6d4 14%)
+      color-mix(in srgb, var(--dsw-specific-bubble) 70%, #7c3aed 30%),
+      color-mix(in srgb, var(--dsw-specific-bubble) 72%, #06b6d4 28%)
     );
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l2) 42%, transparent);
-  border-radius: 22px 22px 8px 22px;
+  border: 1px solid color-mix(in srgb, #22d3ee 22%, transparent);
+  border-radius: 24px 24px 8px 24px;
   /* 42px single-line bubble at the default size: 22 line + 10 vertical
      padding each side; the Settings font-size preference moves size and line
      height together through the body-published axis. */
@@ -39,8 +39,9 @@
   line-height: calc(22px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-primary);
   box-shadow:
-    0 10px 26px color-mix(in srgb, #0f172a 10%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
+    0 14px 34px color-mix(in srgb, #0f172a 16%, transparent),
+    0 0 20px color-mix(in srgb, #7c3aed 9%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 22%, transparent);
   /* The projected user text is inline runs; the bubble owns wrapping so a
      decorated single-line message stays one line. */
   white-space: pre-wrap;
