@@ -80,7 +80,7 @@ export const guideEn = {
     '### How to get a better result',
     'Point at a reference site or brand if you have one, say which screens matter most, and say how it should run: a local preview, static files you can host anywhere, or a deployable app. Anything you leave open, it decides and states as an assumption.',
     '### Deploying for real',
-    'When you want it live, Builder mode plans the deployment, picks a provider that matches what the project needs, publishes it, and verifies the public URL: resolution, HTTPS, the main page, API endpoints, static assets, and exposed secrets. A build passing is not a deployment passing. Before publishing it scans for secrets and blocks on what it finds, and it asks before using a provider that could create an account, change billing, or buy a domain. If credentials or approval are missing it stops at that exact boundary and says what is required. Every deployment is recorded with its provider, URL, commit, and health, so a broken release can be rolled back to the last healthy one.',
+    'When you want it live, Builder mode plans the deployment, picks a provider that matches what the project needs, publishes it, and verifies the public URL: resolution, HTTPS, the main page, API endpoints, static assets, and exposed secrets. A build passing is not a deployment passing. Before publishing it scans for secrets and blocks on what it finds, and it asks before using a provider that could create an account, change billing, or buy a domain. If credentials or approval are missing it stops at that exact boundary and says what is required. Every deployment is recorded with its provider, URL, commit, and health, so a broken release can be rolled back to the last healthy one. A static site that already lives in a git repository needs no account at all: Builder pushes the build to a site branch (GitHub Pages by default), rewrites the asset paths so they work under the subpath it is served from, and reports the public HTTPS URL.',
   ].join('\n\n'),
   guideBuilderUsage: [
     '### A small website',
@@ -180,7 +180,7 @@ export const guideZh: Record<PresetGuideKey, string> = {
     '### 怎样得到更好的结果',
     '有参考网站或品牌就指给它，说明哪几屏最重要，以及希望怎样运行：本地预览、可自行托管的静态文件，还是可部署的应用。你没有指定的部分，它会自行决定并说明所做的假设。',
     '### 真正部署上线',
-    '需要上线时，构建模式会规划部署、挑选与项目需求匹配的服务商、完成发布，并验证公开网址：能否解析、HTTPS、主页面、API 端点、静态资源，以及是否暴露密钥。构建通过不等于部署成功。发布前会先扫描密钥并拦截发现的问题；对于可能创建账号、产生费用或购买域名的服务商，它会先征求你的同意。缺少凭据或授权时，它会停在那一步并说明需要什么。每次部署都会记录服务商、网址、提交和健康状况，因此出问题的版本可以回滚到上一个健康版本。',
+    '需要上线时，构建模式会规划部署、挑选与项目需求匹配的服务商、完成发布，并验证公开网址：能否解析、HTTPS、主页面、API 端点、静态资源，以及是否暴露密钥。构建通过不等于部署成功。发布前会先扫描密钥并拦截发现的问题；对于可能创建账号、产生费用或购买域名的服务商，它会先征求你的同意。缺少凭据或授权时，它会停在那一步并说明需要什么。每次部署都会记录服务商、网址、提交和健康状况，因此出问题的版本可以回滚到上一个健康版本。存放在 Git 仓库中的静态站点无需账号即可发布：构建模式会把构建产物推送到站点分支（默认 GitHub Pages），调整资源路径以适配实际的子路径，并给出公开的 HTTPS 网址。',
   ].join('\n\n'),
   guideBuilderUsage: [
     '### 做一个网站',

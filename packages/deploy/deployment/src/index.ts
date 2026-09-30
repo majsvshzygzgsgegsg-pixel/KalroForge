@@ -23,6 +23,7 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { DeploymentManager } from './manager.ts'
 import { createCommandProvider } from './providers/command.ts'
+import { createGitHubPagesProvider } from './providers/github-pages.ts'
 import { createLocalStaticProvider } from './providers/local-static.ts'
 import { registerDeploymentTools } from './tools.ts'
 import type { CommandEnvironmentConfig, CommandProviderOptions } from './providers/command.ts'
@@ -34,6 +35,8 @@ export { currentDeployments, deploymentSnapshot, lastHealthyDeployment, readDepl
 export { reachabilityOf, verifyDeployment } from './verify.ts'
 export { scanForSecrets } from './secrets.ts'
 export { createCommandProvider } from './providers/command.ts'
+export { createGitHubPagesProvider } from './providers/github-pages.ts'
+export type { GitHubPagesOptions, ParsedRepo } from './providers/github-pages.ts'
 export { createLocalStaticProvider } from './providers/local-static.ts'
 export type { CommandEnvironmentConfig, CommandProviderOptions } from './providers/command.ts'
 export type { LocalStaticOptions } from './providers/local-static.ts'
@@ -74,6 +77,26 @@ export interface Config {
   localPort?: number
   /** Command-backed providers, for hosts driven by their own CLI. */
   providers?: CommandProviderConfig[]
+  /**
+   * Publishing a static site to a git branch — GitHub Pages by default, and any
+   * host that serves a branch when `publicUrl` names one. Omitted, the project's
+   * own `origin` remote is used, so a site that already lives in a repository
+   * needs no configuration at all.
+   */
+  githubPages?: {
+    /** `owner/name` or a remote URL; defaults to the project's origin remote. */
+    repo?: string
+    /** Branch the site is published to; defaults to `gh-pages`. */
+    branch?: string
+    /** Custom domain, which is also the URL that gets verified. */
+    domain?: string
+    /** The URL the branch is served from, for a host that is not GitHub Pages. */
+    publicUrl?: string
+    /** Path prefix to serve under; defaults to `/<repo>/` for a project site. */
+    basePath?: string
+    /** Rewrite root-absolute asset URLs for that prefix; defaults to true. */
+    rewriteAbsolutePaths?: boolean
+  }
 }
 
 /** Where local releases live when the operator configures nothing. */
@@ -115,6 +138,14 @@ export class Deployment extends DeploymentManager {
         timeoutMs: z.number().step(1).min(1).default(900_000),
       })),
     })),
+    githubPages: z.object({
+      repo: z.string(),
+      branch: z.string(),
+      domain: z.string(),
+      publicUrl: z.string(),
+      basePath: z.string(),
+      rewriteAbsolutePaths: z.boolean(),
+    }),
   })
 
   /** The local adapter, kept so its server can be stopped on disposal. */
@@ -138,6 +169,24 @@ export class Deployment extends DeploymentManager {
     for (const provider of config.providers ?? []) {
       this.registerProvider(createCommandProvider(toCommandOptions(provider)))
     }
+    // Registered unconditionally: a static site in a repository can be published
+    // publicly with no configuration at all, and the adapter asks for approval
+    // before it pushes anything.
+    const pages = config.githubPages
+    const pagesRepo = configured(pages?.repo)
+    const pagesBranch = configured(pages?.branch)
+    const pagesDomain = configured(pages?.domain)
+    const pagesPublicUrl = configured(pages?.publicUrl)
+    const pagesBasePath = configured(pages?.basePath)
+    this.registerProvider(createGitHubPagesProvider({
+      rootDir: config.releaseRoot ?? DEFAULT_RELEASE_ROOT,
+      ...pagesRepo === undefined ? {} : { repo: pagesRepo },
+      ...pagesBranch === undefined ? {} : { branch: pagesBranch },
+      ...pagesDomain === undefined ? {} : { domain: pagesDomain },
+      ...pagesPublicUrl === undefined ? {} : { publicUrl: pagesPublicUrl },
+      ...pagesBasePath === undefined ? {} : { basePath: pagesBasePath },
+      ...pages?.rewriteAbsolutePaths == null ? {} : { rewriteAbsolutePaths: pages.rewriteAbsolutePaths },
+    }))
 
     // Tool registration waits for the tool registry through an injection rather
     // than a static dependency: a deployment service that refused to start until
@@ -149,6 +198,15 @@ export class Deployment extends DeploymentManager {
     })
     ctx.effect(() => () => this.local.close())
   }
+}
+
+/**
+ * Schemastery reports an absent optional field as null or undefined; both mean
+ * "not configured" at this boundary, and an empty string never means "use the
+ * empty value" for a repository, branch, or domain.
+ */
+function configured(value: string | null | undefined): string | undefined {
+  return value === null || value === undefined || value === '' ? undefined : value
 }
 
 /** Narrow one configured provider into the adapter's options. */

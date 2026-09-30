@@ -38,9 +38,14 @@ describe('the deployment plugin', () => {
 
     expect(ctx.deployments).toBeDefined()
     expect(ctx.deployments.releaseRoot).toBe(releaseRoot)
-    // The local adapter ships with the plugin, because a preview deployment is
-    // the one every project can have without an account.
-    expect(ctx.deployments.providers().map(provider => provider.id)).toEqual(['local-static'])
+    // Two adapters ship with the plugin: a local static server, because that is
+    // the one every project can have without an account, and GitHub Pages,
+    // because that is the one that is publicly reachable without an account too.
+    const providers = ctx.deployments.providers()
+    expect(providers.map(provider => provider.id)).toEqual(['github-pages', 'local-static'])
+    // Publishing publicly must never happen on the model's own initiative.
+    expect(providers.find(provider => provider.id === 'github-pages')?.consequential).toBe(true)
+    expect(providers.find(provider => provider.id === 'local-static')?.consequential).toBe(false)
   })
 
   it('registers a configured command provider beside the local adapter', async () => {
@@ -58,7 +63,7 @@ describe('the deployment plugin', () => {
       }],
     })
 
-    expect(ctx.deployments.providers().map(provider => provider.id)).toEqual(['example-host', 'local-static'])
+    expect(ctx.deployments.providers().map(provider => provider.id)).toEqual(['example-host', 'github-pages', 'local-static'])
     const example = ctx.deployments.providers().find(provider => provider.id === 'example-host')
     // A CLI-based host usually creates an account or costs money, so the default
     // is the safe one: it takes the user's approval to run.
