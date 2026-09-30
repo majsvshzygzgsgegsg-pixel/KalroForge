@@ -1,4 +1,4 @@
-/** Web DeepSeek configuration, credential reuse, and saved model selection. */
+/** Web KairoForge Cloud configuration, credential reuse, and saved model selection. */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,7 +12,7 @@ import { openSettings, connectFreshWorkspaceZh, saveFailureShot, ZH_BROWSER_LOCA
 
 const EXPECTED = fileURLToPath(new URL('./expected/deepseek-messages-settings/', import.meta.url))
 
-describe.skipIf(webSnapshotMode() === 'record')('web e2e: DeepSeek Messages settings', () => {
+describe.skipIf(webSnapshotMode() === 'record')('web e2e: KairoForge Cloud Messages settings', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -34,9 +34,9 @@ describe.skipIf(webSnapshotMode() === 'record')('web e2e: DeepSeek Messages sett
     }
   })
 
-  it('offers one DeepSeek card and saves Messages settings using the existing credential reference', async () => {
+  it('offers one KairoForge Cloud card and saves Messages settings using the existing credential reference', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-deepseek-messages-settings'))
-    expect(scaffold.ctx.llm.listProviders()).toContainEqual({ id: 'deepseek-official', name: 'DeepSeek' })
+    expect(scaffold.ctx.llm.listProviders()).toContainEqual({ id: 'deepseek-official', name: 'KairoForge Cloud' })
     expect(scaffold.ctx.llm.listProviders().filter(provider => provider.id === 'deepseek-official')).toHaveLength(1)
     expect(scaffold.ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
     const onboarding = page.getByRole('dialog', { name: '添加一个 API Key 开始使用' })
@@ -46,9 +46,9 @@ describe.skipIf(webSnapshotMode() === 'record')('web e2e: DeepSeek Messages sett
     await openSettings(page, 'zh')
     const dialog = page.getByRole('dialog', { name: '设置', exact: true })
     await dialog.getByRole('button', { name: '模型', exact: true }).click()
-    await dialog.getByText('DeepSeek', { exact: true }).waitFor()
-    expect(await dialog.getByText('DeepSeek', { exact: true }).count()).toBe(1)
-    await dialog.getByText('DeepSeek', { exact: true }).locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
+    await dialog.getByText('KairoForge Cloud', { exact: true }).waitFor()
+    expect(await dialog.getByText('KairoForge Cloud', { exact: true }).count()).toBe(1)
+    await dialog.getByText('KairoForge Cloud', { exact: true }).locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
     const messages = dialog
     await messages.getByText('自定义设置', { exact: true }).click()
     expect(await messages.getByLabel('API 地址', { exact: true }).getAttribute('placeholder'))
@@ -60,7 +60,7 @@ describe.skipIf(webSnapshotMode() === 'record')('web e2e: DeepSeek Messages sett
     expect(await messages.getByLabel('模型 ID 1').inputValue()).toBe('deepseek-flash')
     await messages.getByLabel('显示名称 1', { exact: true }).fill('Messages Flash')
     await messages.getByRole('button', { name: '保存', exact: true }).click()
-    await dialog.getByText('已保存 DeepSeek (deepseek-official)。', { exact: true }).waitFor()
+    await dialog.getByText('已保存 KairoForge Cloud (deepseek-official)。', { exact: true }).waitFor()
 
     const settings = await readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')
     expect(settings).toContain('https://messages.example/anthropic')
@@ -90,7 +90,7 @@ describe.skipIf(webSnapshotMode() === 'record')('web e2e: DeepSeek Messages sett
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
-  it('selects an available DeepSeek model after provider settings remove the default', async () => {
+  it('selects an available KairoForge Cloud model after provider settings remove the default', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-deepseek-messages-default'))
     await page.keyboard.press('Escape')
     await scaffold.ctx.agentDefaultModel.saveSelection({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })

@@ -1,0 +1,104 @@
+{
+  "coverage": {
+    "language": {
+      "c": 12,
+      "cpp": 6,
+      "go": 19,
+      "java": 15,
+      "javascript": 10,
+      "json": 10,
+      "markdown": 11,
+      "python": 95,
+      "rust": 12,
+      "shell": 25,
+      "sql": 15,
+      "text": 44,
+      "typescript": 29,
+      "yaml": 9
+    },
+    "task_family": {
+      "agentic-coding": 8,
+      "api-design": 10,
+      "backend": 27,
+      "code-explanation": 35,
+      "code-generation": 39,
+      "debugging": 44,
+      "frontend": 6,
+      "git-workflow": 6,
+      "instruction-following": 33,
+      "multi-file-editing": 11,
+      "refactoring": 21,
+      "repository-understanding": 18,
+      "terminal-reasoning": 19,
+      "test-generation": 20,
+      "tool-planning": 15
+    }
+  },
+  "created_at": "2026-09-30T14:15:09.543714+00:00",
+  "dataset_hash": "11702b873cfd129399469058c6659eaf6b1780eb79f40929ec7212d4a0a1a8cf",
+  "dataset_version": "kairoforge-seed-v0.1",
+  "estimated_tokens": 198748,
+  "held_out_used": [
+    "heldout-probe-0",
+    "heldout-probe-1",
+    "heldout-probe-2",
+    "heldout-probe-3",
+    "heldout-probe-4"
+  ],
+  "pipeline_version": "0.2.0",
+  "shards": [
+    {
+      "license": "Apache-2.0",
+      "license_class": "permissive",
+      "path": "data/raw/kairoforge-seed-v0.1.jsonl",
+      "record_count": 312,
+      "sha256": "902ff10b2085bf920f431a33d652fb0f7a76a788e3fb71b5dfe69b8fe56da6e7",
+      "source": "kairoforge-authored-seed"
+    }
+  ],
+  "splits": {
+    "test": 19,
+    "train": 274,
+    "validation": 19
+  },
+  "stages": [
+    {
+      "admitted": 312,
+      "reasons": {},
+      "rejected": 0,
+      "stage": "ingest"
+    },
+    {
+      "admitted": 312,
+      "reasons": {},
+      "rejected": 0,
+      "stage": "secret-scan"
+    },
+    {
+      "admitted": 312,
+      "reasons": {},
+      "rejected": 0,
+      "stage": "quality-filter"
+    },
+    {
+      "admitted": 312,
+      "reasons": {},
+      "rejected": 0,
+      "stage": "deduplicate"
+    },
+    {
+      "admitted": 312,
+      "reasons": {},
+      "rejected": 0,
+      "stage": "contamination-check"
+    },
+    {
+      "admitted": 312,
+      "reasons": {},
+      "rejected": 0,
+      "stage": "split"
+    }
+  ],
+  "total_characters": 715496,
+  "total_records": 312
+}

@@ -113,8 +113,8 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
       telemetryMode: 'FEEDBACK_ONLY',
       telemetryScheduledDelayMillis: 10,
       replayProviders: [
-        { id: 'deepseek-official', name: 'DeepSeek', models: [
-          { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', contextWindow: 128_000 },
+        { id: 'deepseek-official', name: 'KairoForge Cloud', models: [
+          { id: 'deepseek-v4-flash', name: 'KairoForge1.1 Flash', contextWindow: 128_000 },
         ] },
         { id: 'feedback-mock', name: 'Feedback mock', models: [
           { id: 'feedback-mock', name: 'Feedback mock', contextWindow: 128_000 },
@@ -173,7 +173,7 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
     // Both routes render the same composer without changing the actual request header.
     if (MODE !== 'record') {
       await selectModel('Feedback mock')
-      await selectModel('DeepSeek-V4-Flash')
+      await selectModel('KairoForge1.1 Flash')
     }
     expect(agent?.session.requestHeader()?.config.provider).toBe(provider)
     expect(uploads).toEqual([])
@@ -208,7 +208,7 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
     expect(events.at(-1)?.type).toBe('command/done')
     expect(events.at(-1)!.seq).toBeGreaterThan(authorized.at(-1)!.seq)
     await selectModel('Feedback mock')
-    await selectModel('DeepSeek-V4-Flash')
+    await selectModel('KairoForge1.1 Flash')
     const warningStart = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
@@ -286,7 +286,7 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
 
   it.skipIf(MODE === 'record')('releases headerless feedback without capturing another session’s provider-change tail', async () => {
     await selectModel('Feedback mock')
-    await selectModel('DeepSeek-V4-Flash')
+    await selectModel('KairoForge1.1 Flash')
     expect(captured()).toHaveLength(releasedCount)
     await page.getByRole('button', { name: 'New session', exact: true }).last().click()
     const input = page.locator('[data-composer-input][contenteditable="true"][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]')

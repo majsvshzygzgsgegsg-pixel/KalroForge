@@ -48,9 +48,9 @@ describe('ripgrep resolution', () => {
   it('uses a conventional executable name for the Windows ripgrep sidecar', async () => {
     Reflect.defineProperty(process, 'pkg', { configurable: true, value: {} })
     Reflect.defineProperty(process, 'platform', { configurable: true, enumerable: true, value: 'win32' })
-    process.execPath = 'C:\\runtime\\deepseek-harness-sdk-runtime-win-x64.exe'
+    process.execPath = 'C:\\runtime\\kairoforge-sdk-runtime-win-x64.exe'
     existsSync.mockReturnValue(true)
-    const sidecar = 'C:\\runtime\\deepseek-harness-sdk-runtime-win-x64-rg.exe'
+    const sidecar = 'C:\\runtime\\kairoforge-sdk-runtime-win-x64-rg.exe'
     const { resolveRgPath } = await import('@deepseek-ai/dsh-tool-fs-search')
 
     await expect(resolveRgPath()).resolves.toBe(sidecar)
@@ -80,11 +80,11 @@ describe('ripgrep resolution', () => {
 
   it('uses the unpacked executable path for an Electron ASAR dependency', async () => {
     Reflect.defineProperty(process.versions, 'electron', { configurable: true, value: '44.0.0' })
-    dependency.rgPath = '/Applications/DeepSeek Harness.app/Contents/Resources/app.asar/dsh/node_modules/@vscode/ripgrep/bin/rg'
+    dependency.rgPath = '/Applications/KairoForge.app/Contents/Resources/app.asar/dsh/node_modules/@vscode/ripgrep/bin/rg'
     const { resolveRgPath } = await import('@deepseek-ai/dsh-tool-fs-search')
 
     await expect(resolveRgPath()).resolves.toBe(
-      '/Applications/DeepSeek Harness.app/Contents/Resources/app.asar.unpacked/dsh/node_modules/@vscode/ripgrep/bin/rg',
+      '/Applications/KairoForge.app/Contents/Resources/app.asar.unpacked/dsh/node_modules/@vscode/ripgrep/bin/rg',
     )
   })
 })

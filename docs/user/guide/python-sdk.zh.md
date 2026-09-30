@@ -22,19 +22,19 @@
 ::: code-group
 
 ```sh [Linux/macOS]
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
+git clone https://github.com/deepseek-ai/kairoforge.git
+cd kairoforge
 python -m venv .venv
 . .venv/bin/activate
-python -m pip install deepseek-harness-sdk
+python -m pip install kairoforge-sdk
 ```
 
 ```powershell [Windows PowerShell]
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-Set-Location deepseek-harness
+git clone https://github.com/deepseek-ai/kairoforge.git
+Set-Location kairoforge
 py -3.10 -m venv .venv
 .venv\Scripts\Activate.ps1
-python -m pip install deepseek-harness-sdk
+python -m pip install kairoforge-sdk
 ```
 
 :::
@@ -98,11 +98,11 @@ python python/sdk/examples/minimal.py `
 ```python
 from pathlib import Path
 
-from deepseek_harness import DeepSeekHarness
+from kairoforge import KairoForge
 
 workspace = Path("/absolute/path/to/disposable-workspace").resolve()
 dsh_home = Path("/absolute/path/to/example-dsh-home").resolve()
-with DeepSeekHarness(
+with KairoForge(
     provider="deepseek-official",
     model="deepseek-v4-flash",
     max_tokens=49_152,
@@ -164,7 +164,7 @@ dsh plugin --profile sdk-minimal add file:C:/work/my-plugin-bundle
       name: '@deepseek-ai/dsh-tool-str-replace-editor'
 ```
 
-构造 `DeepSeekHarness(profile="sdk-minimal", ...)` 时传入 `patches=("/absolute/path/to/editor.patch.yml",)`，或将 patch 写入 `$DSH_HOME/profiles/sdk-minimal/cordis.patch.yml` 以持久保存配置。下次运行时启动后，模型请求会在持久 shell 之外包含 `str_replace_editor`。本地文件系统后端以运行时工作目录解析相对路径；与极简 shell 一样，它不会将访问限制在该目录内。对于标准 `sdk` profile，只插入 editor 配置项，让它使用已有的文件系统后端与策略。
+构造 `KairoForge(profile="sdk-minimal", ...)` 时传入 `patches=("/absolute/path/to/editor.patch.yml",)`，或将 patch 写入 `$DSH_HOME/profiles/sdk-minimal/cordis.patch.yml` 以持久保存配置。下次运行时启动后，模型请求会在持久 shell 之外包含 `str_replace_editor`。本地文件系统后端以运行时工作目录解析相对路径；与极简 shell 一样，它不会将访问限制在该目录内。对于标准 `sdk` profile，只插入 editor 配置项，让它使用已有的文件系统后端与策略。
 
 ## 理解极简 profile
 

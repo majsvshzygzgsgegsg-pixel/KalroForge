@@ -1,0 +1,22 @@
+{
+  "approval_token_command": "KAIROFORGE_SPEND_APPROVAL=36663f22d1041858431656fc3c8f6fcfcbd82df4f68b2b3cfec68c67f39edfc0",
+  "base_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "compute_usd": 5.35,
+  "dataset_version": "kairoforge-seed-v0.1",
+  "egress_usd": 0.0,
+  "estimated_hours": 12.164,
+  "estimated_model_size_gib": 0.5,
+  "fingerprint": "ac8d4bbd883d7ff71aff05c73977ccf9b1c78d4df98beefb3a6aae25f1761b42",
+  "gpu": "NVIDIA RTX 4090",
+  "gpu_count": 1,
+  "hourly_usd_per_gpu": 0.44,
+  "method": "qlora",
+  "notes": [],
+  "provider": "runpod",
+  "quoted_at": "2026-09-30T13:52:15.715184+00:00",
+  "storage_gib": 50.0,
+  "storage_usd": 5.0,
+  "total_usd": 10.35,
+  "train_tokens": 15000000,
+  "vram_gib_per_gpu": 24
+}

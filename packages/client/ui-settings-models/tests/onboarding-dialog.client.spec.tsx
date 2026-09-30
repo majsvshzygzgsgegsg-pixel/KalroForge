@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** First-run DeepSeek prompt behavior over the shared Models join. */
+/** First-run KairoForge Cloud prompt behavior over the shared Models join. */
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -97,7 +97,7 @@ function harness(options: {
         return Promise.resolve(remoteOk(
           options.provider === false || options.providerActive === false
             ? []
-            : [{ id: 'deepseek-official', name: 'DeepSeek' }],
+            : [{ id: 'deepseek-official', name: 'KairoForge Cloud' }],
         ))
       },
       listConfigurableProviders: () => Promise.resolve(remoteOk(
@@ -105,7 +105,7 @@ function harness(options: {
           ? []
           : [{
             provider: 'deepseek-official',
-            displayName: 'DeepSeek',
+            displayName: 'KairoForge Cloud',
             settingsNs: options.providerSettingsNs ?? 'llm-deepseek',
             settingsPath: [],
           }],
@@ -240,7 +240,7 @@ describe('DeepSeekOnboardingDialog', () => {
     expect(h.mutate).not.toHaveBeenCalled()
   })
 
-  it('does not block the product when DeepSeek setup is unavailable', async () => {
+  it('does not block the product when KairoForge Cloud setup is unavailable', async () => {
     for (const h of [
       harness({ describeFailure: 'credentials service is absent' }),
       harness({ credential: { writable: false } }),

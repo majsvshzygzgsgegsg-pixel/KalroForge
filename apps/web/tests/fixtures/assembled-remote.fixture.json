@@ -79,11 +79,11 @@
       "groups": [
         {
           "id": "deepseek-official",
-          "name": "DeepSeek",
+          "name": "KairoForge Cloud",
           "models": [
             {
               "id": "deepseek-v4-flash",
-              "name": "DeepSeek-V4-Flash",
+              "name": "KairoForge1.1 Flash",
               "description": "快速响应",
               "reasoning": {
                 "efforts": [
@@ -105,7 +105,7 @@
             },
             {
               "id": "deepseek-v4-pro",
-              "name": "DeepSeek-V4-Pro",
+              "name": "KairoForge1.1 Pro",
               "description": "复杂任务",
               "reasoning": {
                 "efforts": [
@@ -2297,7 +2297,7 @@
               "content": [
                 {
                   "type": "text",
-                  "text": "# Markdown fixture\n\nAssistant output renders **strong text**, *emphasis*, and `inline code`.\n\n- first item\n  - nested item\n\n| Area | State |\n| --- | --- |\n| history | rendered |\n| streaming | stable |\n\n[DeepSeek](https://www.deepseek.com)\n\n```ts\nconst markdown = true\n```"
+                  "text": "# Markdown fixture\n\nAssistant output renders **strong text**, *emphasis*, and `inline code`.\n\n- first item\n  - nested item\n\n| Area | State |\n| --- | --- |\n| history | rendered |\n| streaming | stable |\n\n[KairoForge Cloud](https://www.deepseek.com)\n\n```ts\nconst markdown = true\n```"
                 }
               ],
               "source": {
@@ -2331,7 +2331,7 @@
                   "index": 0,
                   "block": {
                     "type": "text",
-                    "text": "# Markdown fixture\n\nAssistant output renders **strong text**, *emphasis*, and `inline code`.\n\n- first item\n  - nested item\n\n| Area | State |\n| --- | --- |\n| history | rendered |\n| streaming | stable |\n\n[DeepSeek](https://www.deepseek.com)\n\n```ts\nconst markdown = true\n```"
+                    "text": "# Markdown fixture\n\nAssistant output renders **strong text**, *emphasis*, and `inline code`.\n\n- first item\n  - nested item\n\n| Area | State |\n| --- | --- |\n| history | rendered |\n| streaming | stable |\n\n[KairoForge Cloud](https://www.deepseek.com)\n\n```ts\nconst markdown = true\n```"
                   }
                 }
               },
@@ -4728,7 +4728,7 @@
                   "type": "tool-call",
                   "id": "fx-call-70",
                   "name": "web_search",
-                  "arguments": "{\"queries\":[\"deepseek harness architecture\"]}"
+                  "arguments": "{\"queries\":[\"kairoforge architecture\"]}"
                 }
               ],
               "source": {
@@ -4764,7 +4764,7 @@
                     "type": "tool-call",
                     "id": "fx-call-70",
                     "name": "web_search",
-                    "arguments": "{\"queries\":[\"deepseek harness architecture\"]}"
+                    "arguments": "{\"queries\":[\"kairoforge architecture\"]}"
                   }
                 }
               },
@@ -4806,7 +4806,7 @@
             "step": 0,
             "callId": "fx-call-70",
             "name": "web_search",
-            "arguments": "{\"queries\":[\"deepseek harness architecture\"]}"
+            "arguments": "{\"queries\":[\"kairoforge architecture\"]}"
           }
         }
       },
@@ -4831,17 +4831,17 @@
               "content": [
                 {
                   "type": "text",
-                  "text": "Search results for deepseek harness architecture."
+                  "text": "Search results for kairoforge architecture."
                 }
               ],
               "isError": false
             },
             "meta": {
-              "answer": "DeepSeek Harness is a plugin-based agent harness on vendored Cordis where **every capability is a plugin**.",
+              "answer": "KairoForge is a plugin-based agent harness on vendored Cordis where **every capability is a plugin**.",
               "sources": [
                 {
-                  "url": "https://github.com/deepseek-ai/deepseek-harness",
-                  "title": "DeepSeek Harness — plugin-based agent harness",
+                  "url": "https://github.com/deepseek-ai/kairoforge",
+                  "title": "KairoForge — plugin-based agent harness",
                   "snippet": "Everything is a plugin: session, tools, agent-loop, and LLM adapters all mount on the same Cordis context.",
                   "publishedAt": "2026-07-01"
                 },

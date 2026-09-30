@@ -1,0 +1,2 @@
+{"id":"demo-python-001","license":"MIT","source":"local-demo","language":"python","instruction":"Write a Python function that adds two numbers.","response":"def add(a, b):\n    return a + b\n"}
+{"id":"demo-ts-001","license":"MIT","source":"local-demo","language":"typescript","instruction":"Write a TypeScript function that checks whether a string is empty after trimming whitespace.","response":"export function isBlank(value: string): boolean {\n  return value.trim().length === 0;\n}\n"}

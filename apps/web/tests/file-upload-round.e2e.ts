@@ -231,9 +231,9 @@ describe('web e2e: generic file upload through the real assembly', () => {
     const modelTrigger = page.getByRole('button', { name: /^Select model, current/ })
     await modelTrigger.click()
     await page.getByRole('menuitem', { name: /^Model\b/ }).click()
-    await page.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash-Vision-Exp' }).click()
+    await page.getByRole('menuitemradio', { name: 'KairoForge1.1 Flash Vision' }).click()
     await expect.poll(() => modelTrigger.getAttribute('aria-label'), { timeout: 10_000 })
-      .toContain('DeepSeek-V4-Flash-Vision-Exp')
+      .toContain('KairoForge1.1 Flash Vision')
     const imageBytes = await readFile(IMAGE_FIXTURE)
     // Pick through the composer's hidden file input: the upload RPC runs
     // immediately and the pending card appears before any prompt is typed.

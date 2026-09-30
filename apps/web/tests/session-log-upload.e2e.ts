@@ -1,4 +1,4 @@
-/** Browser saves control the session-log field on real DeepSeek HTTP requests. */
+/** Browser saves control the session-log field on real KairoForge Cloud HTTP requests. */
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'

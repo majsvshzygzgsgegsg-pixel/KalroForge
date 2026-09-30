@@ -271,6 +271,52 @@
   --dsh-composer-model-icon-display: block;
 }
 
+/* KairoForge composer */
+.card {
+  overflow: hidden;
+  border: 1px solid rgb(125 211 252 / 0.22);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgb(15 23 42 / 0.82), rgb(30 41 59 / 0.68)),
+    radial-gradient(circle at 16% 0%, rgb(34 211 238 / 0.18), transparent 34%),
+    radial-gradient(circle at 92% 100%, rgb(168 85 247 / 0.18), transparent 34%);
+  box-shadow:
+    0 24px 70px rgb(2 6 23 / 0.36),
+    0 0 0 1px rgb(255 255 255 / 0.06) inset,
+    0 0 42px rgb(34 211 238 / 0.10);
+  backdrop-filter: blur(24px) saturate(1.25);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, #22d3ee, #a855f7, #facc15);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.input {
+  color: rgb(241 245 249);
+  caret-color: #22d3ee;
+}
+
+.placeholder {
+  color: rgb(148 163 184 / 0.78);
+}
+
+.row {
+  padding: 4px 10px 8px;
+}
+
+.notice {
+  border: 1px solid rgb(125 211 252 / 0.18);
+  background: rgb(15 23 42 / 0.72);
+  box-shadow: 0 10px 26px rgb(2 6 23 / 0.22);
+  backdrop-filter: blur(16px);
+}
+
 .tools,
 .modes,
 .trailing {

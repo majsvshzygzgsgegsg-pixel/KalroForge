@@ -3,7 +3,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
+import { KairoForge } from '@deepseek-ai/dsh-sdk-client'
 import { assertBuiltBenchmarkRuntime } from '../support/built-worker.ts'
 import { PARENT_ID, resultText, WORKLOAD } from './workload.ts'
 
@@ -37,7 +37,7 @@ async function run(root: string): Promise<ProfileReport> {
     PATH: process.env.PATH, HOME: home, USERPROFILE: home,
     DSH_AGENTS_HOME: join(home, 'agents'),
   }
-  const harness = new DeepSeekHarness({
+  const harness = new KairoForge({
     dshBin: join(import.meta.dirname, '..', '..', '..', 'apps', 'cli', 'lib', 'bin.js'),
     profile: 'sdk-minimal', dshHome: home, processCwd: cwd, cwd,
     provider: 'bench', model: 'bench', patches: [patch], env,

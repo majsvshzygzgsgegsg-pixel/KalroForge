@@ -34,10 +34,10 @@ export function apply(ctx: Context, config: Config): void {
     )
   }
   ctx.llm.registerConfigurableProviders([
-    { provider: PROVIDER, displayName: 'DeepSeek', settingsNs: ctx.fiber.entry?.options.id ?? name, settingsPath: [] },
+    { provider: PROVIDER, displayName: 'KairoForge Cloud', settingsNs: ctx.fiber.entry?.options.id ?? name, settingsPath: [] },
   ])
   registerDeepSeekProvider(ctx, PROVIDER, {
-    options, providerName: 'DeepSeek',
+    options, providerName: 'KairoForge Cloud',
     resolveAuth: async connection => ({ headers: { 'x-api-key': await resolveApiKey(connection) } }),
     discoverModels: (provider) => {
       const connection = options()

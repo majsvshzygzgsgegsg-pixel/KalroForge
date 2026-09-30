@@ -11,7 +11,7 @@
   - paragraph: 填入各提供商的 API 密钥即可使用其模型。
   - list:
     - listitem:
-      - text: DeepSeek deepseek-official API 密钥
+      - text: KairoForge Cloud deepseek-official API 密钥
       - textbox "API 密钥":
         - /placeholder: 输入 API 密钥
       - group: 自定义设置

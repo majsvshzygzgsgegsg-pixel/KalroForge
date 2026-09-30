@@ -4,7 +4,12 @@
   grid-template-rows: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--dsw-alias-bg-base);
+  background:
+    radial-gradient(circle at 18% 14%, color-mix(in srgb, #7c3aed 14%, transparent) 0, transparent 32%),
+    radial-gradient(circle at 84% 8%, color-mix(in srgb, #0891b2 12%, transparent) 0, transparent 28%),
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--dsw-alias-bg-base) 86%, #020617 14%),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 90%, #111827 10%));
 }
 
 /* Only a discrete collapse/expand toggle eases the tracks (the TSX holds
@@ -63,8 +68,11 @@
 .sidebarCol {
   min-width: 0;
   overflow: hidden;
-  background: var(--dsw-specific-sidebar-fill);
-  border-right: 0.5px solid var(--dsw-alias-border-l3);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--dsw-specific-sidebar-fill) 78%, #020617 22%),
+      color-mix(in srgb, var(--dsw-specific-sidebar-fill) 84%, #1e1b4b 16%));
+  border-right: 1px solid color-mix(in srgb, #8b5cf6 18%, var(--dsw-alias-border-l3));
 }
 
 .centerCol {
@@ -72,6 +80,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 50% -10%, color-mix(in srgb, #22d3ee 10%, transparent) 0, transparent 34%),
+    var(--dsw-alias-bg-base);
 }
 
 /* macOS desktop: the frame goes transparent so window vibrancy reaches the
@@ -195,6 +206,67 @@
 
 :global([data-platform='darwin'][data-fullscreen]) .leadingSeat {
   left: 12px;
+}
+
+/* KairoForge skin: make the app feel like its own product instead of the
+   upstream harness shell. Keep this at the end so it overlays platform
+   variants without disturbing column sizing or drag geometry. */
+.frame {
+  background:
+    radial-gradient(circle at 14% 8%, rgb(124 58 237 / 0.28) 0, transparent 30%),
+    radial-gradient(circle at 86% 4%, rgb(6 182 212 / 0.24) 0, transparent 26%),
+    radial-gradient(circle at 72% 88%, rgb(250 204 21 / 0.10) 0, transparent 22%),
+    linear-gradient(135deg, #070816 0%, #0b1026 42%, #111827 100%);
+}
+
+.frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(255 255 255 / 0.018) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 52% 30%, black 0, transparent 72%);
+  z-index: 0;
+}
+
+.sidebarCol,
+.centerCol,
+.rightbarCol {
+  position: relative;
+  z-index: 1;
+}
+
+.sidebarCol {
+  background:
+    linear-gradient(180deg, rgb(15 23 42 / 0.92), rgb(15 23 42 / 0.76)),
+    radial-gradient(circle at 18% 12%, rgb(168 85 247 / 0.30), transparent 35%);
+  border-right: 1px solid rgb(125 211 252 / 0.18);
+  box-shadow:
+    inset -1px 0 0 rgb(255 255 255 / 0.06),
+    18px 0 60px rgb(2 6 23 / 0.26);
+}
+
+.centerCol {
+  background:
+    radial-gradient(circle at 52% -12%, rgb(34 211 238 / 0.16), transparent 34%),
+    linear-gradient(180deg, rgb(15 23 42 / 0.52), rgb(2 6 23 / 0.16) 58%, rgb(2 6 23 / 0.28));
+}
+
+:global([data-platform='darwin']) .frame {
+  background:
+    radial-gradient(circle at 14% 8%, rgb(124 58 237 / 0.26) 0, transparent 30%),
+    radial-gradient(circle at 86% 4%, rgb(6 182 212 / 0.22) 0, transparent 26%),
+    linear-gradient(135deg, rgb(7 8 22 / 0.88), rgb(15 23 42 / 0.74));
+}
+
+:global([data-platform='darwin']) .centerCol {
+  background:
+    radial-gradient(circle at 50% -12%, rgb(34 211 238 / 0.14), transparent 36%),
+    color-mix(in srgb, var(--dsw-alias-bg-base) 72%, #020617 28%);
+  border-left: 1px solid rgb(125 211 252 / 0.14);
 }
 
 /* The frame declares no window drag of its own: every chrome row owns the drag

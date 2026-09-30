@@ -731,8 +731,8 @@ describe('CodexAppServerWire', () => {
     const initialize = await child.peer.nextMethod('initialize')
     expect(initialize.params).toEqual({
       clientInfo: {
-        name: 'deepseek-harness',
-        title: 'DeepSeek Harness',
+        name: 'kairoforge',
+        title: 'KairoForge',
         version: '0.0.1',
       },
       capabilities: {

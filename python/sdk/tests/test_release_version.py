@@ -31,10 +31,10 @@ def test_wheel_verification_uses_distribution_metadata_not_nested_libraries(tmp_
     with zipfile.ZipFile(wheel, "w") as archive:
         archive.writestr("nested/library.dist-info/WHEEL", "Tag: cp312-cp312-linux_x86_64\n")
         archive.writestr("nested/library.dist-info/METADATA", "Name: library\nVersion: 0.0.1\n")
-        archive.writestr("deepseek_harness_sdk-1.2.3.dist-info/WHEEL", "Tag: py3-none-any\n")
-        archive.writestr("deepseek_harness_sdk-1.2.3.dist-info/METADATA",
-                         "Name: deepseek-harness-sdk\nVersion: 1.2.3\nLicense-Expression: MIT\n"
-                         "License-File: LICENSE\nRequires-Dist: deepseek-harness-runtime-bin==1.2.3\n")
+        archive.writestr("kairoforge_sdk-1.2.3.dist-info/WHEEL", "Tag: py3-none-any\n")
+        archive.writestr("kairoforge_sdk-1.2.3.dist-info/METADATA",
+                         "Name: kairoforge-sdk\nVersion: 1.2.3\nLicense-Expression: MIT\n"
+                         "License-File: LICENSE\nRequires-Dist: kairoforge-runtime-bin==1.2.3\n")
     build_python_release.verify_wheel(wheel, "sdk", "1.2.3", None)
 
 
@@ -72,15 +72,15 @@ def test_pep440_version_spells_a_prerelease_the_python_way() -> None:
 
 def test_macos_wheel_tag_does_not_claim_unsupported_node_platforms() -> None:
     assert build_python_release.PLATFORMS["macos-arm64"][0] == "macosx_14_0_arm64"
-    assert build_python_release.PLATFORMS["macos-arm64"][1] == "deepseek-harness-sdk-runtime-macos-arm64"
+    assert build_python_release.PLATFORMS["macos-arm64"][1] == "kairoforge-sdk-runtime-macos-arm64"
     assert build_python_release.PLATFORMS["macos-x64"][0] == "macosx_14_0_x86_64"
-    assert build_python_release.PLATFORMS["macos-x64"][1] == "deepseek-harness-sdk-runtime-macos-x64"
+    assert build_python_release.PLATFORMS["macos-x64"][1] == "kairoforge-sdk-runtime-macos-x64"
 
 
 def test_windows_wheel_tag_and_payload_are_x64_only() -> None:
     assert build_python_release.PLATFORMS["win-x64"] == (
         "win_amd64",
-        "deepseek-harness-sdk-runtime-win-x64.exe",
+        "kairoforge-sdk-runtime-win-x64.exe",
     )
     assert not any(name.startswith("win-") and name != "win-x64" for name in build_python_release.PLATFORMS)
 
@@ -99,26 +99,26 @@ def test_stage_sdk_keeps_distribution_module_and_runtime_pin_distinct(tmp_path: 
     build_python_release.stage_sdk(destination, "1.2.3")
 
     pyproject = (destination / "pyproject.toml").read_text()
-    assert 'name = "deepseek-harness-sdk"' in pyproject
+    assert 'name = "kairoforge-sdk"' in pyproject
     assert 'version = "1.2.3"' in pyproject
     assert 'license = "MIT"' in pyproject
-    assert '"deepseek-harness-runtime-bin==1.2.3"' in pyproject
+    assert '"kairoforge-runtime-bin==1.2.3"' in pyproject
     assert 'license-files = ["LICENSE"]' in pyproject
     assert (destination / "LICENSE").read_bytes() == (ROOT / "LICENSE").read_bytes()
-    assert (destination / "src" / "deepseek_harness" / "__init__.py").is_file()
+    assert (destination / "src" / "kairoforge" / "__init__.py").is_file()
 
 
 def test_copy_package_omits_generated_carriers_before_staging_one_target(tmp_path: Path) -> None:
     source = tmp_path / "source"
-    module = source / "src/deepseek_harness_runtime"
+    module = source / "src/kairoforge_runtime"
     for path in ("runtime/macos-arm64/primary-runtime/runtime.json", "runtime/node/package.json",
-                 "runtime/deepseek-harness-sdk-runtime-win-x64.exe", "__init__.py", "_resources.py"):
+                 "runtime/kairoforge-sdk-runtime-win-x64.exe", "__init__.py", "_resources.py"):
         file = module / path
         file.parent.mkdir(parents=True, exist_ok=True)
         file.touch()
     destination = tmp_path / "staged"
     build_python_release.copy_package(source, destination)
-    assert sorted(path.name for path in (destination / "src/deepseek_harness_runtime").iterdir()) == ["__init__.py", "_resources.py"]
+    assert sorted(path.name for path in (destination / "src/kairoforge_runtime").iterdir()) == ["__init__.py", "_resources.py"]
 
 
 @pytest.mark.parametrize(
@@ -128,7 +128,7 @@ def test_copy_package_omits_generated_carriers_before_staging_one_target(tmp_pat
 def test_stage_runtime_copies_platform_payload(
     tmp_path: Path, target: str, with_helper: bool
 ) -> None:
-    executable = tmp_path / f"deepseek-harness-sdk-runtime-{target}"
+    executable = tmp_path / f"kairoforge-sdk-runtime-{target}"
     executable.write_bytes(b"runtime")
     executable.chmod(0o755)
     expected = {executable.name: b"runtime"}
@@ -149,7 +149,7 @@ def test_stage_runtime_copies_platform_payload(
     office_asset = office / "node_modules" / "@deepseek-ai" / "libreoffice-kit-wasm" / "assets" / "soffice.data"
     office_asset.parent.mkdir(parents=True)
     office_asset.write_bytes(b"office data")
-    resources = executable.with_name(executable.name.removeprefix("deepseek-harness-sdk-runtime-").removesuffix(".exe"))
+    resources = executable.with_name(executable.name.removeprefix("kairoforge-sdk-runtime-").removesuffix(".exe"))
     resource = resources / "office-skills/scripts/check_office.py"
     resource.parent.mkdir(parents=True)
     resource.write_text("checker")
@@ -157,10 +157,10 @@ def test_stage_runtime_copies_platform_payload(
 
     build_python_release.stage_runtime(destination, "1.2.3", executable, executable.name)
 
-    runtime_dir = destination / "src" / "deepseek_harness_runtime" / "runtime"
+    runtime_dir = destination / "src" / "kairoforge_runtime" / "runtime"
     assert {
         path.name: path.read_bytes()
-        for path in runtime_dir.glob("deepseek-harness-sdk-runtime-*")
+        for path in runtime_dir.glob("kairoforge-sdk-runtime-*")
         if path.is_file()
     } == expected
     assert (runtime_dir / office.name / office_asset.relative_to(office)).read_bytes() == b"office data"
@@ -168,7 +168,7 @@ def test_stage_runtime_copies_platform_payload(
     pyproject = (destination / "pyproject.toml").read_text()
     assert 'license = "MIT"' in pyproject
     assert 'license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]' in pyproject
-    assert 'dsh = "deepseek_harness_runtime:main"' in pyproject
+    assert 'dsh = "kairoforge_runtime:main"' in pyproject
     assert (destination / "platforms.json").read_bytes() == (
         ROOT / "python" / "sdk-runtime" / "platforms.json"
     ).read_bytes()
@@ -182,12 +182,12 @@ def test_stage_runtime_rejects_a_noncanonical_executable_name(tmp_path: Path) ->
     executable = tmp_path / "renamed.exe"
     executable.write_bytes(b"runtime")
 
-    with pytest.raises(ValueError, match="must be named deepseek-harness-sdk-runtime-win-x64.exe"):
+    with pytest.raises(ValueError, match="must be named kairoforge-sdk-runtime-win-x64.exe"):
         build_python_release.stage_runtime(
             tmp_path / "staging",
             "1.2.3",
             executable,
-            "deepseek-harness-sdk-runtime-win-x64.exe",
+            "kairoforge-sdk-runtime-win-x64.exe",
         )
 
 

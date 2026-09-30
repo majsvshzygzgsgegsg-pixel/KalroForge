@@ -1,82 +1,53 @@
-# DeepSeek Harness
+# KairoForge
 
 English | [中文](README.zh.md)
 
-DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
+KairoForge is a local-first AI chat and coding workspace. It gives you two modes in one web app:
 
-It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
+- a clean normal chat mode for everyday answers;
+- a coding/agent mode for repository work, files, terminals, tools, and automation.
 
-Documentation: [https://deepseek-harness.github.io/deepseek-harness/](https://deepseek-harness.github.io/deepseek-harness/)
+The project includes KairoForge branding, a custom web profile, model-label updates, and a new `kairoforge/` machine-learning scaffold for future open-weight training experiments.
 
-## Developer preview
+## What is included
 
-DeepSeek Harness is in _developer preview_ and iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
+- KairoForge web branding, icons, app manifest, and chat styling.
+- Top-right mode switching between normal chat and coding workflow.
+- KairoForge model display names in the model picker.
+- A phone-ready PWA-style web entry.
+- A no-cost `kairoforge/` training scaffold with data preparation, LoRA/QLoRA dry runs, evaluation placeholders, cost-gated cloud deployment scripts, and an OpenAI-compatible API server skeleton.
 
-Review the [safety notice](SAFETY.md) before running the project.
+## Current model status
 
-## Run
+KairoForge’s model-training scaffold exists, but no real cloud GPU training has been run yet.
 
-### Run from `npm`
+- Trained KairoForge checkpoint: **not completed**
+- Cloud GPU resources: **not created**
+- Running cloud cost: **$0**
 
-Install `Node.js`, then run:
+See [`kairoforge/docs/final-status.md`](kairoforge/docs/final-status.md).
+
+## Run from source
 
 ```sh
-npx @deepseek-ai/dsh web
-```
-
-The command starts the Web UI at `http://127.0.0.1:3080` by default and opens it in the default browser for a local launch. An SSH launch only prints the host URL because the SSH client or editor owns the local forwarded address. Pass `--no-open` to run the server without opening a browser. See [Web UI guide](docs/user/guide/index.md).
-
-### Run from source
-
-To run from a repository checkout:
-
-```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
+git clone https://github.com/majsvshzygzgsgegsg-pixel/kairoforge.git
+cd kairoforge
 pnpm install
-pnpm run build
-pnpm dsh web
+pnpm run kairoforge
 ```
 
-`pnpm run build` prepares the repository artifacts. `pnpm dsh web` uses those built artifacts without rebuilding.
+The app opens at `http://127.0.0.1:3080` by default.
 
-For an editable development session that opens the same Web UI and rebuilds client bundles when source files change, run:
+## KairoForge ML scaffold
 
 ```sh
-pnpm run source:web
+cd kairoforge
+python3.11 scripts/prepare_data.py --input data/raw/examples.jsonl --output data/processed/examples.sft.jsonl --manifest data/manifests/examples.manifest.json
+PYTHONPATH=src python3.11 scripts/train.py --config configs/training.yaml --dry-run
+PYTHONPATH=src python3.11 scripts/evaluate.py --config configs/training.yaml --dry-run
 ```
 
-The equivalent short Make command is `make source-web`. Pass Web options after the command, for example `pnpm run source:web --no-open --port 3081` or `make source-web ARGS='--no-open --port 3081'`. Keep the command running while you edit the app; press `Ctrl-C` to stop it.
-
-## Community and support
-
-- Submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
-- Add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic to your plugin repository for discoverability.
-- Join <a href="https://discord.gg/4MrtZUhpxg">DeepSeek Harness Discord community</a>.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Development
-
-Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
-
-`pnpm run dev:web` and its personal alias `pnpm run source:web` build, serve, and rebuild client bundles on source edits in one terminal. `make help` lists the matching Make targets for Web and Desktop; the guide's application commands section owns the full table.
-
-For agents, follow [AGENTS.md](AGENTS.md).
-
-## Citation
-
-```bibtex
-@misc{deepseek-harness2026,
-  title={DeepSeek Harness: Everything is a Plugin},
-  author={DeepSeek-AI},
-  year={2026},
-  publisher={GitHub},
-  howpublished={\url{https://github.com/deepseek-ai/deepseek-harness}},
-}
-```
+The deploy script refuses paid cloud work until provider, GPU, hourly price, and max budget are filled in and approved.
 
 ## License
 

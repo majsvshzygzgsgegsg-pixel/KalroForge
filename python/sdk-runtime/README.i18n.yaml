@@ -2,18 +2,18 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write python/sdk-runtime/README.md
-/deepseek-harness-runtime-bin:
-  en: 1ea1d8e6d2c14b02
-  zh: 8e0b9903158667a1
-/deepseek-harness-runtime-bin/installed-commands-and-artifacts:
-  en: af4e7919327e1991
-  zh: b4114823b4f1a3fa
-/deepseek-harness-runtime-bin/python-module-api:
+/kairoforge-runtime-bin:
+  en: f31ec137a186ea28
+  zh: 703a38c0594aa60d
+/kairoforge-runtime-bin/installed-commands-and-artifacts:
+  en: 06372fb4a11ab855
+  zh: 264cb73fb72180a2
+/kairoforge-runtime-bin/python-module-api:
   en: a88b7574e0e00a28
   zh: 3fd4fe8c0b338e79
-/deepseek-harness-runtime-bin/packaged-profile-resolution:
+/kairoforge-runtime-bin/packaged-profile-resolution:
   en: 641c647efc49c568
   zh: a29371de9fbbebfd
-/deepseek-harness-runtime-bin/build-and-distribution:
-  en: 9a4ba11944fbfc54
-  zh: 2ae046803108df2b
+/kairoforge-runtime-bin/build-and-distribution:
+  en: b2863bcf329f03f2
+  zh: 2749f70fa903c5db

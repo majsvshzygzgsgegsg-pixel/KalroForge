@@ -4,7 +4,7 @@ Two runtime carriers coexist under ``runtime/``, both injected by the repo's
 ``scripts/build-exe-for-python-sdk.ts`` build (neither is checked into git):
 
 - **exe (production)**: single-file Node executables named
-  ``deepseek-harness-sdk-runtime-<platform>-<arch>`` for Linux/macOS and an
+  ``kairoforge-sdk-runtime-<platform>-<arch>`` for Linux/macOS and an
   ``.exe`` counterpart for Windows. Each has a sibling ripgrep executable;
   macOS also uses a sibling ``-spawn-helper``. The target machine needs no
   Node installation.
@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 from ._resources import validate_resources
 
-PACKAGE_METADATA_FILENAME = "deepseek-harness-runtime.json"
+PACKAGE_METADATA_FILENAME = "kairoforge-runtime.json"
 
 RUNTIME_MODE_ENV_VAR = "DSH_RUNTIME_MODE"
 
@@ -39,7 +39,7 @@ _ARCH_TAGS = {"x86_64": "x64", "amd64": "x64", "arm64": "arm64", "aarch64": "arm
 
 _EXE_ACQUISITION_HINT = (
     "Two ways to get the executable: run `scripts/build-exe-for-python-sdk.ts` (via tsx) in a "
-    "deepseek-harness checkout, or install the matching `deepseek-harness-runtime-bin` platform "
+    "kairoforge checkout, or install the matching `kairoforge-runtime-bin` platform "
     "wheel retained by the `build-exe-for-python-sdk` CI workflow. For local development "
     "against a repo source build, explicitly select the dev-only node carrier with "
     f"{RUNTIME_MODE_ENV_VAR}=node (or resolve_bundled_launch_args('node'))."
@@ -51,7 +51,7 @@ def bundled_package_dir() -> Path:
     root = Path(__file__).resolve().parent
     metadata = root / PACKAGE_METADATA_FILENAME
     if not metadata.is_file():
-        raise FileNotFoundError(f"deepseek-harness-runtime-bin is missing {metadata}")
+        raise FileNotFoundError(f"kairoforge-runtime-bin is missing {metadata}")
     return root
 
 
@@ -69,10 +69,10 @@ def bundled_runtime_path() -> Path:
     """
     tag = _current_platform_tag()
     extension = ".exe" if tag.startswith("win-") else ""
-    path = bundled_package_dir() / "runtime" / f"deepseek-harness-sdk-runtime-{tag}{extension}"
+    path = bundled_package_dir() / "runtime" / f"kairoforge-sdk-runtime-{tag}{extension}"
     if not path.is_file():
         raise FileNotFoundError(
-            f"deepseek-harness-runtime-bin is missing the runtime executable at {path}. "
+            f"kairoforge-runtime-bin is missing the runtime executable at {path}. "
             + _EXE_ACQUISITION_HINT
         )
     ripgrep = (
@@ -82,21 +82,21 @@ def bundled_runtime_path() -> Path:
     )
     if not ripgrep.is_file():
         raise FileNotFoundError(
-            f"deepseek-harness-runtime-bin is missing the ripgrep sidecar at {ripgrep}. "
+            f"kairoforge-runtime-bin is missing the ripgrep sidecar at {ripgrep}. "
             + _EXE_ACQUISITION_HINT
         )
     if tag.startswith("macos-"):
         helper = Path(f"{path}-spawn-helper")
         if not helper.is_file():
             raise FileNotFoundError(
-                f"deepseek-harness-runtime-bin is missing the node-pty spawn helper at {helper}. "
+                f"kairoforge-runtime-bin is missing the node-pty spawn helper at {helper}. "
                 + _EXE_ACQUISITION_HINT
             )
     office = path.with_name(f"{path.name.removesuffix('.exe')}-office")
     adapter = office / "node_modules/@deepseek-ai/libreoffice-kit/package.json"
     if not adapter.is_file():
         raise FileNotFoundError(
-            f"deepseek-harness-runtime-bin is missing the Office sidecar at {office}. "
+            f"kairoforge-runtime-bin is missing the Office sidecar at {office}. "
             + _EXE_ACQUISITION_HINT
         )
     native = tag.replace("win-", "win32-").replace("macos-", "darwin-")
@@ -104,7 +104,7 @@ def bundled_runtime_path() -> Path:
     engine = native if f"@deepseek-ai/libreoffice-kit-{native}" in declared else "wasm"
     if not (office / "node_modules" / f"@deepseek-ai/libreoffice-kit-{engine}/prebuilds.json").is_file():
         raise FileNotFoundError(
-            f"deepseek-harness-runtime-bin is missing the Office sidecar engine {engine} at {office}. "
+            f"kairoforge-runtime-bin is missing the Office sidecar engine {engine} at {office}. "
             + _EXE_ACQUISITION_HINT
         )
     validate_resources(path.with_name(tag), tag)
@@ -129,7 +129,7 @@ def resolve_bundled_launch_args(mode: str | None = None) -> tuple[str, ...]:
     if selected == "node":
         return _node_launch_args()
     raise ValueError(
-        f"unsupported DeepSeek Harness runtime mode {selected!r}: expected 'exe' or 'node' "
+        f"unsupported KairoForge runtime mode {selected!r}: expected 'exe' or 'node' "
         f"(explicit argument or ${RUNTIME_MODE_ENV_VAR})"
     )
 
@@ -143,7 +143,7 @@ def _current_platform_tag() -> str:
         or (plat == "win" and arch != "x64")
     ):
         raise FileNotFoundError(
-            "no bundled DeepSeek Harness SDK runtime exists for this platform "
+            "no bundled KairoForge SDK runtime exists for this platform "
             f"(sys.platform={sys.platform!r}, machine={platform.machine()!r}); supported: "
             "Linux x64/arm64, macOS x64/arm64, and Windows x64. " + _EXE_ACQUISITION_HINT
         )
@@ -163,7 +163,7 @@ def _node_launch_args() -> tuple[str, str]:
     if not bin_js.is_file():
         raise FileNotFoundError(
             f"the dev-only node runtime closure is missing at {node_root} "
-            f"(no {bin_js}); run `scripts/build-exe-for-python-sdk.ts` in a deepseek-harness "
+            f"(no {bin_js}); run `scripts/build-exe-for-python-sdk.ts` in a kairoforge "
             "checkout, which builds and copies the deploy closure here. The node carrier "
             "is for repo-local development only — production uses the single-file exe."
         )

@@ -1,0 +1,53 @@
+# KairoForge provider route for the dsh harness.
+#
+# Adds a trained KairoForge checkpoint as an ordinary selectable model.
+# This file ADDS one provider entry; it changes no existing provider.
+#
+#   HARNESS -> MODEL ROUTER -> KAIROFORGE PROVIDER -> KAIROFORGE ENDPOINT
+#           -> TRAINED KAIROFORGE CHECKPOINT
+#
+# WHAT THIS ROUTE NEEDS
+#   1. The KairoForge service running:
+#          cd kairoforge && python scripts/serve_kairoforge.py
+#      It writes its API key to kairoforge/.kairoforge/api-key.txt and refuses
+#      to start unless a real, hash-verified checkpoint is registered.
+#   2. KAIROFORGE_API_KEY exported in the environment that launches dsh.
+#      The value is NEVER stored here - `apiKeyEnv` names the variable, and the
+#      harness resolves the secret through its own credentials seam.
+#
+# WHY openai-completions
+#   The KairoForge service speaks the OpenAI chat-completions wire protocol
+#   (/v1/chat/completions, /v1/models). `dsh-llm-pi-ai` is the harness adapter
+#   for that protocol, so no new adapter code is needed.
+#
+# WHY defaultInput is text-only
+#   KairoForge is a fine-tuned causal language model with no vision tower.
+#   Declaring the negative capability stops the harness from admitting
+#   screenshots this route could never read, rather than failing at request
+#   time with a confusing provider error.
+#
+# TO APPLY
+#   Merge the `kairoforge:` block below into the EXISTING `llm-pi-ai` entry's
+#   `providers:` mapping in your profile patch, alongside the providers already
+#   there. Do not replace that entry - it carries your other providers.
+
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      kairoforge:
+        displayName: KairoForge
+        api: openai-completions
+        # Local service. Replace with the cloud origin after cloud deployment.
+        baseURL: http://127.0.0.1:8090/v1
+        # Names the environment variable holding the bearer token.
+        apiKeyEnv: KAIROFORGE_API_KEY
+        # Text-only: no vision tower on this model.
+        defaultInput:
+          - text
+        models:
+          - id: kairoforge-v0.1
+            name: KairoForge v0.1 (trained)
+            # Qwen2.5-Coder-1.5B-Instruct context window.
+            contextWindow: 32768
+            maxTokens: 8192

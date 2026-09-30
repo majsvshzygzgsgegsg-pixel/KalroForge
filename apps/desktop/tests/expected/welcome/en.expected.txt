@@ -1,6 +1,6 @@
-DeepSeek Harness
-DeepSeek Harness
-Welcome to DeepSeek Harness
+KairoForge
+KairoForge
+Welcome to KairoForge
 Build potential. Explore intelligence.
 Sign in
 Add API Key

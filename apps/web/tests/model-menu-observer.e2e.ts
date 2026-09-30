@@ -26,7 +26,7 @@ const PROVIDERS = [
     : { id: `${provider.prefix.toLowerCase()}-model-${index + 1}`, name: `${provider.prefix} Model ${index + 1}` }),
 }))
 const EXPECTED_GROUPS = [
-  { label: 'DeepSeek', rows: ['DeepSeek-V4-Flash', 'DeepSeek-V4-Flash-Vision-Exp'] },
+  { label: 'KairoForge Cloud', rows: ['KairoForge1.1 Flash', 'KairoForge1.1 Flash Vision'] },
   ...PROVIDERS.map(provider => ({ label: provider.name, rows: provider.models.map(model => model.name) })),
 ]
 

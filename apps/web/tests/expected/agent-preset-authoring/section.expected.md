@@ -8,17 +8,23 @@
   - button "打开配置文件"
   - button "关闭"
   - heading "Agent 预设" [level=2]
-  - paragraph: 选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 DSH 的能力用「创造模式」。
+  - paragraph: 选择 KairoForge 的工作方式。「聊天」模式只负责回答，「KairoForge」模式可以使用编程与 Agent 工具。
   - heading "内置" [level=3]
   - list:
     - listitem:
-      - 'button "新任务默认: 标准模式" [disabled] [pressed]':
-        - text: 标准模式 新任务默认
+      - 'button "设为新任务默认: 聊天"':
+        - text: 聊天 内置
+        - code: chat
+        - text: 仅回答问题，不提供工具，也不能编辑文件、运行命令或执行操作。
+      - 'button "查看配置: 聊天"': 查看配置
+    - listitem:
+      - 'button "新任务默认: KairoForge" [disabled] [pressed]':
+        - text: KairoForge 新任务默认
         - code: standard
-        - text: 处理代码、文件和资料，适合大多数任务。Agent 会按需使用检索、编辑和终端等工具。
-      - 'button "模式说明: 标准模式"': 模式说明
-      - 'button "如何使用: 标准模式"': 如何使用
-      - 'button "查看配置: 标准模式"': 查看配置
+        - text: 编程与 Agent 模式。KairoForge 可以检查项目、编辑文件、运行命令、检索并使用其他可用工具。
+      - 'button "模式说明: KairoForge"': 模式说明
+      - 'button "如何使用: KairoForge"': 如何使用
+      - 'button "查看配置: KairoForge"': 查看配置
     - listitem:
       - 'button "设为新任务默认: PTC 模式"':
         - text: PTC 模式 内置

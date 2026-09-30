@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from deepseek_harness import DeepSeekHarness
+from kairoforge import KairoForge
 
 ROOT = Path(__file__).resolve().parents[3]
 CLI = ROOT / 'apps' / 'cli' / 'lib' / 'bin.js'
@@ -14,7 +14,7 @@ CLI = ROOT / 'apps' / 'cli' / 'lib' / 'bin.js'
 
 @pytest.mark.skipif(not CLI.exists(), reason='requires the built dsh profile runtime')
 def test_account_provider_signout_snapshot(tmp_path: Path) -> None:
-    with DeepSeekHarness(
+    with KairoForge(
         dsh_bin=str(CLI),
         dsh_home=str(tmp_path / 'home'),
         cwd=str(tmp_path),

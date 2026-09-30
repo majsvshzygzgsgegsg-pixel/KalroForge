@@ -32,7 +32,7 @@ kind: "package-reference"
 - name: '@deepseek-ai/dsh-host-product-telemetry-otel'
   config:
     endpoint: https://dsh-otel-collector.deepseeksvc.com/v1/logs
-    serviceName: deepseek-harness
+    serviceName: kairoforge
     serviceVersion: !!js process.env.DSH_APP_VERSION
     compression: gzip
     scheduledDelayMillis: 30000

@@ -11,7 +11,10 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              prefix: You are a helpful software engineer assistant.
+              prefix: |-
+                You are KairoForge, a coding assistant inside the KairoForge app.
+                Your product identity is always KairoForge, regardless of which AI provider, gateway, or model is serving this session. Do not identify the app, product, or assistant as DeepSeek Harness.
+                Answer clearly, preserve secrets, and only claim actions that actually happened.
               complete: true
               includeRuntimeContext: false
           - id: persistent-shell

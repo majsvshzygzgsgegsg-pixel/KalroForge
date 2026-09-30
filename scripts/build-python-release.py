@@ -18,8 +18,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SDK_DISTRIBUTION = "deepseek-harness-sdk"
-RUNTIME_DISTRIBUTION = "deepseek-harness-runtime-bin"
+SDK_DISTRIBUTION = "kairoforge-sdk"
+RUNTIME_DISTRIBUTION = "kairoforge-runtime-bin"
 PLATFORM_MANIFEST = ROOT / "python" / "sdk-runtime" / "platforms.json"
 
 
@@ -88,12 +88,12 @@ def main() -> None:
         if args.package == "sdk":
             stage_sdk(staging, wheel_version)
             environment = None
-            expected = output_dir / f"deepseek_harness_sdk-{wheel_version}-py3-none-any.whl"
+            expected = output_dir / f"kairoforge_sdk-{wheel_version}-py3-none-any.whl"
         else:
             platform_tag, executable_name = PLATFORMS[args.platform]
             stage_runtime(staging, wheel_version, args.runtime_exe.resolve(), executable_name)
             environment = {"DSH_RUNTIME_PLATFORM_TAG": platform_tag}
-            expected = output_dir / f"deepseek_harness_runtime_bin-{wheel_version}-py3-none-{platform_tag}.whl"
+            expected = output_dir / f"kairoforge_runtime_bin-{wheel_version}-py3-none-{platform_tag}.whl"
         command = ["uv", "build", "--wheel", "--out-dir", str(output_dir), str(staging)]
         subprocess.run(command, cwd=ROOT, env=None if environment is None else {**os.environ, **environment}, check=True)
     if not expected.is_file():
@@ -149,7 +149,7 @@ def validate_release_tag(tag: str | None, version: str) -> None:
 
 
 def copy_package(source: Path, destination: Path) -> None:
-    generated_parent = source / "src" / "deepseek_harness_runtime"
+    generated_parent = source / "src" / "kairoforge_runtime"
     ignore_files = shutil.ignore_patterns(
         ".venv", ".pytest_cache", "__pycache__", "*.pyc", "dist", "node_modules",
     )
@@ -206,8 +206,8 @@ def stage_sdk(destination: Path, version: str) -> None:
     pyproject = destination / "pyproject.toml"
     rewrite_version(pyproject, version)
     text, count = re.subn(
-        r'"deepseek-harness-runtime-bin==[^"]+"',
-        f'"deepseek-harness-runtime-bin=={version}"',
+        r'"kairoforge-runtime-bin==[^"]+"',
+        f'"kairoforge-runtime-bin=={version}"',
         pyproject.read_text(),
         count=1,
     )
@@ -224,14 +224,14 @@ def stage_runtime(destination: Path, version: str, executable: Path, executable_
     copy_package(ROOT / "python" / "sdk-runtime", destination)
     stage_license_files(destination, include_notices=True)
     rewrite_version(destination / "pyproject.toml", version)
-    runtime_dir = destination / "src" / "deepseek_harness_runtime" / "runtime"
+    runtime_dir = destination / "src" / "kairoforge_runtime" / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     source_directory = executable.parent
     for filename in runtime_filenames(executable_name):
         shutil.copy2(source_directory / filename, runtime_dir / filename)
     office = office_sidecar_name(executable_name)
     shutil.copytree(source_directory / office, runtime_dir / office)
-    resources = executable_name.removeprefix("deepseek-harness-sdk-runtime-").removesuffix(".exe")
+    resources = executable_name.removeprefix("kairoforge-sdk-runtime-").removesuffix(".exe")
     shutil.copytree(source_directory / resources, runtime_dir / resources)
 
 
@@ -304,21 +304,21 @@ def verify_wheel(
                 f"{wheel} has license files {license_files}, expected {expected_license_files}"
             )
         runtime_payload = [
-            name for name in archive.namelist() if name.startswith("deepseek_harness_runtime/runtime/")
+            name for name in archive.namelist() if name.startswith("kairoforge_runtime/runtime/")
         ]
         if package == "runtime":
             assert platform is not None
             office = office_sidecar_name(platform[1])
-            resources = platform[1].removeprefix("deepseek-harness-sdk-runtime-").removesuffix(".exe")
+            resources = platform[1].removeprefix("kairoforge-sdk-runtime-").removesuffix(".exe")
             expected_files = sorted((*runtime_filenames(platform[1]), office, resources))
             found_files = sorted({name.split("/runtime/", 1)[1].split("/", 1)[0] for name in runtime_payload})
             if found_files != expected_files:
                 raise RuntimeError(f"{wheel} runtime payload must be {expected_files}, found {found_files}")
-            office_modules = f"deepseek_harness_runtime/runtime/{office}/node_modules"
+            office_modules = f"kairoforge_runtime/runtime/{office}/node_modules"
             verify_office_payload(archive, office_modules, platform[0])
-            validate = runpy.run_path(str(ROOT / "python/sdk-runtime/src/deepseek_harness_runtime/_resources.py"))["validate_resources"]
+            validate = runpy.run_path(str(ROOT / "python/sdk-runtime/src/kairoforge_runtime/_resources.py"))["validate_resources"]
             target = next(name for name, value in PLATFORMS.items() if value == platform)
-            validate(zipfile.Path(archive, f"deepseek_harness_runtime/runtime/{resources}/"), target)
+            validate(zipfile.Path(archive, f"kairoforge_runtime/runtime/{resources}/"), target)
             for runtime_file in runtime_payload:
                 if "/" in runtime_file.split("/runtime/", 1)[1]:
                     continue

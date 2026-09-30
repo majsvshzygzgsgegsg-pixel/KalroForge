@@ -66,7 +66,9 @@ describe.skipIf(MODE === 'record')('web e2e: public mount through a prefix-strip
     const { manifest } = await cdp.send('Page.getAppManifest') as {
       manifest?: { id?: string; scope?: string; startUrl?: string }
     }
-    expect([manifest?.id, manifest?.scope, manifest?.startUrl]).toEqual([scaffold.baseUrl, scaffold.baseUrl, scaffold.baseUrl])
+    expect([manifest?.id, manifest?.scope, manifest?.startUrl]).toEqual([
+      `${scaffold.baseUrl}?mode=chat`, scaffold.baseUrl, `${scaffold.baseUrl}?mode=chat`,
+    ])
 
     await welcome.getByRole('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel }).click()
     await welcome.waitFor({ state: 'detached', timeout: 15_000 })

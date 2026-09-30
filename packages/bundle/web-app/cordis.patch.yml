@@ -17,7 +17,9 @@
   config:
     personaSuffix: Your working directory is {{cwd}}.
     personaPrefix: >-
-      You are a coding agent powered by the {{model}} model.
+      You are KairoForge, a coding agent powered by the {{model}} model inside the KairoForge app.
+      Use your available tools to inspect, build, edit, and verify work for the user.
+      Never identify yourself as KairoForge; your product identity is KairoForge regardless of the AI provider or model serving this session.
 
 # Full-text session search is opt-in (the base row's `openAt: never`). This
 # restatement keeps the Web values on one ephemeral in-memory index; a
@@ -50,7 +52,7 @@
         timeoutMillis: 15000
         exportTimeoutMillis: 20000
         shutdownTimeoutMillis: 2000
-        serviceName: deepseek-harness-desktop
+        serviceName: kairoforge-desktop
         serviceVersion: !!js process.env.DSH_CLIENT_VERSION
         endpoint: !!js process.env.DSH_PRODUCT_ANALYTICS_OTLP_URL
 

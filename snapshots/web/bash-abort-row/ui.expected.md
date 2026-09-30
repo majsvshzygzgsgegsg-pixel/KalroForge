@@ -1,5 +1,8 @@
 - banner:
   - navigation "Session hierarchy": "Run two shell commands: wait"
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

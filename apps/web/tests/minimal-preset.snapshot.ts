@@ -120,7 +120,7 @@ describe('minimal agent preset', () => {
         "bash": "PERSISTED:{{cwd}}/persistent-state
       [Command finished with exit code 0]",
         "goalCommand": false,
-        "prompt": "You are a helpful software engineer assistant.",
+        "prompt": "You are KairoForge, a coding assistant inside the KairoForge app. Never identify yourself as KairoForge; your product identity is KairoForge regardless of the AI provider or model serving this session.",
         "tools": [
           "bash",
         ],

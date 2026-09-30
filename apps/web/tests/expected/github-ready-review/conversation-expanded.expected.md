@@ -1,16 +1,19 @@
 - tree "Sessions":
   - treeitem "{{workspace}}" [expanded]
-  - treeitem "Review deepseek-ai/deepseek-harness#314 Session actions for Review deepseek-ai/deepseek-harness#314 Archive session Pin session" [selected]:
-    - text: Review deepseek-ai/deepseek-harness#314
-    - button "Session actions for Review deepseek-ai/deepseek-harness#314"
+  - treeitem "Review deepseek-ai/kairoforge#314 Session actions for Review deepseek-ai/kairoforge#314 Archive session Pin session" [selected]:
+    - text: Review deepseek-ai/kairoforge#314
+    - button "Session actions for Review deepseek-ai/kairoforge#314"
     - button "Archive session"
     - button "Pin session"
 
 ---
 
 - banner:
-  - navigation "Session hierarchy": Review deepseek-ai/deepseek-harness#314
-  - text: Standard mode
+  - navigation "Session hierarchy": Review deepseek-ai/kairoforge#314
+  - text: KairoForge
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

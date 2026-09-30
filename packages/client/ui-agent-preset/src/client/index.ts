@@ -1,20 +1,19 @@
 /**
  * Agent-preset surface plugin, browser half — three surfaces over one roster:
  * a chip on the new-session screen for the session about to start, a
- * read-only label in the session header, and a settings section that lists
+ * Chat/KairoForge switch in the session header, and a settings section that lists
  * the roster (selection, the new-task default, a read-only view of each
  * declared composition, and the way into Creator mode).
  *
  * A running session keeps the composition it began with (the host refuses to
  * adopt an existing session under a different preset). That is what splits
  * the choice from the display: the hero chip is before-the-fact, while the
- * header only reports what a session already runs. The default preset is
+ * header switch starts a fresh task when the current one has begun. The default preset is
  * edited where the roster is visible — the settings section's "make default"
  * — so General settings carries no duplicate control for the same field.
  *
- * Developer tools (General settings) are the single gate over selection: with
- * them off the chip disappears and the card actions are disabled, while the
- * saved default keeps composing new sessions.
+ * Developer tools (General settings) gate the advanced preset surfaces. The
+ * two core product modes remain available through the header switch.
  */
 
 // Type-only: pulls the Session Controller service merge (ctx.sessions).
@@ -34,6 +33,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { AgentPresetLabel } from './AgentPresetLabel.tsx'
 import type { AgentPresetLabelInjected } from './AgentPresetLabel.tsx'
+import { KairoModeSwitch } from './KairoModeSwitch.tsx'
+import type { KairoMode, KairoModeSwitchInjected } from './KairoModeSwitch.tsx'
 import { AgentPresetSeat } from './AgentPresetSeat.tsx'
 import type { AgentPresetSeatInjected } from './AgentPresetSeat.tsx'
 import { AgentPresetSection } from './AgentPresetSection.tsx'
@@ -50,6 +51,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
+export type { KairoMode, KairoModeSwitchInjected, KairoModeSwitchProps } from './KairoModeSwitch.tsx'
 export type { AgentPresetLabelInjected, AgentPresetLabelProps } from './AgentPresetLabel.tsx'
 export type { AgentPresetSeatInjected, AgentPresetSeatProps } from './AgentPresetSeat.tsx'
 export type { AgentPresetSectionInjected, AgentPresetSectionProps } from './AgentPresetSection.tsx'
@@ -64,12 +66,13 @@ export const inject = [
 ]
 
 /**
- * Mount the roster surfaces: hero chip, session-header label, settings section.
+ * Mount the roster surfaces: hero chip, session mode switch, settings section.
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
   const controller = new AgentPresetSettingsController(ctx)
-  const staged: AgentPresetStage = { id: undefined, introduce: false }
+  const launchMode = launchCoreMode()
+  const staged: AgentPresetStage = { id: launchMode, introduce: false, core: launchMode !== undefined }
   const seats = new WeakMapWithValues<SessionBinding, AgentPresetSeatController>()
   const boundSeatDisposers = new Set<() => Promise<void>>()
   ctx.effect(() => async () => {
@@ -104,8 +107,10 @@ export function apply(ctx: ClientContext): void {
   const developerTools = ctx.configForms.developerTools.enabled
   ctx.effect(() => developerTools.subscribe(() => {
     if (developerTools.getSnapshot()) return
-    staged.id = undefined
-    staged.introduce = false
+    if (!staged.core) {
+      staged.id = undefined
+      staged.introduce = false
+    }
     void unboundSeat.apply()
     for (const seat of seats.values) void seat.apply()
   }), 'ui-agent-preset: Developer tools gate')
@@ -162,6 +167,17 @@ export function apply(ctx: ClientContext): void {
       }
     }
 
+    const modeInjected = (): KairoModeSwitchInjected => ({
+      switchMode: async (sessionId: SessionId, mode: KairoMode) => {
+        const binding = ctx.sessions.binding(sessionId)
+        const summary = ctx.sessions.list.getSnapshot().byId[sessionId]
+        if (binding !== undefined && summary?.blank === true) return await seatFor(binding).selectCore(mode)
+        unboundSeat.stageCore(mode)
+        scope.uiWorkspace.startSession()
+        return undefined
+      },
+    })
+
     const labelInjected = (): AgentPresetLabelInjected => ({
       hooks: { agentPresets: controller.store },
       load: () => controller.load(),
@@ -182,17 +198,26 @@ export function apply(ctx: ClientContext): void {
       const label = scope.slots.register({
         name: 'conversation.session.header.actions',
         id: 'agent-preset',
-        // Static session context occupies the header's leading negative-order band.
+        // Keep the full advanced-preset picker available for coding workflows.
         order: -10,
         locale: 'settings.agentPreset',
         inject: labelInjected,
       }, AgentPresetLabel)
+      const mode = scope.slots.register({
+        name: 'conversation.session.header.utilities',
+        id: 'kairo-mode-switch',
+        // Lead the right-aligned utility cluster without moving its existing controls.
+        order: -20,
+        locale: 'settings.agentPreset',
+        inject: modeInjected,
+      }, KairoModeSwitch)
       return () => {
         creatorDraft = undefined
         chip()
         label()
+        mode()
       }
-    }, 'ui-agent-preset: new-session chip and header label')
+    }, 'ui-agent-preset: new-session chip, header label, and mode switch')
   })
 
   /** Capture the exact blank Session one Settings action may update. */
@@ -228,4 +253,10 @@ export function apply(ctx: ClientContext): void {
     locale: 'settings.agentPreset',
     inject: sectionInjected,
   }, AgentPresetSection))
+}
+
+function launchCoreMode(): KairoMode | undefined {
+  if (typeof globalThis.location === 'undefined') return undefined
+  const mode = new URL(globalThis.location.href).searchParams.get('mode')
+  return mode === 'chat' || mode === 'standard' ? mode : undefined
 }

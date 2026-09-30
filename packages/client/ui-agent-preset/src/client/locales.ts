@@ -13,8 +13,12 @@ export type AgentPresetSettingsKey =
   | 'sectionIntro'
   | 'setDefault'
   | 'view'
+  | 'presetChatName'
+  | 'presetChatDescription'
   | 'presetStandardName'
   | 'presetStandardDescription'
+  | 'presetSelfEditName'
+  | 'presetSelfEditDescription'
   | 'presetPtcName'
   | 'presetPtcDescription'
   | 'presetMinimalName'
@@ -25,6 +29,9 @@ export type AgentPresetSettingsKey =
   | 'noDescription'
   | 'brokenBadge'
   | 'switchRefused'
+  | 'modeSwitchLabel'
+  | 'modeChatHint'
+  | 'modeCodeHint'
   | 'close'
   | 'creatorDraft'
 
@@ -32,7 +39,7 @@ export type AgentPresetSettingsKey =
 export const en: Record<AgentPresetSettingsKey, string> = {
   ...guideEn,
   builtInGroup: 'Built-in', customGroup: 'Custom',
-  sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to DSH.',
+  sectionIntro: 'Choose how KairoForge works. Chat mode only answers, while KairoForge mode can use coding and agent tools.',
 
   seatHint: 'Choose the agent preset for your new task',
   headerHint: 'The agent preset chosen when this task started',
@@ -41,9 +48,14 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   setDefault: 'Set as new task default',
   view: 'View configuration',
 
-  presetStandardName: 'Standard mode',
+  presetChatName: 'Chat',
+  presetChatDescription: 'Answer-only conversation. Chat mode has no tools and cannot edit files, run commands, or take actions.',
+  presetStandardName: 'KairoForge',
   presetStandardDescription:
-    'Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.',
+    'Coding and agent mode. KairoForge can inspect projects, edit files, run commands, search, and use other available tools.',
+  presetSelfEditName: 'Self-Edit + GitHub',
+  presetSelfEditDescription:
+    'Repository-builder mode. KairoForge can edit its own app files, run checks, create commits, and publish with Git when you ask.',
   presetPtcName: 'PTC mode',
   presetPtcDescription:
     'Includes all Standard mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
@@ -60,6 +72,9 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: 'Failed to load',
 
   switchRefused: 'Could not switch to {name}: {reason}',
+  modeSwitchLabel: 'Choose Chat or KairoForge coding mode',
+  modeChatHint: 'Chat mode only answers and has no tools',
+  modeCodeHint: 'KairoForge mode can code and take actions',
 
   close: 'Close',
 
@@ -71,7 +86,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 export const zh: Record<AgentPresetSettingsKey, string> = {
   ...guideZh,
   builtInGroup: '内置', customGroup: '自定义',
-  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 DSH 的能力用「创造模式」。',
+  sectionIntro: '选择 KairoForge 的工作方式。「聊天」模式只负责回答，「KairoForge」模式可以使用编程与 Agent 工具。',
 
   seatHint: '选择新任务使用的 Agent 预设',
   headerHint: '本任务的 Agent 预设，在任务开始时确定',
@@ -80,8 +95,12 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   setDefault: '设为新任务默认',
   view: '查看配置',
 
-  presetStandardName: '标准模式',
-  presetStandardDescription: '处理代码、文件和资料，适合大多数任务。Agent 会按需使用检索、编辑和终端等工具。',
+  presetChatName: '聊天',
+  presetChatDescription: '仅回答问题，不提供工具，也不能编辑文件、运行命令或执行操作。',
+  presetStandardName: 'KairoForge',
+  presetStandardDescription: '编程与 Agent 模式。KairoForge 可以检查项目、编辑文件、运行命令、检索并使用其他可用工具。',
+  presetSelfEditName: '自我编辑 + GitHub',
+  presetSelfEditDescription: '仓库构建模式。KairoForge 可以编辑自己的应用文件、运行检查、创建提交，并在你要求时用 Git 发布。',
   presetPtcName: 'PTC 模式',
   presetPtcDescription: '包含标准模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
   presetMinimalName: '极简模式',
@@ -95,6 +114,9 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: '加载失败',
 
   switchRefused: '无法切换到「{name}」：{reason}',
+  modeSwitchLabel: '选择聊天或 KairoForge 编程模式',
+  modeChatHint: '聊天模式只回答，不使用工具',
+  modeCodeHint: 'KairoForge 模式可以编程并执行操作',
 
   close: '关闭',
 

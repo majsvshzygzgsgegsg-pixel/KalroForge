@@ -1,13 +1,13 @@
 {
   "name": "@deepseek-ai/dsh-token-meter",
-  "description": "Replay-aware token measurement service (ctx.tokenMeter) for the DeepSeek Harness",
+  "description": "Replay-aware token measurement service (ctx.tokenMeter) for the KairoForge",
   "version": "0.2.0-rc.2",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/deepseek-ai/kairoforge.git",
     "directory": "packages/llm/token-meter"
   },
   "type": "module",

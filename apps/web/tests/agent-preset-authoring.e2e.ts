@@ -29,11 +29,11 @@ describe('web e2e: preset roster guidance', () => {
 
   it('shows the shipped roster with mode help and a read-only view, and no editing actions', async () => {
     onTestFailed(() => saveFailureShot(page, 'preset-roster-section'))
-    await expect.poll(() => page.locator('[data-agent-preset-id]').count()).toBe(4)
+    await expect.poll(() => page.locator('[data-agent-preset-id]').count()).toBe(5)
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(join(EXPECTED, 'section.expected.md'), snapshot, mode)
     expect(snapshot).toContain('让 Agent 帮我创建预设模式')
-    expect(snapshot).toContain('查看配置: 标准模式')
+    expect(snapshot).toContain('查看配置: KairoForge')
     expect(snapshot).not.toContain('复制预设')
     expect(snapshot).not.toContain('编辑插件')
     expect(snapshot).not.toContain('打开目录')
@@ -52,7 +52,7 @@ describe('web e2e: preset roster guidance', () => {
     await guide.getByRole('tab', { name: '如何使用', exact: true }).press('Escape')
     await guide.waitFor({ state: 'detached' })
     expect(await trigger.evaluate(element => document.activeElement === element)).toBe(true)
-    expect(await settings.getByRole('button', { name: '新任务默认: 标准模式', exact: true }).getAttribute('aria-pressed')).toBe('true')
+    expect(await settings.getByRole('button', { name: '新任务默认: KairoForge', exact: true }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('views a shipped composition read-only', async () => {
@@ -73,7 +73,7 @@ describe('web e2e: preset roster guidance', () => {
     // The header X and the footer button share the 关闭 name; the footer one is last.
     await viewer.getByRole('button', { name: '关闭', exact: true }).last().click()
     await viewer.waitFor({ state: 'detached', timeout: 10_000 })
-    expect(await settings.getByRole('button', { name: '新任务默认: 标准模式', exact: true }).getAttribute('aria-pressed')).toBe('true')
+    expect(await settings.getByRole('button', { name: '新任务默认: KairoForge', exact: true }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('starts a Creator-mode task from the section entry', async () => {

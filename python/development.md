@@ -31,7 +31,7 @@ That suite drives fake runtime peers. `scripts/smoke-python-runtime.py` drives t
 
 ```sh
 uv run --project python/sdk python scripts/smoke-python-runtime.py \
-  --scenario sdk-minimal --exe dist-exe/deepseek-harness-sdk-runtime-macos-arm64
+  --scenario sdk-minimal --exe dist-exe/kairoforge-sdk-runtime-macos-arm64
 ```
 
 SDK scenarios compare committed expected output under `scripts/snapshots/python-sdk-single-exe/`. `minimal/model-visible.json` pins the Linux/macOS `sdk-minimal` profile's assembled system prompts, advertised tool schemas, and model-visible messages; `minimal/win-x64/model-visible.json` pins its PowerShell counterpart. A plugin that contributes an unintended system section or user message therefore fails the job, and every message the profile emits is compared. `advanced/` pins one complex process's SDK result and parent/child session logs across every target. `restart/` launches two complete SDK runtime processes against one persistence root and snapshots their isolated model histories, high-level results, and separate durable logs across every target. `sdk-minimal-in-history` reuses the persistent-shell and editor scenario with a section that changes after the first successful shell call. `minimal-in-history/prompt-history.json` pins both prompt versions, the unchanged leading prompt in later requests, appended SDK system-message events, and `request/context.systemPromptUpdate`; tool schemas stay fixed and the editor file is checked independently. `sdk-dynamic-tools` pins native tool additions and removals in `dynamic-tools/tool-history.json`, including historical header references and agreement between Python SDK results, notifications, and persisted events. Rerun the owning scenario with `--update-snapshots` and review that diff before committing it.
@@ -45,9 +45,9 @@ Trusted pull requests and master pushes also run `--scenario sdk-live --installe
 An interactive smoke test needs `DEEPSEEK_API_KEY` in the environment or repository-root `.env`:
 
 ```python
-from deepseek_harness import DeepSeekHarness
+from kairoforge import KairoForge
 
-with DeepSeekHarness(dsh_home="/absolute/path/to/test-dsh-home") as harness:
+with KairoForge(dsh_home="/absolute/path/to/test-dsh-home") as harness:
     print(harness.run("say hi").final_response)
 ```
 
@@ -64,7 +64,7 @@ Repository contributors can select either development route; both execute the no
 
 ## Build distributions
 
-The root `package.json` version is authoritative for both Python distributions. The staging script injects that version into both wheels and pins the SDK to the same `deepseek-harness-runtime-bin` version.
+The root `package.json` version is authoritative for both Python distributions. The staging script injects that version into both wheels and pins the SDK to the same `kairoforge-runtime-bin` version.
 
 Build the pure SDK wheel once and one runtime wheel on each native platform:
 
@@ -77,10 +77,10 @@ print(release["pep440_version"](release["repository_version"]()))
 PY
 )"
 python scripts/build-python-release.py --package sdk --output-dir dist-python
-python scripts/build-python-release.py --package runtime --platform macos-arm64 --runtime-exe dist-exe/deepseek-harness-sdk-runtime-macos-arm64 --output-dir dist-python
+python scripts/build-python-release.py --package runtime --platform macos-arm64 --runtime-exe dist-exe/kairoforge-sdk-runtime-macos-arm64 --output-dir dist-python
 pip install \
-  "dist-python/deepseek_harness_sdk-$version-py3-none-any.whl" \
-  "dist-python/deepseek_harness_runtime_bin-$version-py3-none-macosx_14_0_arm64.whl"
+  "dist-python/kairoforge_sdk-$version-py3-none-any.whl" \
+  "dist-python/kairoforge_runtime_bin-$version-py3-none-macosx_14_0_arm64.whl"
 ```
 
 The runtime distribution is wheel-only. The release pipeline publishes five platform wheels with the pure SDK wheel: Linux x64, Linux arm64, macOS 14 or newer on arm64 and x64, and Windows x64 (`win_amd64`). A `python-v<repository-version>` tag is accepted only when it matches the repository version; prerelease repository versions such as `0.0.1-rc.1` use their normalized PEP 440 spelling, such as `0.0.1rc1`, inside wheel filenames and metadata.

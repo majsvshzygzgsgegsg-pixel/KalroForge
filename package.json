@@ -21,6 +21,7 @@
     "build": "tsx scripts/build.ts",
     "build:bench": "npm run build:native-system && npm run build:lib && tsdown --config benchmarks/tsdown.config.ts",
     "build:official": "tsx scripts/build.ts --profile official",
+    "build:kairoforge": "tsx scripts/build.ts --profile kairoforge",
     "build:lib": "pnpm run build:lib:host && pnpm run build:lib:client",
     "build:lib:host": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -b tsconfig.host.json && tsdown --env.DSH_BUILD_FACE host && pnpm --filter @deepseek-ai/dsh-desktop run bundle",
     "build:lib:client": "tsc -b tsconfig.client.json && tsdown --env.DSH_BUILD_FACE client",
@@ -204,8 +205,9 @@
     "demo:inspector": "node --import tsx/esm apps/cli/src/bin.ts web --patch ./packages/experimental/inspector/cordis.source.patch.yml",
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
     "start:web": "node --import tsx/esm apps/cli/src/bin.ts web",
-    "dev:web": "tsx scripts/dev-web.ts --poll",
-    "source:web": "pnpm run dev:web",
+    "dev:web": "tsx scripts/dev-web.ts --client-profile=kairoforge --poll",
+    "source:web": "pnpm run dev:web --client-profile=kairoforge",
+    "kairoforge": "pnpm run dev:web --client-profile=kairoforge",
     "postinstall": "node scripts/install-lefthook.mjs"
   },
   "devDependencies": {

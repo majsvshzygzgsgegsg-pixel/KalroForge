@@ -1,6 +1,9 @@
 - banner:
   - navigation "Session hierarchy": Use the bash tool to
   - text: Minimal mode
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

@@ -1,4 +1,4 @@
-// Keyless browser e2e: the shipped DeepSeek adapter stays mounted while its
+// Keyless browser e2e: the shipped KairoForge Cloud adapter stays mounted while its
 // credential is absent, both ordered steps share the shipped modal chrome,
 // and the inline key write lands in an isolated harness home without a reload
 // or model call.
@@ -25,7 +25,7 @@ const MODELS_EXPECTED = join(SNAPSHOT_DIR, 'models.expected.md')
 const DEFAULT_MODELS_EXPECTED = join(SNAPSHOT_DIR, 'default-models.expected.md')
 const MODE = webSnapshotMode()
 
-describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup', () => {
+describe.skipIf(MODE === 'record')('web e2e: first-run KairoForge Cloud credential setup', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -102,7 +102,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     const settings = page.getByRole('dialog', { name: '设置' })
     await settings.waitFor({ timeout: 10_000 })
     await settings.getByRole('button', { name: '模型', exact: true }).click()
-    const deepSeekRow = settings.getByText('DeepSeek', { exact: true }).first()
+    const deepSeekRow = settings.getByText('KairoForge Cloud', { exact: true }).first()
     await deepSeekRow.waitFor({ timeout: 10_000 })
     await deepSeekRow.locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
     const configuredInput = settings.getByLabel('API 密钥', { exact: true })
@@ -195,7 +195,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
-  it('configures arbitrary DeepSeek models and prompts after the selected model is removed', async () => {
+  it('configures arbitrary KairoForge Cloud models and prompts after the selected model is removed', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-onboarding-deepseek-models'))
     // Opened here rather than inherited: the credential test reloads the page
     // after configuring the key, so nothing carries an open dialog across.
@@ -203,12 +203,12 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     const settings = page.getByRole('dialog', { name: '设置' })
     await settings.waitFor({ timeout: 10_000 })
     await settings.getByRole('button', { name: '模型', exact: true }).click()
-    const deepSeek = settings.getByText('DeepSeek', { exact: true }).first()
+    const deepSeek = settings.getByText('KairoForge Cloud', { exact: true }).first()
     await deepSeek.waitFor({ timeout: 10_000 })
     await deepSeek.locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
     await settings.getByText('自定义设置').click()
     expect(await settings.getByLabel('模型 ID 1').inputValue()).toBe('deepseek-flash')
-    expect(await settings.getByLabel('显示名称 1').inputValue()).toBe('DeepSeek-V41-Flash')
+    expect(await settings.getByLabel('显示名称 1').inputValue()).toBe('KairoForge1.1 Flash')
     expect(await settings.getByLabel('模型 ID 2').inputValue()).toBe('deepseek-v4-pro')
     expect(await settings.getByRole('button', { name: /删除模型/ }).count()).toBe(2)
     await settings.getByRole('button', { name: '模型选项 1' }).click()
@@ -229,7 +229,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
       name: 'Configured Flash', inputModalities: ['text'], systemPromptUpdate: 'in-history',
     })
     await expect(scaffold.ctx.llm.resolveModelInfo('deepseek-official', 'deepseek-v4-pro')).resolves.toMatchObject({
-      name: 'DeepSeek-V4-Pro', inputModalities: ['text'],
+      name: 'KairoForge1.1 Pro', inputModalities: ['text'],
     })
     await deepSeek.locator('xpath=ancestor::li').getByRole('button', { name: '编辑' }).click()
     await settings.getByText('自定义设置').click()

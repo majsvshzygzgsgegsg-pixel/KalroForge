@@ -29,7 +29,7 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
     this.files = dependencies.resolveFiles?.() ?? new DeepSeekFileStore()
   }
 
-  override providerInfo(provider: string) { return { id: provider, name: this.dependencies.providerName ?? 'DeepSeek' } }
+  override providerInfo(provider: string) { return { id: provider, name: this.dependencies.providerName ?? 'KairoForge Cloud' } }
   override providerRetryPolicy(_provider: string) { return this.dependencies.options().retryPolicy }
   override async listModels(provider: string) {
     return this.dependencies.discoverModels?.(provider) ?? []
@@ -125,9 +125,9 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
             ...auth.headers,
             'anthropic-version': '2023-06-01',
             ...betas.length === 0 ? {} : { 'anthropic-beta': betas.join(',') },
-            'x-deepseek-harness-user-id': this.dependencies.resolveUserId(),
-            ...options.sessionId === undefined ? {} : { 'x-deepseek-harness-session-id': String(options.sessionId) },
-            ...options.purpose === 'compaction' ? { 'x-deepseek-harness-compact': '1' } : {},
+            'x-kairoforge-user-id': this.dependencies.resolveUserId(),
+            ...options.sessionId === undefined ? {} : { 'x-kairoforge-session-id': String(options.sessionId) },
+            ...options.purpose === 'compaction' ? { 'x-kairoforge-compact': '1' } : {},
           },
         })
         if (!response.ok) {

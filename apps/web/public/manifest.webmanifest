@@ -1,9 +1,18 @@
 {
-  "name": "DeepSeek Harness",
-  "short_name": "DSH",
-  "start_url": "./",
+  "name": "KairoForge",
+  "short_name": "KairoForge",
+  "description": "A local-first phone-ready Chat app and coding workspace for KairoForge.",
+  "start_url": "./?mode=chat",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "orientation": "any",
+  "background_color": "#0c1020",
+  "theme_color": "#6d5dfc",
   "icons": [
     {
       "src": "favicon.svg",

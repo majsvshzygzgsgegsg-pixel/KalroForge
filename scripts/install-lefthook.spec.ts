@@ -662,7 +662,7 @@ syncBuiltinESMExports()
       join(externalHooks, '.dsh-lefthook-owned'),
       `${JSON.stringify({
         version: 1,
-        owner: 'deepseek-harness worktree-local lefthook hooks',
+        owner: 'kairoforge worktree-local lefthook hooks',
         hooksPath: externalHooks,
       })}\n`,
       0o600,

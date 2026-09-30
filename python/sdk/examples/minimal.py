@@ -7,7 +7,7 @@ import argparse
 import os
 from pathlib import Path
 
-from deepseek_harness import DeepSeekHarness
+from kairoforge import KairoForge
 
 
 def main() -> None:
@@ -32,7 +32,7 @@ def main() -> None:
 
     workspace = args.workspace.resolve()
     dsh_home = args.dsh_home.resolve()
-    with DeepSeekHarness(
+    with KairoForge(
         provider=args.provider,
         model=args.model,
         max_tokens=args.max_tokens,

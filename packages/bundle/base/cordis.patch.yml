@@ -126,6 +126,22 @@
     # document.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      config:
+        providers:
+          kairoforge-omni:
+            displayName: KairoForge Omni
+            apiKeyEnv: FREELLMAPI_API_KEY
+            api: openai-completions
+            baseURL: http://127.0.0.1:31415/v1
+            defaultContextWindow: 128000
+            defaultMaxTokens: 16384
+            models:
+              - id: kairoforge-omni
+                name: KairoForge Omni
+                contextWindow: 128000
+                maxTokens: 16384
+                input:
+                  - text
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'

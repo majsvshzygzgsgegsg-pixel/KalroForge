@@ -11,10 +11,10 @@
   - paragraph: 填入各提供商的 API 密钥即可使用其模型。
   - list:
     - listitem:
-      - text: DeepSeek
+      - text: KairoForge Cloud
       - img "API 密钥已配置"
-      - button "编辑 DeepSeek (deepseek-official)": 编辑
-      - text: DeepSeek deepseek-official API 密钥
+      - button "编辑 KairoForge Cloud (deepseek-official)": 编辑
+      - text: KairoForge Cloud deepseek-official API 密钥
       - textbox "API 密钥":
         - /placeholder: 已配置——输入新值可替换
       - group:
@@ -29,7 +29,7 @@
             - text: deepseek-flash
           - textbox "显示名称 1":
             - /placeholder: 显示名称
-            - text: DeepSeek-V41-Flash
+            - text: KairoForge1.1 Flash
           - button "模型选项 1" [expanded]
           - button "删除模型 1"
           - text: 上下文窗口
@@ -50,7 +50,7 @@
             - text: deepseek-v4-pro
           - textbox "显示名称 2":
             - /placeholder: 显示名称
-            - text: DeepSeek-V4-Pro
+            - text: KairoForge1.1 Pro
           - button "模型选项 2"
           - button "删除模型 2"
           - button "添加模型"

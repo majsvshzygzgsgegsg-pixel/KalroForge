@@ -1,10 +1,10 @@
 - group "模型与推理等级":
   - searchbox "搜索模型…"
   - menu "模型":
-    - group "DeepSeek":
-      - text: DeepSeek
-      - menuitemradio "DeepSeek-V4-Flash"
-      - menuitemradio "DeepSeek-V4-Flash-Vision-Exp"
+    - group "KairoForge Cloud":
+      - text: KairoForge Cloud
+      - menuitemradio "KairoForge1.1 Flash"
+      - menuitemradio "KairoForge1.1 Flash Vision"
     - group "Acme Gateway":
       - text: Acme Gateway
       - menuitemradio "Acme Think"

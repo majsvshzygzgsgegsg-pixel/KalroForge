@@ -17,6 +17,20 @@
 
   overflow-x: visible;
   overflow-y: clip;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, #7c3aed 9%, transparent) 0 1px, transparent 1px 100%),
+    linear-gradient(0deg, color-mix(in srgb, #06b6d4 7%, transparent) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 20% 12%, color-mix(in srgb, #7c3aed 20%, transparent) 0, transparent 30%),
+    radial-gradient(circle at 82% 2%, color-mix(in srgb, #06b6d4 18%, transparent) 0, transparent 26%),
+    radial-gradient(circle at 70% 78%, color-mix(in srgb, #f59e0b 7%, transparent) 0, transparent 22%),
+    linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-bg-base) 86%, #020617 14%) 0%, var(--dsw-alias-bg-base) 58%);
+  background-size:
+    42px 42px,
+    42px 42px,
+    auto,
+    auto,
+    auto,
+    auto;
 }
 
 .scroll {
@@ -25,7 +39,7 @@
   overflow-y: auto;
   /* Sides = composer clearance + 16px: on narrow viewports the transcript
      stays exactly 32px narrower than the input card (the shared width rule). */
-  padding: 16px calc(var(--dsh-composer-side-clearance) + 16px);
+  padding: 24px calc(var(--dsh-composer-side-clearance) + 16px) 20px;
   /* Inline-size query container: wide markdown tables size their breakout
      against this box's content width (100cqw in AssistantMarkdown's
      md-table-wide rule) — the CSS stand-in for deepsuite chat's JS-measured
@@ -55,11 +69,12 @@
    centered on the same axis as the input box (which caps at chat + 16px); the
    scroller itself stays full-bleed. */
 .column {
-  max-width: var(--dsh-chat-content-width);
+  max-width: min(var(--dsh-chat-content-width), 880px);
   width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  padding: 16px 0 20px;
 }
 
 /* `hidden="until-found"` retains a zero-height box so browser find can reveal
@@ -73,7 +88,7 @@
 /* Process rows sit 6px apart; an Assistant response is separated from its
    neighbours by 12px. */
 .flowItem[data-chat-group-part="response"] {
-  --dsh-chat-flow-gap: 12px;
+  --dsh-chat-flow-gap: 16px;
 }
 
 .column > [data-chat-group-part="response"]:not([hidden]):not(:empty)
@@ -122,6 +137,17 @@
   color: var(--dsw-alias-label-deep-diving);
   font-size: calc(var(--dsh-content-font-size, 14px) - 2px);
   line-height: calc(22px + var(--dsh-content-font-delta, 0px));
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, #22d3ee 24%, var(--dsw-alias-border-l2));
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--dsw-alias-bg-layer-1) 78%, #172554 22%),
+      color-mix(in srgb, var(--dsw-alias-bg-layer-1) 72%, #312e81 28%));
+  box-shadow:
+    0 12px 34px color-mix(in srgb, #0f172a 18%, transparent),
+    0 0 22px color-mix(in srgb, #06b6d4 12%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 /* The last visible row before the status must contain output, not an input.
@@ -216,6 +242,65 @@
 .older button:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+/* KairoForge chat canvas */
+.root {
+  background:
+    radial-gradient(circle at 18% 10%, rgb(124 58 237 / 0.26), transparent 26%),
+    radial-gradient(circle at 88% 6%, rgb(6 182 212 / 0.22), transparent 26%),
+    radial-gradient(circle at 72% 86%, rgb(250 204 21 / 0.10), transparent 18%),
+    linear-gradient(180deg, rgb(2 6 23 / 0.36), rgb(15 23 42 / 0.20));
+}
+
+.root::before {
+  content: 'KairoForge';
+  position: absolute;
+  top: clamp(18px, 4vw, 42px);
+  right: clamp(22px, 5vw, 72px);
+  z-index: 0;
+  color: transparent;
+  background: linear-gradient(90deg, rgb(34 211 238 / 0.28), rgb(168 85 247 / 0.20));
+  background-clip: text;
+  font-size: clamp(46px, 10vw, 132px);
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  line-height: 0.9;
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+
+.root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(255 255 255 / 0.018) 1px, transparent 1px);
+  background-size: 38px 38px;
+  mask-image: linear-gradient(180deg, black, transparent 72%);
+}
+
+.scroll {
+  position: relative;
+  z-index: 1;
+}
+
+.column {
+  max-width: min(var(--dsh-chat-content-width), 940px);
+}
+
+.running {
+  border-color: rgb(125 211 252 / 0.36);
+  background:
+    linear-gradient(135deg, rgb(15 23 42 / 0.74), rgb(30 41 59 / 0.58)),
+    linear-gradient(90deg, rgb(34 211 238 / 0.15), rgb(168 85 247 / 0.16));
+  box-shadow:
+    0 16px 46px rgb(2 6 23 / 0.32),
+    0 0 34px rgb(34 211 238 / 0.18);
 }
 
 /* Floating controls sit outside the clipped transcript. A standalone Chat

@@ -27,7 +27,7 @@ kind: "package-reference"
 
 设置页显示内置与自定义卡片分组、默认项高亮和点击卡片选择；没有 preset 的分组不显示，但自定义分组会保留其创造入口。每张卡片都提供「查看配置」，以只读 YAML 打开该 preset 声明的插件列表，使用 Loader 自己的方言（含 `!!js` 条件）；加载失败的 preset 同样可读，因为其诊断信息正指向这份 YAML。Escape 只关闭查看器并将焦点还给卡片；离开设置页会清空查看器，迟到的读取结果不会重新打开它。本页不编辑任何内容：创造入口启动一个创造模式任务，以 bundle 形式创建或覆盖 preset；当 `cordis` preset 在列表中且存在会话流程时提供。
 
-通用设置中的代码工作工具决定能否选择模式：关闭后新会话选择器消失，而设置卡片仍可选择继续用于新任务的已保存默认值，Creator 入口也保持可用。开启时，选择健康定义作为默认值也会同步当前新任务页面的空白会话；关闭时，被复用的空白会话保留原预设。Creator 入口开启一个使用 `cordis` preset 的新任务。
+右上角的「聊天/KairoForge」开关始终提供两种核心产品模式。空白会话会立即重新组合；对话开始后则以所选模式新建任务，因为既有历史的工具能力不可变。带有 `?mode=chat` 的启动 URL 会为第一个空白会话预置同一个仅回答 preset，这也是可安装手机 App 以普通聊天打开的方式。「聊天」对应没有工具插件、使用完整 KairoForge 提示词的 `chat` preset；「KairoForge」对应完整的 `standard` 编程 preset。通用设置中的代码工作工具只控制高级的新会话 preset 选择器，设置卡片仍可选择已保存默认值，Creator 入口也保持可用。
 
 已知的内置预设提供只读的模式说明与使用示例对话框。各页签保留各自的滚动位置；关闭后焦点回到打开它的操作。帮助不会改变新任务默认值。默认徽标取代卡片的分组徽标，预设 id 显示在标题旁。指南文案与示例归本包所有。
 
@@ -37,7 +37,7 @@ kind: "package-reference"
 <details>
 <summary>实现细节 — 点击展开</summary>
 
-`agentPresets/list` 提供列表并标记当前默认值，`agentPresets/read` 为查看器提供一条声明的 YAML；默认值的修改写入 `agent-preset-registry` settings 命名空间。选择器、空白会话同步和只读会话标签使用记录的 preset 标识。连接重置和设置更新会刷新列表。
+`agentPresets/list` 提供列表并标记当前默认值，`agentPresets/read` 为查看器提供一条声明的 YAML；默认值的修改写入 `agent-preset-registry` settings 命名空间。选择器、空白会话同步和页眉模式开关使用记录的 preset 标识。连接重置和设置更新会刷新列表。
 
 </details>
 

@@ -1,4 +1,4 @@
-/** Historical Messages provider replay preserves its recorded identity and DeepSeek model group. */
+/** Historical Messages provider replay preserves its recorded identity and KairoForge Cloud model group. */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -14,7 +14,7 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/deepseek-mess
 const FIXTURE = join(SNAPSHOT_DIR, 'session.v3.jsonl')
 const MODE = webSnapshotMode()
 
-describe.skipIf(MODE === 'record')('web e2e: DeepSeek Messages conversation', () => {
+describe.skipIf(MODE === 'record')('web e2e: KairoForge Cloud Messages conversation', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -27,9 +27,9 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek Messages conversation', ()
       replayFixture,
       paceMs: 5,
       replayProviders: [{
-        id: 'deepseek-messages', name: 'DeepSeek',
+        id: 'deepseek-messages', name: 'KairoForge Cloud',
         models: [{
-          id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash',
+          id: 'deepseek-v4-flash', name: 'KairoForge1.1 Flash',
           contextWindow: 1_000_000, defaultMaxTokens: 256_000,
           reasoningEfforts: ['off', 'low', 'high', 'max'], defaultReasoningEffort: 'high',
         }],
@@ -47,14 +47,14 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek Messages conversation', ()
     try { await browser?.close() } finally { await scaffold?.close() }
   })
 
-  it('replays the historical Messages provider while displaying DeepSeek in the model selector', async () => {
+  it('replays the historical Messages provider while displaying KairoForge Cloud in the model selector', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-deepseek-messages-chat'))
     const prompts = fixtureUserPrompts(await readFile(replayFixture, 'utf8'))
     expect(prompts).toHaveLength(1)
     expect(scaffold.ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-messages', model: 'deepseek-v4-flash' })
     await page.getByRole('button', { name: /^选择模型/ }).click()
     await page.getByRole('menuitem', { name: /模型/ }).click()
-    await page.getByText('DeepSeek', { exact: true }).waitFor()
+    await page.getByText('KairoForge Cloud', { exact: true }).waitFor()
     await page.getByRole('button', { name: /^选择模型/ }).click()
     const input = page.locator('[data-composer-input]').first()
     const settled = scaffold.whenTurnSettled()

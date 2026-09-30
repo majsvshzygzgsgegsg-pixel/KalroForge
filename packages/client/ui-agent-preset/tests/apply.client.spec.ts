@@ -1,6 +1,6 @@
 /**
  * Registration: the General row, the settings section, the new-session chip,
- * and the header label all come from one apply, and each defers until the slot
+ * and the header mode switch all come from one apply, and each defers until the slot
  * it fills has been declared. A pushed settings change refreshes the surfaces
  * that are already showing, so a default set from one converges the other.
  */
@@ -15,8 +15,8 @@ import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-agent-preset/client'
-import { AgentPresetLabel } from '../src/client/AgentPresetLabel.tsx'
-import type { AgentPresetLabelInjected } from '../src/client/AgentPresetLabel.tsx'
+import { KairoModeSwitch } from '../src/client/KairoModeSwitch.tsx'
+import type { KairoModeSwitchInjected } from '../src/client/KairoModeSwitch.tsx'
 import { AgentPresetSection } from '../src/client/AgentPresetSection.tsx'
 import type { AgentPresetSectionInjected } from '../src/client/AgentPresetSection.tsx'
 import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
@@ -185,6 +185,7 @@ function declareConversation(slots: SlotRegistry): () => void {
     children: {
       'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
       'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
     },
   } as never, () => null)
 }
@@ -425,7 +426,7 @@ describe('ui-agent-preset apply', () => {
     expect(calls.length - before).toBe(2)
   })
 
-  it('registers the new-session chip and the header label, and drops both on disposal', async () => {
+  it('registers the new-session chip and top-right mode switch, and drops both on disposal', async () => {
     const { ctx, slots } = await bench()
     declareRoot(slots)
     const conversation = declareConversation(slots)
@@ -437,12 +438,12 @@ describe('ui-agent-preset apply', () => {
 
     const chip = slots.entries('conversation.hero.agentPreset')[0]!
     expect(chip.component).toBe(AgentPresetSeat)
-    const label = slots.entries('conversation.session.header.actions')[0]!
-    expect(label.component).toBe(AgentPresetLabel)
-    expect(label.options).toMatchObject({ id: 'agent-preset', order: -10 })
+    const mode = slots.entries('conversation.session.header.utilities')[0]!
+    expect(mode.component).toBe(KairoModeSwitch)
+    expect(mode.options).toMatchObject({ id: 'kairo-mode-switch', order: -20 })
     await fiber.dispose()
     expect(slots.entries('conversation.hero.agentPreset')).toHaveLength(0)
-    expect(slots.entries('conversation.session.header.actions')).toHaveLength(0)
+    expect(slots.entries('conversation.session.header.utilities')).toHaveLength(0)
     expect(slots.entries('settings.section')).toHaveLength(0)
     conversation()
   })
@@ -796,20 +797,58 @@ describe('ui-agent-preset apply', () => {
     conversation()
   })
 
-  it('loads the header label from the shared roster store', async () => {
-    const { ctx, slots } = await bench()
+  it('switches a blank session in place from the header mode control', async () => {
+    const { ctx, slots, calls } = await bench()
     declareRoot(slots)
     declareConversation(slots)
     ctx.provide('conversation', {} as never)
-    ctx.provide('sessions', sessionsDouble(ctx, { byId: {} }) as never)
+    const state = { current: 's1', byId: { s1: { id: 's1', blank: true, projectionValues: { agentPreset: 'standard' } } } }
+    ctx.provide('sessions', sessionsDouble(ctx, state) as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
-    const label = (slots.entries('conversation.session.header.actions')[0]!
-      .inject as unknown as () => AgentPresetLabelInjected)()
+    const mode = (slots.entries('conversation.session.header.utilities')[0]!
+      .inject as unknown as () => KairoModeSwitchInjected)()
+    await mode.switchMode(SessionId('s1'), 'chat')
+    expect(calls).toContain('select:chat')
+  })
 
-    await label.load()
+  it('uses the phone web-app launch parameter to stage Chat for the first blank session', async () => {
+    const { ctx, slots, calls } = await bench()
+    declareRoot(slots)
+    declareConversation(slots)
+    ctx.provide('conversation', {} as never)
+    const state: {
+      current?: string
+      byId: Record<string, {
+        id: string
+        blank: boolean
+        projectionValues?: { agentPreset?: string | null }
+      }>
+    } = { byId: {} }
+    const sessions = sessionsDouble(ctx, state)
+    ctx.provide('sessions', sessions as never)
+    ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
+    const previousLocation = globalThis.location
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: new URL('https://kairo.local/?mode=chat'),
+    })
+    try {
+      await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: previousLocation,
+      })
+    }
+    state.current = 's1'
+    state.byId['s1'] = { id: 's1', blank: true }
+    sessions.notify()
+    const injectSeat = slots.entries('conversation.hero.agentPreset')[0]!
+      .inject as unknown as (sessionId?: SessionId) => AgentPresetSeatInjected
+    await injectSeat(SessionId('s1')).load()
 
-    expect(label.hooks.agentPresets.getSnapshot().options).toEqual([{ id: 'standard' }])
+    expect(calls).toContain('select:chat')
   })
 
   it('stages the creator preset and starts a session from the section', async () => {

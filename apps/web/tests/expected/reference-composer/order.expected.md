@@ -1,5 +1,8 @@
 - banner:
   - navigation "Session hierarchy": Reference order target
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat"
+    - button "KairoForge" [pressed]
   - button "More actions"
   - button "Open right sidebar"
   - tablist:
@@ -12,5 +15,5 @@
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- button "Select model, current KairoForge1.1 Flash": KairoForge1.1 Flash
 - button "Send message" [disabled]

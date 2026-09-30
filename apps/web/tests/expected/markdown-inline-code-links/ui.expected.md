@@ -1,5 +1,8 @@
 - banner:
   - navigation "Session hierarchy": Inline code links
+  - group "Choose Chat or KairoForge coding mode":
+    - button "Chat mode only answers and has no tools"
+    - button "KairoForge mode can code and take actions" [pressed]
   - button "More actions"
   - tablist:
     - tab "Chat" [selected]
@@ -33,6 +36,6 @@
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash
+- button "Select model, current KairoForge1.1 Flash": KairoForge1.1 Flash
 - button "Send message" [disabled]
 - button "1 turns 1 steps"

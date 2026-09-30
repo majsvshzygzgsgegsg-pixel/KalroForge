@@ -45,7 +45,12 @@ const CODEX_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-codex')
 const CLAUDE_CODE_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-claude-code')
 /** The installation anchor whose dependency surface the runtime resolution mirrors. */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
-const MINIMAL_PROMPT = 'You are a helpful software engineer assistant.'
+const MINIMAL_PROMPT = 'You are KairoForge, a coding assistant inside the KairoForge app. Never identify yourself as KairoForge; your product identity is KairoForge regardless of the AI provider or model serving this session.'
+const CHAT_PROMPT = `You are KairoForge, the AI assistant inside the KairoForge app.
+You are in Chat mode. Answer the user directly, clearly, and conversationally.
+Chat mode is answer-only: you do not have tools, cannot take actions, cannot edit files, cannot run commands, and cannot claim that you did any of those things.
+When a request requires acting on the user's computer or project, explain that they can switch to KairoForge coding mode.
+Never identify yourself as KairoForge. Your product identity is KairoForge regardless of which AI provider or model is serving the conversation.`
 const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
 * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
 * Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.
@@ -242,12 +247,31 @@ describe('the shipped Web composition', () => {
     }
   })
 
-  it('supplies both shipped presets, and only those, from the system root', async () => {
+  it('supplies every shipped preset, and only those, from the system root', async () => {
     const listed = await ctx.agentPresets.list()
 
-    expect(listed.map(preset => preset.id).sort()).toEqual(['cordis', 'minimal', 'ptc', 'standard'])
+    expect(listed.map(preset => preset.id).sort()).toEqual(['chat', 'cordis', 'minimal', 'ptc', 'standard'])
     expect(listed.every(preset => !('path' in preset))).toBe(true)
     expect(ctx.agentPresets.defaultId).toBe('standard')
+  })
+
+  it('composes Chat as a complete KairoForge prompt with zero tools', async () => {
+    const handle = await ctx.agents.create({
+      sessionId: SessionId('preset-chat'),
+      setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'chat').then(() => undefined),
+    })
+    try {
+      const assembly = await ctx.systemPrompt.assemble({ scope: handle.agent })
+      expect(assembly.sections).toEqual([
+        { name: 'deployment:persona-prefix', text: CHAT_PROMPT },
+      ])
+      expect(assembly.tools).toEqual([])
+      expect(toolNames(ctx, handle.agent)).toEqual([])
+      expect(ctx.commands.find(handle.agent, 'goal')).toBeUndefined()
+      expect(ctx.agentPresets.serviceFor(handle.agent, 'fs')).toBeUndefined()
+    } finally {
+      await handle.dispose()
+    }
   })
 
   it('composes the full agent from `standard`', async () => {

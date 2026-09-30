@@ -1,11 +1,11 @@
 {
   "name": "@deepseek-ai/dsh-experimental-auto-review",
-  "description": "Per-tool LLM authorization review for the DeepSeek Harness Auto permission preset",
+  "description": "Per-tool LLM authorization review for the KairoForge Auto permission preset",
   "version": "0.2.0-rc.2",
   "icon": "./icon.svg",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/deepseek-ai/kairoforge.git",
     "directory": "packages/experimental/auto-review"
   },
   "type": "module",
