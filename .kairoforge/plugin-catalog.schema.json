@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kairoforge.local/schemas/plugin-catalog.schema.json",
+  "title": "KairoForge Plugin Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "product", "catalogs", "installedBundles", "blockedBundles"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "product": { "const": "KairoForge" },
+    "catalogs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/catalog" }
+    },
+    "installedBundles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bundle" }
+    },
+    "blockedBundles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/blockedBundle" }
+    }
+  },
+  "$defs": {
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "source", "kind", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+        "name": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "website": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["curated-list", "bundle", "registry"] },
+        "installedAccess": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["active", "disabled"] },
+        "notes": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "package", "profile", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+        "package": { "type": "string", "minLength": 1 },
+        "versionRange": { "type": "string", "minLength": 1 },
+        "profile": { "type": "string", "minLength": 1 },
+        "entryId": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "purpose": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["enabled", "installed-disabled"] }
+      }
+    },
+    "blockedBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "package", "status", "reason"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+        "package": { "type": "string", "minLength": 1 },
+        "attemptedVersion": { "type": "string", "minLength": 1 },
+        "profile": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["blocked-by-runtime-compatibility", "blocked-by-install-error"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "riskPolicy": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

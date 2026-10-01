@@ -37,3 +37,9 @@ When the user says to publish after a Creator change, KairoForge should:
 8. open the newest local version for the user.
 
 If GitHub authentication, branch protection, missing remotes, tests, or build errors block publishing, KairoForge should say exactly what blocked it and avoid pretending the publish happened.
+
+## Plugin catalog
+
+KairoForge tracks plugin catalog setup in [`.kairoforge/plugin-catalog.json`](../.kairoforge/plugin-catalog.json). The Awesome DSH Plugin repository is a curated list, not a single bundle that should be installed all at once. Installing every listed plugin would execute large amounts of third-party code with the user's permissions and can break the profile.
+
+Use `dshmarket` as the installed market interface for that catalog. It lets the user browse and install catalog entries one at a time from inside KairoForge. If a plugin is rejected by runtime compatibility checks, do not grant an exact-version exemption unless the user explicitly accepts the named risk for that exact plugin version and KairoForge runtime.

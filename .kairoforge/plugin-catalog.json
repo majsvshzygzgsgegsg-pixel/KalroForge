@@ -1,0 +1,44 @@
+{
+  "$schema": "./plugin-catalog.schema.json",
+  "version": 1,
+  "product": "KairoForge",
+  "catalogs": [
+    {
+      "id": "awesome-dsh-plugin",
+      "name": "Awesome DSH Plugin",
+      "source": "https://github.com/awesome-dsh-plugin/awesome-dsh-plugin.git",
+      "website": "https://awesome-dsh-plugin.com",
+      "kind": "curated-list",
+      "installedAccess": "dshmarket",
+      "status": "active",
+      "notes": [
+        "The source repository is a curated list, not a single bundle that installs every plugin.",
+        "KairoForge uses dshmarket to browse, search, and install entries from this catalog safely one at a time.",
+        "Do not auto-install every listed plugin; installed plugins execute third-party code with the user's permissions."
+      ]
+    }
+  ],
+  "installedBundles": [
+    {
+      "id": "dshmarket",
+      "package": "dshmarket",
+      "versionRange": "^1.66.7",
+      "profile": "web",
+      "entryId": "dsh-market",
+      "source": "https://github.com/dsh-market/dsh-market.git",
+      "purpose": "Visual plugin market for browsing and installing the Awesome DSH Plugin catalog from inside KairoForge.",
+      "status": "enabled"
+    }
+  ],
+  "blockedBundles": [
+    {
+      "id": "dsh-find-plugin",
+      "package": "dsh-find-plugin",
+      "attemptedVersion": "0.4.0",
+      "profile": "web",
+      "status": "blocked-by-runtime-compatibility",
+      "reason": "The package declares peer dependencies for older DSH tool/runtime versions and was rejected by the plugin manager for KairoForge's current runtime.",
+      "riskPolicy": "Do not add an exact-version exemption unless the user explicitly accepts the compatibility risk for dsh-find-plugin@0.4.0 on dsh 0.2.0-rc.2."
+    }
+  ]
+}
