@@ -114,3 +114,88 @@
 .linkCard svg:last-child {
   margin-left: auto;
 }
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.statusLine {
+  margin-top: 4px;
+}
+
+.ok {
+  color: #059669;
+  font-weight: 700;
+}
+
+.bad {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.actionButton,
+.commandItem button {
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.08);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.actionButton:hover,
+.commandItem button:hover {
+  background: rgba(59, 130, 246, 0.14);
+}
+
+.commandList {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.commandItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.commandItem strong {
+  display: block;
+  font-size: 13px;
+}
+
+.commandItem span {
+  display: block;
+  margin-top: 3px;
+  color: var(--dsh-color-text-secondary, #64748b);
+  font-size: 11px;
+}
+
+.empty {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed rgba(100, 116, 139, 0.24);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.54);
+}
+
+.promptBox {
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  color: #dbeafe;
+  background: #0b1120;
+  white-space: pre-wrap;
+}

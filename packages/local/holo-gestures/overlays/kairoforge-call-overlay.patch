@@ -53,7 +53,7 @@ index a5fe905..fc931ec 100644
  answers from your notes, phone calls it makes on your behalf, email and calendar, a
  computer-takeover mode, and eyes that can see you.
 diff --git a/holo.html b/holo.html
-index bac013d..555405c 100644
+index bac013d..5df37a9 100644
 --- a/holo.html
 +++ b/holo.html
 @@ -121,6 +121,51 @@
@@ -165,7 +165,7 @@ index bac013d..555405c 100644
    if (drag.card){
      // BOTH hands on one thing = stretch IT. Stretch a note past 1.7× and it OPENS.
      const c = drag.card, other = drag.hand === 0 ? pb : pa;
-@@ -770,15 +849,135 @@ function setJarvis(on){
+@@ -770,15 +849,137 @@ function setJarvis(on){
    JARVIS_ON = on;
    document.body.classList.toggle('jarvis', on);
    document.getElementById('jarvis').classList.toggle('off', !on);
@@ -213,7 +213,9 @@ index bac013d..555405c 100644
 +}
 +function kfLog(event, payload){
 +  fetch('/api/state', { method:'POST', headers:{'Content-Type':'application/json'},
-+    body: JSON.stringify({ event, card: payload, source:'kairoforge-call', at: Date.now() }) }).catch(()=>{});
++    body: JSON.stringify({ event, card: payload, command: payload, source:'kairoforge-call', at: Date.now() }) })
++    .then(() => { if (event === 'kairoforge-command') kfState.textContent = 'queued for KairoForge Creator mode'; })
++    .catch(() => { if (event === 'kairoforge-command') kfState.textContent = 'local queue unavailable'; });
 +}
 +function kfReply(command){
 +  const cmd = command.trim(); if (!cmd) return;
@@ -241,7 +243,7 @@ index bac013d..555405c 100644
 +    return;
 +  }
 +  if (/(change|edit|fix|publish|github|computer|repo|file|clone)/.test(low)){
-+    kfSpeak('I saved that as a Creator-mode request. KairoForge can inspect files, edit the repo, run safe commands, and publish when you confirm the action in the main app.');
++    kfSpeak('I queued that for Creator mode. Open KairoForge, choose Holo Gestures, and send the generated Creator prompt so KairoForge can inspect files, edit, run checks, and publish.');
 +    return;
 +  }
 +  kfSpeak('I heard you. For Holo, try commands like “open keyboard”, “add 3D item”, “remove selected”, or “send this to Creator mode”.');
@@ -304,7 +306,7 @@ index bac013d..555405c 100644
  /* squeeze-to-summarize: crush a note between both hands → the gist, spoken.
     No model, no API — the gist is the note's own opening sentences, honest and local. */
  function gistOf(c){
-@@ -815,6 +1014,7 @@ async function startGL(){
+@@ -815,6 +1016,7 @@ async function startGL(){
      let T = null;
      try { T = await import('/vendor/three.module.js'); }
      catch (_){ T = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js'); }
@@ -312,3 +314,136 @@ index bac013d..555405c 100644
      glRenderer = new T.WebGLRenderer({ canvas: document.getElementById('gl'), alpha: true, antialias: true });
      glRenderer.setPixelRatio(Math.min(2, devicePixelRatio));
      glScene = new T.Scene();
+diff --git a/server.py b/server.py
+index 636fca3..7599af1 100644
+--- a/server.py
++++ b/server.py
+@@ -9,10 +9,12 @@ Endpoints:
+   GET  /               → holo.html
+   GET  /api/notes      → [{name, title, body}] from the folder in holo.json
+                          (falls back to ./sample-notes so it runs instantly)
++  GET  /api/commands   → recent KairoForge Call commands and pending items
+   POST /api/state      → future Jarvis hook: writes state/holo-state.json so the
+                          big brain can react to what the hands did ("Card pinned,
+                          sir"). Nothing reads it yet by design — prototype stays
+                          standalone until proven.
++  POST /api/command-done → marks a queued KairoForge Call command handled
+ """
+ import json, os, time
+ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+@@ -84,6 +86,43 @@ def load_tree(limit_files=14):
+         pass
+     return tree
+
++def state_path(name):
++    return os.path.join(ROOT, "state", name)
++
++def read_json(path, fallback):
++    try:
++        with open(path, encoding="utf-8") as f:
++            return json.load(f)
++    except Exception:
++        return fallback
++
++def write_json_atomic(path, data):
++    os.makedirs(os.path.dirname(path), exist_ok=True)
++    tmp = path + ".tmp"
++    with open(tmp, "w", encoding="utf-8") as f:
++        json.dump(data, f, indent=2)
++    os.replace(tmp, path)
++
++def append_command(data):
++    text = str(data.get("command") or data.get("card") or "").strip()
++    if not text:
++        return None
++    path = state_path("kairoforge-commands.json")
++    queue = read_json(path, [])
++    if not isinstance(queue, list):
++        queue = []
++    item = {
++        "id": f"kf-{int(time.time() * 1000)}",
++        "command": text,
++        "source": data.get("source", "kairoforge-call"),
++        "event": data.get("event", "kairoforge-command"),
++        "status": "pending",
++        "created_at": time.time(),
++    }
++    queue.append(item)
++    write_json_atomic(path, queue[-50:])
++    return item
++
+ class H(BaseHTTPRequestHandler):
+     def log_message(self, *a):  # quiet
+         pass
+@@ -92,12 +131,18 @@ class H(BaseHTTPRequestHandler):
+         b = body if isinstance(body, bytes) else json.dumps(body).encode()
+         self.send_response(code)
+         self.send_header("Content-Type", ctype)
++        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:3080")
++        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
++        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+         if ctype.startswith("text/html"):
+             self.send_header("Cache-Control", "no-store")   # a stale cached page hid real fixes once
+         self.send_header("Content-Length", str(len(b)))
+         self.end_headers()
+         self.wfile.write(b)
+
++    def do_OPTIONS(self):
++        self._send(204, b"")
++
+     MIME = {".mjs": "text/javascript", ".js": "text/javascript",
+             ".wasm": "application/wasm", ".task": "application/octet-stream",
+             ".glb": "model/gltf-binary"}
+@@ -139,6 +184,12 @@ class H(BaseHTTPRequestHandler):
+             return self._send(200, load_notes())
+         if p == "/api/tree":
+             return self._send(200, load_tree())
++        if p == "/api/commands":
++            data = read_json(state_path("kairoforge-commands.json"), [])
++            if not isinstance(data, list):
++                data = []
++            pending = [x for x in data if isinstance(x, dict) and x.get("status") == "pending"]
++            return self._send(200, {"commands": data[-30:], "pending": pending})
+         return self._send(404, {"error": "not found"})
+
+     def do_POST(self):
+@@ -157,6 +208,24 @@ class H(BaseHTTPRequestHandler):
+             except OSError:
+                 pass
+             return self._send(200, {"ok": True})
++        if p == "/api/command-done":
++            try:
++                n = int(self.headers.get("Content-Length") or 0)
++                data = json.loads(self.rfile.read(n) or b"{}")
++            except Exception:
++                data = {}
++            command_id = data.get("id")
++            queue = read_json(state_path("kairoforge-commands.json"), [])
++            if isinstance(queue, list):
++                for item in queue:
++                    if isinstance(item, dict) and item.get("id") == command_id:
++                        item["status"] = "handled"
++                        item["handled_at"] = time.time()
++                try:
++                    write_json_atomic(state_path("kairoforge-commands.json"), queue)
++                except OSError:
++                    pass
++            return self._send(200, {"ok": True})
+         if p != "/api/state":
+             return self._send(404, {"error": "not found"})
+         try:
+@@ -166,11 +235,9 @@ class H(BaseHTTPRequestHandler):
+             data = {}
+         data["ts"] = time.time()
+         try:
+-            os.makedirs(os.path.join(ROOT, "state"), exist_ok=True)
+-            tmp = os.path.join(ROOT, "state", ".holo-state.tmp")
+-            with open(tmp, "w") as f:
+-                json.dump(data, f)
+-            os.replace(tmp, os.path.join(ROOT, "state", "holo-state.json"))
++            write_json_atomic(state_path("holo-state.json"), data)
++            if data.get("event") == "kairoforge-command":
++                append_command(data)
+         except OSError:
+             pass
+         return self._send(200, {"ok": True})

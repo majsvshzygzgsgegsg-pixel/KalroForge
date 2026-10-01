@@ -10,7 +10,7 @@ import {
   IconRightUpOutlineRegular,
   Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import css from './style.module.css'
 
@@ -19,6 +19,15 @@ const HOLO_ID = '@local/holo-gestures'
 const HOLO_REPO = 'https://github.com/zubair-trabzada/holo-gestures.git'
 const HOLO_DIR = '~/holo'
 const HOLO_LOCAL_URL = 'http://127.0.0.1:4890'
+
+interface HoloCommand {
+  readonly id: string
+  readonly command: string
+  readonly source?: string
+  readonly event?: string
+  readonly status?: string
+  readonly created_at?: number
+}
 
 declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
   interface SidebarRightTabParamsMap {
@@ -80,6 +89,59 @@ function HoloTitle(): ReactNode {
 }
 
 function HoloPanel(_props: PropsRuntime<'sidebar.right.pane.tab'>): ReactNode {
+  const [commands, setCommands] = useState<readonly HoloCommand[]>([])
+  const [connected, setConnected] = useState<'checking' | 'online' | 'offline'>('checking')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    async function refresh(): Promise<void> {
+      try {
+        const res = await fetch(`${HOLO_LOCAL_URL}/api/commands`, { cache: 'no-store' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json() as { readonly pending?: readonly HoloCommand[] }
+        if (!alive) return
+        setConnected('online')
+        setCommands(Array.isArray(data.pending) ? data.pending : [])
+      } catch {
+        if (!alive) return
+        setConnected('offline')
+        setCommands([])
+      }
+    }
+    void refresh()
+    const timer = setInterval(() => { void refresh() }, 2000)
+    return () => { alive = false; clearInterval(timer) }
+  }, [])
+
+  const creatorPrompt = useMemo(() => {
+    const list = commands.length
+      ? commands.map((item, index) => `${index + 1}. ${item.command}`).join('\n')
+      : 'No pending Holo commands yet.'
+    return `Continue the Holo Gestures work for KairoForge Creator mode.\n\nPending commands from the Holo voice/text call:\n${list}\n\nWork inside /Users/franksmith/Documents/KalroForge and /Users/franksmith/holo as needed. Inspect the current files first, preserve unrelated changes, implement the requested Holo/KairoForge edits safely, run relevant checks, commit KairoForge changes, publish to GitHub master, restart the local servers, and open the latest version. Do not give the browser page unrestricted hidden shell control; route computer/repo changes through the guarded KairoForge workflow.`
+  }, [commands])
+
+  async function copyCreatorPrompt(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(creatorPrompt)
+      setCopied(true)
+      setTimeout(() => { setCopied(false) }, 1800)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  async function markHandled(id: string): Promise<void> {
+    try {
+      await fetch(`${HOLO_LOCAL_URL}/api/command-done`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setCommands(items => items.filter(item => item.id !== id))
+    } catch {}
+  }
+
   return (
     <div className={css.panel}>
       <div className={css.hero}>
@@ -128,6 +190,39 @@ python3 server.py`}</code></pre>
           and Hang up ends the session. Commands such as “add 3D item”, “remove selected”, or “send this to Creator mode”
           are logged locally for guarded Creator-mode follow-up.
         </p>
+      </section>
+
+      <section className={css.card}>
+        <div className={css.row}>
+          <div>
+            <h3>Creator command queue</h3>
+            <p className={css.statusLine}>
+              Holo server is <span className={connected === 'online' ? css.ok : css.bad}>{connected}</span>.
+              {connected === 'online' ? ` ${commands.length} pending command${commands.length === 1 ? '' : 's'}.` : ' Start ~/holo with python3 server.py.'}
+            </p>
+          </div>
+          <button type="button" className={css.actionButton} onClick={() => { void copyCreatorPrompt() }}>
+            {copied ? 'Copied' : 'Copy Creator prompt'}
+          </button>
+        </div>
+
+        {commands.length ? (
+          <div className={css.commandList}>
+            {commands.map(item => (
+              <div className={css.commandItem} key={item.id}>
+                <div>
+                  <strong>{item.command}</strong>
+                  <span>{item.source || 'kairoforge-call'} · {item.status || 'pending'}</span>
+                </div>
+                <button type="button" onClick={() => { void markHandled(item.id) }}>Done</button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={css.empty}>No pending Holo voice/text commands yet. Say or type something in the KairoForge Call panel.</p>
+        )}
+
+        <pre className={css.promptBox}><code>{creatorPrompt}</code></pre>
       </section>
     </div>
   )
