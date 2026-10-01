@@ -18,6 +18,7 @@ const COOKIE_PAYLOAD_VERSION = 1
 const STORED_SECRET_VERSION = 1
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/
 const PROCESS_LAUNCH_TOKENS = new WeakMap<object, string>()
+const TRUST_LOCALHOST_ENV = 'KAIROFORGE_TRUST_LOCALHOST'
 
 interface StoredSecretPayload {
   readonly version: typeof STORED_SECRET_VERSION
@@ -75,6 +76,20 @@ function requestAuthority(headers: ConnectionTrustRequest['headers']): string | 
   } catch {
     return undefined
   }
+}
+
+function isLoopbackAuthority(authority: string | undefined): boolean {
+  if (authority === undefined) return false
+  try {
+    const hostname = new URL(`http://${authority}`).hostname.toLowerCase()
+    return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]'
+  } catch {
+    return false
+  }
+}
+
+function trustsLocalhost(): boolean {
+  return process.env[TRUST_LOCALHOST_ENV] === '1'
 }
 
 function canonicalSecret(value: unknown): Buffer | undefined {
@@ -238,6 +253,7 @@ export class BrowserAuth {
   authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
+    if (trustsLocalhost() && isLoopbackAuthority(requestAuthority(req.headers))) return true
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     if (tokens.length > 0) {
       const authority = requestAuthority(req.headers)
@@ -286,6 +302,7 @@ export class BrowserAuth {
    */
   isAuthenticated(request: ConnectionTrustRequest): boolean {
     const authority = requestAuthority(request.headers)
+    if (trustsLocalhost() && isLoopbackAuthority(authority)) return true
     const rawCookie = header(request.headers, 'cookie')
     if (authority === undefined || rawCookie === undefined) return false
     const value = cookieValue(rawCookie, cookieName(authority))

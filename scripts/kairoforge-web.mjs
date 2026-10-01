@@ -7,7 +7,8 @@ import { networkInterfaces } from 'node:os'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const rootDir = resolve(scriptDir, '..')
 const port = process.env.KAIROFORGE_PORT ?? '3080'
-const host = process.env.KAIROFORGE_HOST ?? '0.0.0.0'
+const host = process.env.KAIROFORGE_HOST ?? '127.0.0.1'
+const localOnly = host === '127.0.0.1' || host === 'localhost' || host === '::1'
 const args = process.argv.slice(2)
 if (args[0] === '--') args.shift()
 
@@ -21,7 +22,10 @@ const child = spawn(
   ['--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web', '--host', host, '--port', port, ...lanAddresses.flatMap(address => ['--trusted-host', address]), ...args],
   {
     cwd: rootDir,
-    env: process.env,
+    env: {
+      ...process.env,
+      ...localOnly ? { KAIROFORGE_TRUST_LOCALHOST: '1' } : {},
+    },
     stdio: ['inherit', 'pipe', 'pipe'],
   },
 )
@@ -35,14 +39,17 @@ const rewrite = (chunk) => {
 }
 
 process.stdout.write(`Starting KairoForge at http://127.0.0.1:${port}\n`)
-if (primaryLanUrl !== undefined) {
+if (!localOnly && primaryLanUrl !== undefined) {
   process.stdout.write(`Phone Connect URL: ${primaryLanUrl}\n`)
   process.stdout.write(`Use this from a phone on the same Wi-Fi after KairoForge prints its token URL.\n`)
+} else if (localOnly) {
+  process.stdout.write(`Local quick-open is enabled: http://127.0.0.1:${port}\n`)
+  process.stdout.write(`Phone Connect: run KAIROFORGE_HOST=0.0.0.0 pnpm run open to allow same-Wi-Fi devices.\n`)
 } else {
   process.stdout.write(`Phone Connect: no Wi-Fi/LAN address found yet; connect your Mac to Wi-Fi and restart.\n`)
 }
 process.stdout.write(`Tip: set KAIROFORGE_PORT=3090 to use a different port.\n`)
-process.stdout.write(`Tip: set KAIROFORGE_HOST=127.0.0.1 for computer-only mode.\n`)
+process.stdout.write(`Tip: set KAIROFORGE_HOST=0.0.0.0 for phone/LAN mode.\n`)
 
 child.stdout.on('data', chunk => process.stdout.write(rewrite(chunk)))
 child.stderr.on('data', chunk => process.stderr.write(rewrite(chunk)))

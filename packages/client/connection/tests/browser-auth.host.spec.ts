@@ -88,6 +88,7 @@ function exchange(
 
 afterEach(() => {
   vi.useRealTimers()
+  delete process.env.KAIROFORGE_TRUST_LOCALHOST
 })
 
 describe('BrowserAuth', () => {
@@ -188,6 +189,20 @@ describe('BrowserAuth', () => {
         ? undefined
         : 'dsh web authentication required; reopen the URL printed by dsh web.\n')
     }
+  })
+
+  it('lets the KairoForge local launcher trust the plain loopback page', async () => {
+    process.env.KAIROFORGE_TRUST_LOCALHOST = '1'
+    const auth = await createAuth(new RecordCredentials())
+
+    const loopback = response()
+    expect(auth.authorizeIndex(request('/', '127.0.0.1:3080'), loopback.value)).toBe(true)
+    expect(loopback.state).toEqual({})
+    expect(auth.isAuthenticated(request('/api/settings/describe', 'localhost:3080'))).toBe(true)
+
+    const lan = response()
+    expect(auth.authorizeIndex(request('/', '192.168.1.184:3080'), lan.value)).toBe(false)
+    expect(lan.state.status).toBe(401)
   })
 
   it('rejects tampering, expiry, future issuance, and a longer lifetime than configured', async () => {
