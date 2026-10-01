@@ -7,11 +7,16 @@
   },
   "files": [
     "src/index.ts",
-    "src/types.ts"
+    "src/types.ts",
+    "src/connections/registry.ts",
+    "src/connections/engine.ts",
+    "src/connections/routes.ts"
   ],
   "references": [
     { "path": "../../../vendor/cordis" },
     { "path": "../../../vendor/schemastery" },
-    { "path": "../../settings/settings" }
+    { "path": "../../settings/settings" },
+    { "path": "../../host/webserver" },
+    { "path": "../../credentials/credentials" }
   ]
 }

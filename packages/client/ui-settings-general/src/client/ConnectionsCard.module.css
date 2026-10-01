@@ -24,6 +24,14 @@
   max-width: 620px;
 }
 
+/* Tally chips keep their intrinsic width while the description flexes. */
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
 .badge {
   flex: none;
   border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-business-primary) 40%, var(--dsw-alias-border-l2));
@@ -34,6 +42,20 @@
   font-size: 12px;
   line-height: 16px;
   font-weight: 650;
+}
+
+/* The connected tally is a separate, success-tinted chip. */
+.badgeConnected {
+  flex: none;
+  border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-success-primary) 40%, var(--dsw-alias-border-l2));
+  background: color-mix(in oklab, var(--dsw-alias-state-success-primary) 14%, transparent);
+  color: var(--dsw-alias-state-success-primary);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .toolbar {
@@ -72,7 +94,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 10px;
   margin-top: 14px;
   max-height: 430px;
@@ -112,32 +134,25 @@
   line-height: 16px;
 }
 
-.connect {
+/* Connected rows stack the state chip over its Manage action. */
+.connected {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   flex: none;
-  border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-business-primary) 45%, var(--dsw-alias-border-l1));
-  background: color-mix(in oklab, var(--dsw-alias-state-business-primary) 16%, transparent);
-  color: var(--dsw-alias-label-primary);
+}
+
+.connectedChip {
+  border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-success-primary) 38%, var(--dsw-alias-border-l2));
+  background: color-mix(in oklab, var(--dsw-alias-state-success-primary) 14%, transparent);
+  color: var(--dsw-alias-state-success-primary);
   border-radius: 999px;
-  padding: 5px 9px;
-  font: inherit;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
   line-height: 16px;
-  cursor: pointer;
-}
-
-.connect:hover {
-  background: color-mix(in oklab, var(--dsw-alias-state-business-primary) 24%, transparent);
-}
-
-.notice {
-  margin-top: 12px;
-  border-radius: 12px;
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-secondary);
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 18px;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .empty {
@@ -147,73 +162,210 @@
   line-height: 18px;
 }
 
-.modalBody {
-  display: grid;
-  gap: 14px;
-  min-width: min(520px, calc(100vw - 72px));
-}
-
-.setupHero {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-business-primary) 35%, var(--dsw-alias-border-l2));
-  border-radius: 16px;
-  background:
-    radial-gradient(circle at 20% 10%, color-mix(in oklab, var(--dsw-alias-state-business-primary) 22%, transparent), transparent 38%),
-    var(--dsw-alias-bg-layer-1);
-  padding: 14px;
-}
-
-.setupMark {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  flex: none;
-  border-radius: 15px;
-  background: linear-gradient(135deg, #22d3ee, #8b5cf6 58%, #facc15);
-  color: white;
-  font-size: 18px;
-  line-height: 24px;
-  font-weight: 800;
-}
-
-.setupName {
-  font-size: 15px;
-  line-height: 21px;
-  font-weight: 750;
-}
-
-.setupCategory {
-  margin-top: 2px;
-  color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.setupSteps {
-  margin: 0;
-  border-radius: 14px;
-  background: color-mix(in oklab, var(--dsw-alias-bg-layer-1) 86%, transparent);
-  color: var(--dsw-alias-label-secondary);
-  padding: 12px 16px 12px 30px;
-  font-size: 12px;
-  line-height: 19px;
-}
-
-.setupNotice {
+/* Skeleton rows stand in for the catalog inside the same card frame. */
+.skeleton {
+  height: 48px;
   border-radius: 12px;
   border: 0.5px solid var(--dsw-alias-border-l2);
-  background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-secondary);
+  background: color-mix(in oklab, var(--dsw-alias-label-tertiary) 12%, transparent);
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Inline failure banner: honest text plus its own retry action. */
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  border-radius: 12px;
+  border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-error-primary) 35%, var(--dsw-alias-border-l2));
+  background: color-mix(in oklab, var(--dsw-alias-state-error-primary) 10%, transparent);
+  color: var(--dsw-alias-label-primary);
   padding: 10px 12px;
   font-size: 12px;
   line-height: 18px;
 }
 
+.errorText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+}
+
+.modalContent {
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+}
+
+.modalBody {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.message {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+/* Live phase line: an inert spinner plus the localized waiting copy. */
+.busy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px solid color-mix(in oklab, var(--dsw-alias-state-business-primary) 30%, transparent);
+  border-top-color: var(--dsw-alias-state-business-primary);
+  border-radius: 50%;
+  corner-shape: round;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* A device code the user reads off another device must be selectable. */
+.codeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.code {
+  flex: 1;
+  min-width: 0;
+  border-radius: 10px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.form {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.promptLabel {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+/* Stretch the primitive input across the dialog body column. */
+.promptInput {
+  width: 100%;
+}
+
+.promptHelp {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.connectedAs {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.verifyLine {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.failedLine {
+  border-radius: 12px;
+  border: 0.5px solid color-mix(in oklab, var(--dsw-alias-state-error-primary) 35%, var(--dsw-alias-border-l2));
+  background: color-mix(in oklab, var(--dsw-alias-state-error-primary) 10%, transparent);
+  color: var(--dsw-alias-label-primary);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.manageAccount {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+/* Manage view: a compact label/value table of the stored connection. */
+.meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.metaLabel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.metaValue {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 560px) {
-  .modalBody {
-    min-width: 0;
+  .modalContent {
+    max-height: calc(100vh - 96px);
+  }
+
+  .meta {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

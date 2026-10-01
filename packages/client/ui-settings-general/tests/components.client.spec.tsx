@@ -9,7 +9,7 @@ import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.
 import type { TriggerContentProps } from '../src/client/chrome.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import { DeveloperToolsRow } from '../src/client/DeveloperToolsRow.tsx'
-import { ConnectionsCard, CONNECTION_SERVICES } from '../src/client/ConnectionsCard.tsx'
+import { ConnectionsCard } from '../src/client/ConnectionsCard.tsx'
 import { PhoneConnectAction } from '../src/client/PhoneConnectAction.tsx'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -97,18 +97,83 @@ it('toggles developer tools using the accepted setting and disables duplicate wr
   expect(toggle.hasAttribute('disabled')).toBe(false)
 })
 
-it('shows a searchable 200-plus connection catalog and explains real account linking', () => {
-  expect(CONNECTION_SERVICES.length).toBeGreaterThanOrEqual(200)
-  render(<ConnectionsCard {...kit} t={t} />)
-  expect(screen.getByText('Connections')).toBeTruthy()
-  expect(screen.getByText(`${CONNECTION_SERVICES.length}+ services`)).toBeTruthy()
-  fireEvent.change(screen.getByRole('searchbox', { name: 'Search services' }), { target: { value: 'gmail' } })
-  expect(screen.getByText('Gmail')).toBeTruthy()
-  expect(screen.queryByText('GitHub')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
-  expect(screen.getByRole('status').textContent).toContain('Gmail is ready to wire up')
-  expect(screen.getByRole('dialog', { name: 'Connect Gmail' })).toBeTruthy()
-  expect(screen.getByText('Prepare Gmail for KairoForge.')).toBeTruthy()
+/**
+ * Two-connector Host catalog used by the ConnectionsCard suite. Gmail omits the
+ * `connection` field entirely, which is what an unconnected service looks like
+ * on the wire once JSON has dropped an undefined value.
+ */
+const CONNECT_CATALOG = {
+  services: [
+    { id: 'gmail', name: 'Gmail', category: 'Email & calendar', methods: [{ id: 'google', label: 'Sign in with Google', kind: 'oauth' }] },
+    { id: 'github', name: 'GitHub', category: 'Code & work', methods: [{ id: 'pat', label: 'Paste a personal access token', kind: 'token' }], connection: null },
+  ],
+  connectedCount: 0,
+}
+
+/** JSON response shaped like the Host envelope; `status: 404` carries the error body. */
+const jsonResponse = (body: unknown, status = 200): Response => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => body,
+}) as unknown as Response
+
+/** Route the three Host connections endpoints this card calls. */
+const connectFetch = (catalog: unknown, startBody: unknown = jsonResponse({
+  attempt: {
+    id: 'att_1', service: 'gmail', serviceName: 'Gmail', method: 'google', phase: 'waiting-browser',
+    message: 'Finish signing in with the browser window that just opened.', url: 'https://accounts.google.com/o/oauth2',
+  },
+})) => vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = String(input)
+  if (url.endsWith('/catalog')) return jsonResponse(catalog)
+  if (url.endsWith('/start') && init?.body !== undefined) return startBody
+  if (url.includes('/attempt?id=')) return jsonResponse({
+    attempt: { id: 'att_1', service: 'gmail', serviceName: 'Gmail', method: 'google', phase: 'connected', account: 'you@gmail.com', verified: true },
+  })
+  return jsonResponse({ code: 'not_found', message: `unrouted ${url}` }, 404)
+})
+
+describe('ConnectionsCard', () => {
+  it('renders the loading state without crashing while the catalog is in flight', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => { /* never settles */ })))
+    render(<ConnectionsCard {...kit} t={t} />)
+    expect(screen.getByText('Connections')).toBeTruthy()
+    expect(screen.getByRole('searchbox', { name: 'Search services' })).toBeTruthy()
+    expect(screen.getByText(en['connections.loading'])).toBeTruthy()
+    await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled() })
+  })
+
+  it('renders the Host catalog and filters it by name and category', async () => {
+    vi.stubGlobal('fetch', connectFetch(CONNECT_CATALOG))
+    render(<ConnectionsCard {...kit} t={t} />)
+    expect(await screen.findByText('Gmail')).toBeTruthy()
+    expect(screen.getByText('GitHub')).toBeTruthy()
+    expect(screen.getByText('2 connectors')).toBeTruthy()
+    const search = screen.getByRole('searchbox', { name: 'Search services' })
+    fireEvent.change(search, { target: { value: 'gmail' } })
+    expect(screen.getByText('Gmail')).toBeTruthy()
+    expect(screen.queryByText('GitHub')).toBeNull()
+    fireEvent.change(search, { target: { value: 'work' } })
+    expect(screen.getByText('GitHub')).toBeTruthy()
+    expect(screen.queryByText('Gmail')).toBeNull()
+    fireEvent.change(search, { target: { value: 'nothing here' } })
+    expect(screen.getByText(en['connections.empty'])).toBeTruthy()
+  })
+
+  it('starts a real sign-in on one Connect press and renders the live attempt', async () => {
+    const fetchMock = connectFetch(CONNECT_CATALOG)
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ConnectionsCard {...kit} t={t} />)
+    await screen.findByText('Gmail')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Connect' })[0]!)
+    expect(await screen.findByRole('dialog', { name: 'Connect Gmail' })).toBeTruthy()
+    expect(screen.getByText('Finish signing in with the browser window that just opened.')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain(en['connections.waiting'])
+    expect(screen.getByRole('button', { name: 'Open sign-in page' })).toBeTruthy()
+    const start = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/start'))
+    expect(JSON.parse(String(start?.[1]?.body))).toEqual({ service: 'gmail', method: 'google' })
+    expect(start?.[1]?.credentials).toBe('same-origin')
+  })
 })
 
 describe('chrome content', () => {
