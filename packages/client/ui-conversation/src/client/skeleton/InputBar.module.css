@@ -76,6 +76,28 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* KairoForge composer: large calm glass card with a soft graphite rim. */
+.card {
+  --dsw-elevation-stroke-color: rgb(226 232 240 / 0.16);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.10), rgb(255 255 255 / 0.045)),
+    color-mix(in srgb, var(--dsw-specific-input-major) 76%, #0f172a 24%);
+  border: 1px solid rgb(226 232 240 / 0.13);
+  box-shadow:
+    0 24px 70px rgb(0 0 0 / 0.34),
+    0 1px 0 rgb(255 255 255 / 0.18) inset,
+    0 0 0 1px rgb(15 23 42 / 0.24);
+  backdrop-filter: blur(18px) saturate(1.18);
+}
+
+.card:focus-within {
+  border-color: rgb(203 213 225 / 0.28);
+  box-shadow:
+    0 30px 80px rgb(0 0 0 / 0.38),
+    0 1px 0 rgb(255 255 255 / 0.22) inset,
+    0 0 0 1px rgb(148 163 184 / 0.20);
+}
+
 /* No-workspace trigger state: an inset 1px dashed outline marks the card as a
    workspace picker rather than a live composer. Keeping the complete stroke
    inside the rounded box prevents clipped corner pixels from reading heavier. */
@@ -153,7 +175,7 @@
   height: 8px;
   border-radius: 50%;
   corner-shape: round;
-  background: var(--dsw-alias-state-business-primary);
+  background: #cbd5e1;
   animation: input-pending 1s ease-in-out infinite alternate;
 }
 
@@ -292,14 +314,14 @@
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, #22d3ee, #a855f7, #facc15);
-  opacity: 0.9;
+  background: linear-gradient(90deg, transparent, rgb(226 232 240 / 0.42), transparent);
+  opacity: 0.75;
   pointer-events: none;
 }
 
 .input {
   color: rgb(241 245 249);
-  caret-color: #22d3ee;
+  caret-color: #cbd5e1;
 }
 
 .placeholder {

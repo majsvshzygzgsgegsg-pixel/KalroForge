@@ -67,15 +67,15 @@
 
 /* KairoForge message styling */
 .bubble {
-  color: white;
+  color: #f8fafc;
   background:
-    linear-gradient(135deg, rgb(124 58 237 / 0.95), rgb(8 145 178 / 0.92) 58%, rgb(14 165 233 / 0.86));
-  border: 1px solid rgb(255 255 255 / 0.18);
+    linear-gradient(135deg, rgb(30 41 59 / 0.96), rgb(51 65 85 / 0.92) 58%, rgb(71 85 105 / 0.88));
+  border: 1px solid rgb(226 232 240 / 0.16);
   border-radius: 24px 24px 7px 24px;
   box-shadow:
     0 20px 46px rgb(2 6 23 / 0.34),
     0 0 0 1px rgb(255 255 255 / 0.05) inset,
-    0 0 32px rgb(34 211 238 / 0.16);
+    0 0 32px rgb(148 163 184 / 0.12);
 }
 
 .userRow {

@@ -896,7 +896,8 @@ function kairoforgeModelIdentity(model: string | undefined): string | undefined 
   if (normalized === 'auto') return 'KairoForge Omni'
   if (normalized.includes('pro')) return 'KairoForge1.1 Pro'
   if (normalized.includes('flash')) return 'KairoForge1.1 Flash'
-  return model
+  if (normalized.includes('omni')) return 'KairoForge Omni'
+  return 'KairoForge Omni'
 }
 
 export default AgentLoop
