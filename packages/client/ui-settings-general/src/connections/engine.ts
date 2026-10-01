@@ -776,7 +776,7 @@ export class ConnectionEngine {
   /** An installed provider CLI that performs its own browser sign-in. */
   private async runCli(attempt: Attempt, method: CliMethod): Promise<void> {
     attempt.phase = 'waiting-browser'
-    attempt.message = `Finish signing in with the ${method.executable} window that just opened.`
+    attempt.message = method.help ?? `Finish signing in with the ${method.executable} window that just opened.`
     if (method.installUrl !== undefined) attempt.url = method.installUrl
     await run(attempt, method.executable, method.loginArgs)
     attempt.phase = 'exchanging'

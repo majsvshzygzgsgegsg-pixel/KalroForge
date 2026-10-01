@@ -124,6 +124,8 @@ export interface CliMethod {
   /** Arguments whose output proves the sign-in and names the account. */
   readonly verifyArgs: readonly string[]
   readonly installUrl?: string
+  /** Help shown when the CLI is missing or needs a first-time login. */
+  readonly help?: string
 }
 
 /** One way to connect a service. */
@@ -148,7 +150,68 @@ const CATEGORY_NAMES: Readonly<Record<string, readonly string[]>> = {
   'CRM & marketing': ['Salesforce', 'HubSpot', 'Pipedrive', 'Zendesk', 'Intercom', 'Freshdesk', 'Help Scout', 'Front', 'Kustomer', 'Gorgias', 'ServiceNow', 'Dynamics 365', 'Zoho CRM', 'Close', 'Copper', 'Keap', 'ActiveCampaign', 'Customer.io', 'Klaviyo', 'Braze', 'Iterable', 'Segment', 'Amplitude', 'Mixpanel', 'Heap', 'Hotjar', 'FullStory', 'Google Analytics', 'Google Ads', 'Meta Ads'],
   'AI & data': ['OpenAI', 'Anthropic', 'Google Gemini', 'Mistral AI', 'Cohere', 'DeepSeek', 'Groq', 'Together AI', 'Replicate', 'Hugging Face', 'Perplexity', 'ElevenLabs', 'AssemblyAI', 'Deepgram', 'Pinecone', 'Weaviate', 'Qdrant', 'Milvus', 'Chroma', 'LangSmith', 'Weights & Biases', 'Comet', 'Modal', 'RunPod', 'Baseten', 'Anyscale', 'Fal.ai', 'Stability AI', 'Leonardo AI', 'Midjourney'],
   'Cloud & devops': ['AWS', 'Google Cloud', 'Microsoft Azure', 'Vercel', 'Netlify', 'Cloudflare', 'Render', 'Railway', 'Fly.io', 'Heroku', 'DigitalOcean', 'Linode', 'Vultr', 'Kubernetes', 'Docker Hub', 'GitHub Actions', 'CircleCI', 'Travis CI', 'Jenkins', 'Buildkite', 'Terraform Cloud', 'Pulumi', 'MongoDB Atlas', 'Supabase', 'Neon', 'PlanetScale', 'Redis Cloud', 'Upstash', 'Elastic Cloud', 'Snowflake'],
-  'Automation & web': ['Zapier', 'Make', 'n8n', 'IFTTT', 'Workato', 'Tray.io', 'Pabbly Connect', 'Retool', 'Appsmith', 'Budibase', 'Typeform', 'Jotform', 'Tally', 'Fillout', 'Paperform', 'Webflow', 'Wix', 'Squarespace', 'WordPress', 'Ghost', 'Contentful', 'Sanity', 'Strapi', 'Prismic', 'Shopify CMS', 'RSS', 'Webhooks', 'GraphQL APIs', 'REST APIs', 'MCP Servers'],
+  'Automation & web': ['Composio', 'Zapier', 'Make', 'n8n', 'IFTTT', 'Workato', 'Tray.io', 'Pabbly Connect', 'Retool', 'Appsmith', 'Budibase', 'Typeform', 'Jotform', 'Tally', 'Fillout', 'Paperform', 'Webflow', 'Wix', 'Squarespace', 'WordPress', 'Ghost', 'Contentful', 'Sanity', 'Strapi', 'Prismic', 'Shopify CMS', 'RSS', 'Webhooks', 'GraphQL APIs', 'REST APIs', 'MCP Servers'],
+}
+
+/** Toolkits that the Composio CLI commonly names differently than KairoForge's display label. */
+const COMPOSIO_TOOLKITS: Readonly<Record<string, string>> = {
+  GitHub: 'github',
+  Gmail: 'gmail',
+  'Google Calendar': 'googlecalendar',
+  'Google Contacts': 'googlecontacts',
+  'Google Drive': 'googledrive',
+  'Google Docs': 'googledocs',
+  'Google Sheets': 'googlesheets',
+  'Google Slides': 'googleslides',
+  Slack: 'slack',
+  Notion: 'notion',
+  Linear: 'linear',
+  Jira: 'jira',
+  Trello: 'trello',
+  Asana: 'asana',
+  ClickUp: 'clickup',
+  Discord: 'discord',
+  Dropbox: 'dropbox',
+  Box: 'box',
+  Figma: 'figma',
+  Salesforce: 'salesforce',
+  HubSpot: 'hubspot',
+  Stripe: 'stripe',
+  Shopify: 'shopify',
+  Airtable: 'airtable',
+  Zendesk: 'zendesk',
+  Intercom: 'intercom',
+  'Outlook Mail': 'outlook',
+  'Outlook Calendar': 'outlookcalendar',
+  'Microsoft Teams': 'microsoftteams',
+}
+
+/** One service-specific Composio CLI linker. */
+function composioLink(name: string): CliMethod | undefined {
+  const toolkit = COMPOSIO_TOOLKITS[name]
+  if (toolkit === undefined) return undefined
+  return {
+    kind: 'cli',
+    id: 'composio',
+    label: 'Connect with Composio',
+    executable: 'composio',
+    loginArgs: ['link', toolkit],
+    verifyArgs: ['whoami'],
+    installUrl: 'https://docs.composio.dev/',
+    help: `Uses your local Composio account to link the ${name} toolkit, so KairoForge does not need a separate OAuth app, MCP server, or manually pasted API key for this connector.`,
+  }
+}
+
+/** The main Composio account connector. */
+const COMPOSIO_ACCOUNT: CliMethod = {
+  kind: 'cli',
+  id: 'cli',
+  label: 'Sign in to Composio',
+  executable: 'composio',
+  loginArgs: ['login'],
+  verifyArgs: ['whoami'],
+  installUrl: 'https://docs.composio.dev/',
+  help: 'Signs in to the local Composio CLI. After that, supported connector buttons can run through Composio.',
 }
 
 /** GitHub, shared by the code-host entry and the Actions entry. */
@@ -267,6 +330,7 @@ function mailboxMethod(id: string, label: string, host: string, createUrl: strin
 
 /** Every curated recipe, keyed by the exact catalog name. */
 const RECIPES: Readonly<Record<string, readonly Method[]>> = {
+  Composio: [COMPOSIO_ACCOUNT],
   GitHub: [GITHUB_TOKEN, GITHUB_DEVICE, GITHUB_OAUTH],
   'GitHub Actions': [GITHUB_TOKEN, GITHUB_DEVICE, GITHUB_OAUTH],
   GitLab: [
@@ -575,7 +639,10 @@ function genericToken(name: string): TokenMethod {
 export const CATALOG: readonly ServiceRecipe[] = Object.entries(CATEGORY_NAMES).flatMap(([category, names]) =>
   names.map((name): ServiceRecipe => {
     const curated = RECIPES[name]
-    const methods = curated === undefined ? [genericToken(name)] : curated
+    const composio = composioLink(name)
+    const methods = curated === undefined
+      ? [composio ?? genericToken(name)]
+      : composio === undefined ? curated : [composio, ...curated]
     const [first, ...rest] = methods
     /* c8 ignore next -- RECIPES entries are written non-empty and genericToken always yields one. */
     if (first === undefined) throw new Error(`connection registry: ${name} has no method`)

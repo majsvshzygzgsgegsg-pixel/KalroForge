@@ -70,9 +70,14 @@ describe('catalog', () => {
     // Zero-setup methods lead: a first press must reach a real sign-in without
     // sending the operator to register an OAuth app first.
     const github = catalog.find(service => service.id === 'github')
-    expect(github?.methods.map(method => method.kind)).toEqual(['token', 'device', 'oauth'])
+    expect(github?.methods.map(method => method.kind)).toEqual(['cli', 'token', 'device', 'oauth'])
+    expect(github?.methods[0]).toMatchObject({ id: 'composio', label: 'Connect with Composio' })
     const githubOauth = github?.methods.find(method => method.kind === 'oauth')
     expect(githubOauth !== undefined && 'authorizeUrl' in githubOauth).toBe(true)
+    expect(catalog.find(service => service.id === 'composio')?.methods[0]).toMatchObject({
+      kind: 'cli',
+      label: 'Sign in to Composio',
+    })
     // A service with no curated recipe still carries an honest generic method.
     const midjourney = catalog.find(service => service.id === 'midjourney')
     expect(midjourney?.methods[0]?.kind).toBe('token')
@@ -132,7 +137,7 @@ describe('oauth method', () => {
       throw new Error(`unexpected fetch ${url}`)
     })
     const { engine, store, opened } = harness(fetchImpl)
-    const started = engine.start('google-drive', undefined, 'http://127.0.0.1:3080')
+    const started = engine.start('google-drive', 'oauth', 'http://127.0.0.1:3080')
     const question = await phase(engine, started.id, 'waiting-input')
     expect(question.prompt?.label).toContain('OAuth client ID')
     expect(question.url).toBe('https://console.cloud.google.com/apis/credentials')
@@ -167,7 +172,7 @@ describe('oauth method', () => {
   it('reports a refusal from the token endpoint as a failed attempt', async () => {
     const fetchImpl = vi.fn(async () => json({ error: 'invalid_grant' }, 400))
     const { engine } = harness(fetchImpl)
-    const started = engine.start('google-drive', undefined, 'http://127.0.0.1:3080')
+    const started = engine.start('google-drive', 'oauth', 'http://127.0.0.1:3080')
     await phase(engine, started.id, 'waiting-input')
     engine.answer(started.id, 'client-abc')
     const waiting = await phase(engine, started.id, 'waiting-browser')
