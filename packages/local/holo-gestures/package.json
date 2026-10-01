@@ -18,6 +18,9 @@
     "./package.json": "./package.json"
   },
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-ui-sidebar",
@@ -46,6 +49,7 @@
     "react": "^18.2.0"
   },
   "files": [
+    "cordis.patch.yml",
     "lib/index.js",
     "lib/client.js",
     "lib/types/**/*.d.ts"
