@@ -1,12 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="k" x1="8" x2="56" y1="8" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#22d3ee"/>
-      <stop offset=".52" stop-color="#7c3aed"/>
-      <stop offset="1" stop-color="#2563eb"/>
+    <linearGradient id="bg" x1="10" x2="54" y1="8" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#263241"/>
+      <stop offset=".58" stop-color="#111827"/>
+      <stop offset="1" stop-color="#070b12"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="8" x2="56" y1="8" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9ec5ff"/>
+      <stop offset=".52" stop-color="#64748b"/>
+      <stop offset="1" stop-color="#312e81"/>
+    </linearGradient>
+    <linearGradient id="cube" x1="16" x2="49" y1="15" y2="51" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset=".48" stop-color="#dbeafe"/>
+      <stop offset="1" stop-color="#94a3b8"/>
     </linearGradient>
   </defs>
-  <path fill="url(#k)" fill-rule="evenodd" d="M32 5a9.4 9.4 0 0 1 7.5 15.1l4.4 7.6 8.8-.1a9.4 9.4 0 1 1 0 8.8l-8.8-.1-4.4 7.6a9.4 9.4 0 1 1-15 0l-4.4-7.6-8.8.1a9.4 9.4 0 1 1 0-8.8l8.8.1 4.4-7.6A9.4 9.4 0 0 1 32 5Z"/>
-  <path fill="#fbbf24" d="m32 23 3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z"/>
-  <g fill="#111827" fill-opacity=".75"><circle cx="32" cy="14" r="4"/><circle cx="14" cy="32" r="4"/><circle cx="50" cy="32" r="4"/><circle cx="32" cy="50" r="4"/></g>
+  <rect x="5" y="5" width="54" height="54" rx="16" fill="url(#bg)"/>
+  <rect x="6" y="6" width="52" height="52" rx="15" fill="none" stroke="url(#edge)" stroke-width="2"/>
+  <path fill="url(#cube)" fill-rule="evenodd" d="M32 12 49 22v20L32 52 15 42V22l17-10Zm0 7.4L22 25.2 32 31l10-5.8-10-5.8ZM21.6 33v6.3l6.9 4v-6.4l-6.9-3.9Zm20.8 0-6.9 3.9v6.4l6.9-4V33Zm-17-3.7L32 33l6.6-3.7L32 25.5l-6.6 3.8Z"/>
 </svg>

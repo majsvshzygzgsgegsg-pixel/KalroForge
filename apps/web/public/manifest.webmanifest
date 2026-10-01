@@ -11,9 +11,15 @@
     "browser"
   ],
   "orientation": "any",
-  "background_color": "#0c1020",
-  "theme_color": "#6d5dfc",
+  "background_color": "#090d14",
+  "theme_color": "#111827",
   "icons": [
+    {
+      "src": "kairoforge-logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "favicon.svg",
       "sizes": "any",

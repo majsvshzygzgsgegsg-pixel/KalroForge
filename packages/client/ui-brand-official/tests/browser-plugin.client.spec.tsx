@@ -94,28 +94,28 @@ describe('official browser-brand plugin', () => {
   it('renders the official name independently from both requested mark sizes', () => {
     const name = render(<OfficialBrandName />)
     // The official name is the wordmark itself, so it carries no mark geometry
-    // and no size to scale: the lattice artwork lives only in the mark slot.
-    expect(name.container.querySelector('svg')).toBeNull()
+    // and no size to scale: the cube artwork lives only in the mark slot.
+    expect(name.container.querySelector('img')).toBeNull()
     expect(name.getByText('KairoForge')).not.toBeNull()
     name.unmount()
 
     const mark = render(<OfficialBrandMark size={34} />)
-    expect(mark.container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 64 64')
-    expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('34')
+    expect(mark.container.querySelector('img')?.getAttribute('src')).toBe('/kairoforge-logo.png')
+    expect(mark.container.querySelector('img')?.getAttribute('width')).toBe('34')
     mark.rerender(<OfficialBrandMark size={24} />)
-    expect(mark.container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 64 64')
-    expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('24')
+    expect(mark.container.querySelector('img')?.getAttribute('src')).toBe('/kairoforge-logo.png')
+    expect(mark.container.querySelector('img')?.getAttribute('width')).toBe('24')
   })
 
-  it('renders the original KairoForge name and scalable lattice mark', () => {
+  it('renders the original KairoForge name and scalable cube mark', () => {
     const name = render(<KairoForgeBrandName />)
     expect(name.getByText('KairoForge')).not.toBeNull()
     name.unmount()
 
     const mark = render(<KairoForgeBrandMark size={34} />)
-    expect(mark.container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 64 64')
-    expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('34')
+    expect(mark.container.querySelector('img')?.getAttribute('src')).toBe('/kairoforge-logo.png')
+    expect(mark.container.querySelector('img')?.getAttribute('width')).toBe('34')
     mark.rerender(<KairoForgeBrandMark size={24} />)
-    expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('24')
+    expect(mark.container.querySelector('img')?.getAttribute('width')).toBe('24')
   })
 })
