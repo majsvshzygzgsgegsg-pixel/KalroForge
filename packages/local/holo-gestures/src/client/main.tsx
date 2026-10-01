@@ -18,7 +18,7 @@ const HOLO_KIND = 'holo-gestures'
 const HOLO_ID = '@local/holo-gestures'
 const HOLO_REPO = 'https://github.com/zubair-trabzada/holo-gestures.git'
 const HOLO_DIR = '~/holo'
-const HOLO_LOCAL_URL = 'http://127.0.0.1:8765'
+const HOLO_LOCAL_URL = 'http://127.0.0.1:4890'
 
 declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
   interface SidebarRightTabParamsMap {
@@ -86,7 +86,7 @@ function HoloPanel(_props: PropsRuntime<'sidebar.right.pane.tab'>): ReactNode {
         <div className={css.logo}><IconEnhanceOutlineRegular size={34} /></div>
         <div>
           <h2>Holo Gestures</h2>
-          <p>Local hand-gesture server connected to KairoForge Creator mode.</p>
+          <p>Local hand-gesture server with the KairoForge call bridge, voice, text, and Creator-mode handoff.</p>
         </div>
       </div>
 
@@ -117,6 +117,16 @@ python3 server.py`}</code></pre>
           Creator mode may clone, inspect, edit, and run the Holo project at <code>{HOLO_DIR}</code> when you ask for Holo changes.
           It should preserve unrelated files, avoid committing secrets, and publish KairoForge connector updates back to
           this GitHub project.
+        </p>
+      </section>
+
+      <section className={css.card}>
+        <h3>KairoForge Call</h3>
+        <p>
+          Open the local server and use the floating KairoForge Call panel near the bottom-right of Holo. Speaker reads
+          replies aloud, Talk uses browser speech recognition when available, Keyboard opens the movable holographic keyboard,
+          and Hang up ends the session. Commands such as “add 3D item”, “remove selected”, or “send this to Creator mode”
+          are logged locally for guarded Creator-mode follow-up.
         </p>
       </section>
     </div>
