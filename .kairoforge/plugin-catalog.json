@@ -14,7 +14,9 @@
       "notes": [
         "The source repository is a curated list, not a single bundle that installs every plugin.",
         "KairoForge uses dshmarket to browse, search, and install entries from this catalog safely one at a time.",
-        "Do not auto-install every listed plugin; installed plugins execute third-party code with the user's permissions."
+        "The catalog contained 4412 entries when checked on 2026-10-01.",
+        "A direct bulk-install test was started after explicit user request; KairoForge kept the compatible installs and stopped when the process hung on optional native package retries.",
+        "Do not force incompatible plugins or exact-version exemptions unless the user explicitly accepts the named plugin/version/runtime risk."
       ]
     }
   ],
@@ -28,6 +30,25 @@
       "source": "https://github.com/dsh-market/dsh-market.git",
       "purpose": "Visual plugin market for browsing and installing the Awesome DSH Plugin catalog from inside KairoForge.",
       "status": "enabled"
+    },
+    {
+      "id": "project-memory",
+      "package": "@yolk_vat-y/dsh-project-memory",
+      "versionRange": "github:00080000/dsh-project-memory",
+      "profile": "web",
+      "entryId": "@yolk_vat-y/dsh-project-memory",
+      "source": "https://github.com/00080000/dsh-project-memory",
+      "purpose": "Installed from the Awesome DSH Plugin catalog during the direct install test.",
+      "status": "enabled"
+    },
+    {
+      "id": "status-rotator",
+      "package": "dsh-status-rotator",
+      "versionRange": "github:01Virex/dsh-status-rotator",
+      "profile": "web",
+      "source": "https://github.com/01Virex/dsh-status-rotator",
+      "purpose": "Installed from the Awesome DSH Plugin catalog during the direct install test; no bundle row was added by the installer.",
+      "status": "installed-disabled"
     }
   ],
   "blockedBundles": [
