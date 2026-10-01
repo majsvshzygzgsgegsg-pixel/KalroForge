@@ -143,8 +143,8 @@ export class AgentPresetSeatController {
     return await this.apply()
   }
 
-  /** Select one of the two product modes independently of the advanced-preset preference. */
-  async selectCore(id: 'chat' | 'standard'): Promise<string | undefined> {
+  /** Select one of the product modes independently of the advanced-preset preference. */
+  async selectCore(id: 'chat' | 'standard' | 'cordis'): Promise<string | undefined> {
     if (this.store.getSnapshot().busy) return undefined
     this.stageCore(id)
     return await this.apply()
@@ -168,8 +168,8 @@ export class AgentPresetSeatController {
     this.set({ current: id, error: null, introduce })
   }
 
-  /** Stage a Chat/KairoForge pick for the next session without the advanced-preset gate. */
-  stageCore(id: 'chat' | 'standard'): void {
+  /** Stage a Chat/KairoForge/Sub-Agents pick for the next session without the advanced-preset gate. */
+  stageCore(id: 'chat' | 'standard' | 'cordis'): void {
     this.staged.id = id
     this.staged.introduce = false
     this.staged.core = true

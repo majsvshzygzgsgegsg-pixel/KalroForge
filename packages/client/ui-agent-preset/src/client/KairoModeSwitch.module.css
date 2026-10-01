@@ -1,11 +1,16 @@
 .switch {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-interactive-bg-hover);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l3) 72%, #8b5cf6);
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--dsw-alias-bg-layer-1), var(--dsw-alias-bg-layer-1)) padding-box,
+    linear-gradient(135deg, #22d3ee, #8b5cf6 48%, #f59e0b) border-box;
+  box-shadow:
+    0 10px 30px color-mix(in srgb, #0ea5e9 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 16%, transparent);
 }
 
 .option,
@@ -13,12 +18,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 26px;
-  padding: 0 9px;
+  height: 28px;
+  padding: 0 10px;
   border: none;
-  border-radius: var(--dsw-radius-sm);
+  border-radius: 999px;
   background: transparent;
   font-size: 12px;
+  font-weight: 650;
   line-height: 18px;
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
@@ -26,15 +32,24 @@
 }
 
 .option:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: color-mix(in srgb, var(--dsw-alias-interactive-bg-hover) 72%, #22d3ee);
   color: var(--dsw-alias-label-secondary);
 }
 
 .active {
-  background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary);
-  box-shadow: var(--dsw-elevation-soft);
+  background:
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, #ffffff 34%, transparent), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, #22d3ee 82%, #ffffff), #8b5cf6 58%, #f59e0b);
+  color: #ffffff;
+  box-shadow:
+    0 8px 18px color-mix(in srgb, #8b5cf6 24%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 28%, transparent);
   cursor: default;
+}
+
+.active svg,
+.option svg {
+  flex: 0 0 auto;
 }
 
 .option:disabled,

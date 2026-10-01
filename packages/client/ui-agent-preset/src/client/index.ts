@@ -169,10 +169,11 @@ export function apply(ctx: ClientContext): void {
 
     const modeInjected = (): KairoModeSwitchInjected => ({
       switchMode: async (sessionId: SessionId, mode: KairoMode) => {
+        const corePreset = mode === 'subagents' ? 'cordis' : mode
         const binding = ctx.sessions.binding(sessionId)
         const summary = ctx.sessions.list.getSnapshot().byId[sessionId]
-        if (binding !== undefined && summary?.blank === true) return await seatFor(binding).selectCore(mode)
-        unboundSeat.stageCore(mode)
+        if (binding !== undefined && summary?.blank === true) return await seatFor(binding).selectCore(corePreset)
+        unboundSeat.stageCore(corePreset)
         scope.uiWorkspace.startSession()
         return undefined
       },
@@ -258,5 +259,5 @@ export function apply(ctx: ClientContext): void {
 function launchCoreMode(): KairoMode | undefined {
   if (typeof globalThis.location === 'undefined') return undefined
   const mode = new URL(globalThis.location.href).searchParams.get('mode')
-  return mode === 'chat' || mode === 'standard' ? mode : undefined
+  return mode === 'chat' || mode === 'standard' || mode === 'subagents' ? mode : undefined
 }

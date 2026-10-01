@@ -6,6 +6,7 @@ KairoForge is a local-first AI chat and coding workspace. It gives you two modes
 
 - a clean normal chat mode for everyday answers;
 - a coding/agent mode for repository work, files, terminals, tools, and automation.
+- a Sub‑Agents creator mode for making and directing named helper agents.
 
 The project includes KairoForge branding, a custom web profile, model-label updates, and a new `kairoforge/` machine-learning scaffold for future open-weight training experiments.
 
@@ -13,8 +14,10 @@ The project includes KairoForge branding, a custom web profile, model-label upda
 
 - KairoForge web branding, icons, app manifest, and chat styling.
 - Top-right mode switching between normal chat and coding workflow.
+- Sub‑Agents mode for research, design, coding, testing, publishing, and repo-maintenance helper agents.
 - KairoForge model display names in the model picker.
 - A phone-ready PWA-style web entry.
+- A setup page with every supported launch command.
 - A no-cost `kairoforge/` training scaffold with data preparation, LoRA/QLoRA dry runs, evaluation placeholders, cost-gated cloud deployment scripts, and an OpenAI-compatible API server skeleton.
 
 ## Current model status
@@ -29,9 +32,11 @@ See [`kairoforge/docs/final-status.md`](kairoforge/docs/final-status.md).
 
 ## Run from source
 
+For the complete setup guide, see [`SETUP.md`](SETUP.md).
+
 ```sh
-git clone https://github.com/majsvshzygzgsgegsg-pixel/kairoforge.git
-cd kairoforge
+git clone https://github.com/majsvshzygzgsgegsg-pixel/KalroForge.git
+cd KalroForge
 pnpm install
 pnpm run kairoforge
 ```

@@ -17,6 +17,8 @@ export type AgentPresetSettingsKey =
   | 'presetChatDescription'
   | 'presetStandardName'
   | 'presetStandardDescription'
+  | 'presetSubagentsName'
+  | 'presetSubagentsDescription'
   | 'presetSelfEditName'
   | 'presetSelfEditDescription'
   | 'presetPtcName'
@@ -34,6 +36,7 @@ export type AgentPresetSettingsKey =
   | 'modeSwitchLabel'
   | 'modeChatHint'
   | 'modeCodeHint'
+  | 'modeSubagentsHint'
   | 'close'
   | 'creatorDraft'
 
@@ -55,6 +58,9 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   presetStandardName: 'KairoForge',
   presetStandardDescription:
     'Coding and agent mode. KairoForge can inspect projects, edit files, run commands, search, and use other available tools.',
+  presetSubagentsName: 'Sub‑Agents',
+  presetSubagentsDescription:
+    'Creator mode with agent-team routing. Ask KairoForge to make or use a named sub-agent for research, design, coding, testing, publishing, or repo maintenance.',
   presetSelfEditName: 'Self-Edit + GitHub',
   presetSelfEditDescription:
     'Repository-builder mode. KairoForge can edit its own app files, run checks, add files, commit, and push directly to GitHub when you ask.',
@@ -77,9 +83,10 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: 'Failed to load',
 
   switchRefused: 'Could not switch to {name}: {reason}',
-  modeSwitchLabel: 'Choose Chat or KairoForge coding mode',
+  modeSwitchLabel: 'Choose Chat, KairoForge, or Sub‑Agents mode',
   modeChatHint: 'Chat mode only answers and has no tools',
   modeCodeHint: 'KairoForge mode can code and take actions',
+  modeSubagentsHint: 'Sub‑Agents mode helps you create and direct named helper agents',
 
   close: 'Close',
 
@@ -104,6 +111,8 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetChatDescription: '仅回答问题，不提供工具，也不能编辑文件、运行命令或执行操作。',
   presetStandardName: 'KairoForge',
   presetStandardDescription: '编程与 Agent 模式。KairoForge 可以检查项目、编辑文件、运行命令、检索并使用其他可用工具。',
+  presetSubagentsName: '子 Agent',
+  presetSubagentsDescription: '带有 Agent 团队路由的创造模式。你可以让 KairoForge 创建或使用命名的子 Agent 来研究、设计、编码、测试、发布或维护仓库。',
   presetSelfEditName: '自我编辑 + GitHub',
   presetSelfEditDescription: '仓库构建模式。KairoForge 可以编辑自己的应用文件、运行检查、添加文件、提交，并在你要求时直接推送到 GitHub。',
   presetPtcName: 'PTC 模式',
@@ -121,9 +130,10 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: '加载失败',
 
   switchRefused: '无法切换到「{name}」：{reason}',
-  modeSwitchLabel: '选择聊天或 KairoForge 编程模式',
+  modeSwitchLabel: '选择聊天、KairoForge 或子 Agent 模式',
   modeChatHint: '聊天模式只回答，不使用工具',
   modeCodeHint: 'KairoForge 模式可以编程并执行操作',
+  modeSubagentsHint: '子 Agent 模式可以创建并指挥命名的辅助 Agent',
 
   close: '关闭',
 

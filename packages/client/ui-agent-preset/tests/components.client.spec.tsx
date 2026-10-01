@@ -115,6 +115,7 @@ describe('the top-right product mode switch', () => {
     expect(group).toBeTruthy()
     expect(screen.getByRole('button', { name: en.presetChatName }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: en.presetStandardName }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: en.presetSubagentsName }).getAttribute('aria-pressed')).toBe('false')
   })
 
   it('requests the answer-only mode without changing the current session locally', () => {
@@ -122,6 +123,19 @@ describe('the top-right product mode switch', () => {
 
     fireEvent.click(screen.getByRole('button', { name: en.presetChatName }))
     expect(switchMode).toHaveBeenCalledWith('s1', 'chat')
+  })
+
+  it('marks Creator preset sessions as Sub-Agents mode', () => {
+    renderMode('cordis')
+
+    expect(screen.getByRole('button', { name: en.presetSubagentsName }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('requests Sub-Agents mode from the quick switch', () => {
+    const switchMode = renderMode('standard')
+
+    fireEvent.click(screen.getByRole('button', { name: en.presetSubagentsName }))
+    expect(switchMode).toHaveBeenCalledWith('s1', 'subagents')
   })
 })
 
