@@ -1,0 +1,28 @@
+{
+  "$schema": "./connector.schema.json",
+  "id": "holo-gestures",
+  "name": "Holo Gestures",
+  "kind": "local-service",
+  "source": "https://github.com/zubair-trabzada/holo-gestures.git",
+  "localPath": "~/holo",
+  "install": [
+    "git clone https://github.com/zubair-trabzada/holo-gestures.git ~/holo",
+    "cd ~/holo",
+    "python3 server.py"
+  ],
+  "creatorMode": {
+    "editable": true,
+    "allowedActions": [
+      "clone",
+      "inspect",
+      "edit",
+      "run",
+      "document"
+    ],
+    "notes": [
+      "Creator mode may edit the Holo Gestures checkout at ~/holo when the user asks for Holo changes.",
+      "Creator mode should keep KairoForge connector files in this repository and Holo app source files in ~/holo separate.",
+      "Do not commit secrets, local caches, virtual environments, or generated artifacts."
+    ]
+  }
+}

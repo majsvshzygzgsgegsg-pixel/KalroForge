@@ -270,6 +270,9 @@
     - id: ui-sidebar-right
       name: '@deepseek-ai/dsh-client-ui-sidebar-right'
 
+    # KairoForge local connector: Holo Gestures install/run/edit panel.
+    - id: local-holo-gestures
+      name: '@local/holo-gestures'
 
     - id: office-to-pdf
       name: '@deepseek-ai/dsh-office-to-pdf'

@@ -43,3 +43,15 @@ If GitHub authentication, branch protection, missing remotes, tests, or build er
 KairoForge tracks plugin catalog setup in [`.kairoforge/plugin-catalog.json`](../.kairoforge/plugin-catalog.json). The Awesome DSH Plugin repository is a curated list, not a single bundle that should be installed all at once. Installing every listed plugin would execute large amounts of third-party code with the user's permissions and can break the profile.
 
 Use `dshmarket` as the installed market interface for that catalog. It lets the user browse and install catalog entries one at a time from inside KairoForge. If a plugin is rejected by runtime compatibility checks, do not grant an exact-version exemption unless the user explicitly accepts the named risk for that exact plugin version and KairoForge runtime.
+
+## External connectors
+
+KairoForge tracks external service connectors in `.kairoforge/connectors/*.json`.
+The Holo Gestures connector is `.kairoforge/connectors/holo-gestures.json`.
+It points at `https://github.com/zubair-trabzada/holo-gestures.git`, installs to
+`~/holo`, and starts with `python3 server.py` from that checkout.
+
+Creator mode may clone, inspect, edit, and run the Holo checkout when the user
+asks for Holo Gestures changes. Keep Holo source edits in `~/holo` separate from
+KairoForge connector UI/config edits in this repository, and do not stage
+secrets, caches, virtual environments, or generated artifacts.
