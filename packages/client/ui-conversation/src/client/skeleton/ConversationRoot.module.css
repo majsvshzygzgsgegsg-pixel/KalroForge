@@ -547,7 +547,7 @@ button.crumb:hover {
 /* KairoForge conversation chrome */
 .root {
   background:
-    radial-gradient(circle at 24% 0%, rgb(124 58 237 / 0.18), transparent 32%),
+    radial-gradient(circle at 24% 0%, rgb(148 163 184 / 0.14), transparent 32%),
     linear-gradient(180deg, rgb(2 6 23 / 0.18), transparent);
 }
 
@@ -555,11 +555,11 @@ button.crumb:hover {
   margin: 12px 14px 0;
   min-height: 64px;
   padding: 10px 18px 0;
-  border: 1px solid rgb(125 211 252 / 0.12);
+  border: 1px solid rgb(226 232 240 / 0.12);
   border-radius: 22px;
   background:
     linear-gradient(135deg, rgb(15 23 42 / 0.72), rgb(15 23 42 / 0.42)),
-    radial-gradient(circle at 12% 0%, rgb(34 211 238 / 0.14), transparent 32%);
+    radial-gradient(circle at 12% 0%, rgb(148 163 184 / 0.12), transparent 32%);
   box-shadow:
     0 18px 50px rgb(2 6 23 / 0.18),
     inset 0 1px 0 rgb(255 255 255 / 0.08);

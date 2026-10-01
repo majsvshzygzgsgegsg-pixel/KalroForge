@@ -5,8 +5,8 @@
   height: 100%;
   overflow: hidden;
   background:
-    radial-gradient(circle at 18% 14%, color-mix(in srgb, #7c3aed 14%, transparent) 0, transparent 32%),
-    radial-gradient(circle at 84% 8%, color-mix(in srgb, #0891b2 12%, transparent) 0, transparent 28%),
+    radial-gradient(circle at 18% 14%, color-mix(in srgb, #94a3b8 12%, transparent) 0, transparent 32%),
+    radial-gradient(circle at 84% 8%, color-mix(in srgb, #60789e 10%, transparent) 0, transparent 28%),
     linear-gradient(145deg,
       color-mix(in srgb, var(--dsw-alias-bg-base) 86%, #020617 14%),
       color-mix(in srgb, var(--dsw-alias-bg-base) 90%, #111827 10%));
@@ -71,8 +71,8 @@
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--dsw-specific-sidebar-fill) 78%, #020617 22%),
-      color-mix(in srgb, var(--dsw-specific-sidebar-fill) 84%, #1e1b4b 16%));
-  border-right: 1px solid color-mix(in srgb, #8b5cf6 18%, var(--dsw-alias-border-l3));
+      color-mix(in srgb, var(--dsw-specific-sidebar-fill) 84%, #111827 16%));
+  border-right: 1px solid color-mix(in srgb, #94a3b8 14%, var(--dsw-alias-border-l3));
 }
 
 .centerCol {
@@ -81,7 +81,7 @@
   flex-direction: column;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% -10%, color-mix(in srgb, #22d3ee 10%, transparent) 0, transparent 34%),
+    radial-gradient(circle at 50% -10%, color-mix(in srgb, #94a3b8 9%, transparent) 0, transparent 34%),
     var(--dsw-alias-bg-base);
 }
 

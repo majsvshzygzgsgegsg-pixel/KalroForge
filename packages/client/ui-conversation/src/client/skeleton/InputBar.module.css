@@ -296,16 +296,16 @@
 /* KairoForge composer */
 .card {
   overflow: hidden;
-  border: 1px solid rgb(125 211 252 / 0.22);
+  border: 1px solid rgb(226 232 240 / 0.16);
   border-radius: 28px;
   background:
     linear-gradient(135deg, rgb(15 23 42 / 0.82), rgb(30 41 59 / 0.68)),
-    radial-gradient(circle at 16% 0%, rgb(34 211 238 / 0.18), transparent 34%),
-    radial-gradient(circle at 92% 100%, rgb(168 85 247 / 0.18), transparent 34%);
+    radial-gradient(circle at 16% 0%, rgb(148 163 184 / 0.16), transparent 34%),
+    radial-gradient(circle at 92% 100%, rgb(96 120 158 / 0.15), transparent 34%);
   box-shadow:
     0 24px 70px rgb(2 6 23 / 0.36),
     0 0 0 1px rgb(255 255 255 / 0.06) inset,
-    0 0 42px rgb(34 211 238 / 0.10);
+    0 0 42px rgb(148 163 184 / 0.10);
   backdrop-filter: blur(24px) saturate(1.25);
 }
 

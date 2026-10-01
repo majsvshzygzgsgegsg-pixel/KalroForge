@@ -14,8 +14,8 @@
   padding: 6px var(--dsh-sidebar-inline-padding);
   box-sizing: border-box;
   background:
-    radial-gradient(circle at 10% 0%, color-mix(in srgb, #8b5cf6 18%, transparent) 0, transparent 34%),
-    radial-gradient(circle at 100% 58%, color-mix(in srgb, #06b6d4 12%, transparent) 0, transparent 42%),
+    radial-gradient(circle at 10% 0%, color-mix(in srgb, #94a3b8 14%, transparent) 0, transparent 34%),
+    radial-gradient(circle at 100% 58%, color-mix(in srgb, #60789e 10%, transparent) 0, transparent 42%),
     linear-gradient(180deg,
       color-mix(in srgb, var(--dsw-specific-sidebar-fill) 88%, #0f172a 12%) 0%,
       color-mix(in srgb, var(--dsw-specific-sidebar-fill) 86%, #111827 14%) 100%);
