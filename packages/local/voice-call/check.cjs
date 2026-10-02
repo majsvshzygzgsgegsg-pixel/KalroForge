@@ -99,6 +99,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   const storage = new Map()
   window.localStorage.getItem = key => (storage.has(key) ? storage.get(key) : null)
   window.localStorage.setItem = (key, value) => { storage.set(key, value) }
+  // Preferences saved before talk-over became opt-in carry the old default.
+  window.localStorage.removeItem('dsh.voice-call.settings.v2')
+  window.Storage.prototype.setItem.call(window.localStorage, 'dsh.voice-call.settings.v1',
+    JSON.stringify({ autoSend: true, speak: true, handsFree: true, bargeIn: true }))
 
   // ---- module loader handoff ----------------------------------------------
   let registered = null
@@ -147,7 +151,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   runtime.setVoice({ rate: 5 })
   runtime.setVoice({ name: '', rate: 1.25 })
   assert.equal(runtime.supported, true, 'the runtime detected speech recognition')
-  assert.equal(runtime.settings.bargeIn, true, 'talking over the reply works out of the box')
+  assert.equal(runtime.settings.bargeIn, false, 'the microphone closes while the assistant speaks unless talk-over is chosen')
+  assert.equal(runtime.settings.handsFree, true, 'the other saved preferences carried over')
+  // The talk-over checks below run in the opt-in mode.
+  runtime.setOption('bargeIn', true)
   assert.equal(runtime.speakingSupported, true, 'the runtime detected speech synthesis')
 
   // ---- render the microphone control and the caption strip -----------------
@@ -491,6 +498,33 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   synth.cancel = plainCancel
   delete synth.speaking
   delete synth.pending
+
+  // ---- default: no microphone while the reply plays ------------------------
+  React.act(() => { runtime.setOption('bargeIn', false) })
+  let quietAnswer = null
+  const quietChannel = { name: 'personal-ai', send() { return new Promise((resolve) => { quietAnswer = resolve }) } }
+  React.act(() => { runtime.startWith(quietChannel) })
+  const askSession = await currentSession()
+  React.act(() => {
+    askSession.onresult({
+      resultIndex: 0,
+      results: [Object.assign([{ transcript: 'what is on my calendar' }], { isFinal: true })],
+    })
+  })
+  const startedBeforeReply = started.length
+  await React.act(async () => { quietAnswer('You have a design review at four.') })
+  assert.equal(runtime.phase, 'speaking', 'the answer is being spoken')
+  assert.equal(started.filter(s => !s.ended).length, 0, 'no microphone is open while the assistant talks')
+  await new Promise(resolve => window.setTimeout(resolve, 900))
+  assert.equal(started.length, startedBeforeReply, 'the microphone did not reopen mid-reply')
+  React.act(() => { finishUtterance() })
+  assert.equal(started.filter(s => !s.ended).length, 0, 'the echo tail is held right after the reply')
+  const reopened = await currentSession()
+  assert.ok(started.indexOf(reopened) >= startedBeforeReply, 'a fresh microphone session listens after the reply')
+  assert.equal(runtime.phase, 'listening', 'the call listens again after the reply')
+  React.act(() => { runtime.toggle() })
+  const saved = window.Storage.prototype.getItem.call(window.localStorage, 'dsh.voice-call.settings.v2')
+  assert.equal(JSON.parse(saved).bargeIn, false, 'the choice is saved under the new key')
 
   React.act(() => { root.unmount(); stripRoot.unmount() })
   for (const dispose of effects) if (typeof dispose === 'function') dispose()

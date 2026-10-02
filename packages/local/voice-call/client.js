@@ -20,7 +20,9 @@ window.__ModuleLoader__.load({
 
     const CALL_SLOT = 'conversation.input.activity'
     const CAPTION_SLOT = 'conversation.input.dock'
-    const STORAGE_KEY = 'dsh.voice-call.settings.v1'
+    const STORAGE_KEY = 'dsh.voice-call.settings.v2'
+    /** Earlier preferences: kept, except talk-over, which was stored as the old default rather than chosen. */
+    const LEGACY_STORAGE_KEY = 'dsh.voice-call.settings.v1'
     const REPLY_SETTLE_MS = 1400
     const ECHO_HOLD_MS = 700
     const BARGE_IN_ECHO_HOLD_MS = 350
@@ -200,9 +202,11 @@ window.__ModuleLoader__.load({
 
     /** One stored preference snapshot. */
     function readSettings() {
-      const fallback = { autoSend: true, speak: true, handsFree: true, bargeIn: true }
+      const fallback = { autoSend: true, speak: true, handsFree: true, bargeIn: false }
       try {
-        const raw = window.localStorage.getItem(STORAGE_KEY)
+        let raw = window.localStorage.getItem(STORAGE_KEY)
+        const legacy = raw === null || raw === ''
+        if (legacy) raw = window.localStorage.getItem(LEGACY_STORAGE_KEY)
         if (raw === null || raw === '') return fallback
         const parsed = JSON.parse(raw)
         if (parsed === null || typeof parsed !== 'object') return fallback
@@ -210,9 +214,10 @@ window.__ModuleLoader__.load({
           autoSend: parsed.autoSend !== false,
           speak: parsed.speak !== false,
           handsFree: parsed.handsFree !== false,
-          // On by default: the arming window, the size floor and the self-echo
-          // filter are what keep the assistant from hearing itself.
-          bargeIn: parsed.bargeIn !== false,
+          // Off unless chosen: browser speech output is not echo-cancelled, so an
+          // open microphone hears the reply, and a misheard copy of it slips past
+          // the self-echo filter as the user talking.
+          bargeIn: !legacy && parsed.bargeIn === true,
         }
       } catch (_error) {
         return fallback
