@@ -8,6 +8,7 @@ import type {
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import {
   IconChevronDownOutlineRegular,
+  IconNewChatOutlineRegular,
   IconUserOutlineRegular, IconUsersOutlineRegular, StateDot, Tag, Tooltip,
   useAnchoredPosition, useDismissOnOutsidePointer, type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -120,6 +121,7 @@ function TeamMemberRow({
           </small>
           {member.error !== undefined && <small className={css.diagnostic}>{member.error}</small>}
         </span>
+        {!inert && <span className={css.memberAction}><IconNewChatOutlineRegular size={13} />{t('newChat')}</span>}
       </button>
     </Tooltip>
   )
@@ -319,6 +321,7 @@ export function TeamAction({
                     {t('roster')}
                     {team.members.length > 1 && <span className={css.count}>{team.members.length}</span>}
                   </h3>
+                  <p className={css.rosterHint}>{t('rosterHint')}</p>
                   <div className={css.roster}>
                     {team.members.map(member => (
                       <TeamMemberRow

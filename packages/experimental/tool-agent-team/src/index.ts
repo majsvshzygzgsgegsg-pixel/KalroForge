@@ -30,6 +30,8 @@ export const Config: z<Config> = z.object({
 /** Model-facing collaboration guidance shared by Lead and teammates. */
 const POLICY = `Agent Teams is available in this session, but create teammates only when the user explicitly asks to use Agent Teams or teammates.
 
+Creator mode Agent Team behavior: when the user says "make an agent", "add an agent", "create a team member", or asks for a named specialist, treat that as a request to create a durable Agent Team teammate with spawn_teammate. Teammates are permanent Team members for this lead session, not one-off pull requests. There is no fixed teammate limit in the tool layer; create as many distinct named teammates as the user's workflow reasonably needs, with one clear responsibility per teammate. Each teammate can run its own task and can use its own subagents/tools according to the session permissions. If the user wants several independent jobs at the same time, create or wake separate teammates and assign each teammate its own shared task.
+
 The Team Lead and all teammates share the same working directory and filesystem. Edits are immediately visible to every member. Split write work into disjoint scopes, record expected write scopes on shared tasks, and use task dependencies when work must be ordered. Write-scope overlap is advisory, not a lock.
 
 Prefer read/edit/write for file changes. If a file operation returns FS_STALE_VERSION, read the current file, rebase your intended change onto the new content, and retry. Bash, formatters, code generators, and scripts are not fully protected by the filesystem version guard; coordinate them explicitly and have the Lead review the final diff and run tests.
@@ -174,7 +176,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
 
     register(scoped.tools.register(defineTool({
       name: 'spawn_teammate',
-      description: 'Create one named, durable teammate. Only the Team Lead may call this tool.',
+      description: 'Create one named, durable Agent Team member. Use this whenever the user asks to make/add/create an agent, teammate, or named specialist. Only the Team Lead may call this tool.',
       parameters: {
         name: { type: 'string', required: true, description: 'Unique lower-kebab-case teammate name.' },
         description: { type: 'string', required: true, description: 'Short description of the delegated responsibility.' },
