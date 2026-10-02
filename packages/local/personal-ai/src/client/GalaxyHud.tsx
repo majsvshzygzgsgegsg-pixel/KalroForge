@@ -33,7 +33,7 @@ export interface GalaxyHudProps {
  * @param props - store and copy.
  * @returns the ask form.
  */
-function AskForm({ store, t, busy, assistantName }: {
+export function AskForm({ store, t, busy, assistantName }: {
   readonly store: LiveStore
   readonly t: Translate
   readonly busy: boolean
@@ -80,7 +80,12 @@ async function micGranted(): Promise<boolean> {
   }
 }
 
-function useMicWhileListening(listening: boolean): MediaStream | undefined {
+/**
+ * The microphone stream for the galaxy visuals while the Call is listening.
+ * @param listening - whether the Call is listening.
+ * @returns the stream, when the browser already granted the microphone.
+ */
+export function useMicWhileListening(listening: boolean): MediaStream | undefined {
   const [stream, setStream] = useState<MediaStream | undefined>()
   useEffect(() => {
     if (!listening) return

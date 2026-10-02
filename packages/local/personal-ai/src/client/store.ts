@@ -4,7 +4,8 @@
  * while anything watches it, follows the voice provider, reports voice-phase
  * changes to the Host, and queues proactive notifications.
  */
-import { api, type ConverseUpdate, type Notice, type StateView, type VoicePhase } from './api.ts'
+import { api, type ConverseUpdate, type HoloOpenResult, type Notice, type StateView, type VoicePhase } from './api.ts'
+import { holoShortcut } from './holo-intent.ts'
 import type { CallSnapshot, VoiceProvider } from './voice.ts'
 
 /** Polling cadence while the page is visible and hidden. */
@@ -74,11 +75,18 @@ export interface LiveStore {
   dispose(): void
 }
 
+/** Words the store says for requests it answers itself. */
+export interface LiveStoreOptions {
+  /** The reply to the Holo Hands shortcut: the open result, or "closed". */
+  readonly holoReply?: (outcome: HoloOpenResult | 'closed') => string
+}
+
 /**
  * Create the live store.
+ * @param options - replies for requests answered without a model turn.
  * @returns the store.
  */
-export function createLiveStore(): LiveStore {
+export function createLiveStore(options: LiveStoreOptions = {}): LiveStore {
   let snapshot: LiveSnapshot = { voice: null, voiceAvailable: false, toasts: [] }
   const listeners = new Set<() => void>()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -159,6 +167,8 @@ export function createLiveStore(): LiveStore {
       publish({ exchange: { question: text, pending: true, progress, ...sessionId === undefined ? {} : { sessionId } } })
       onProgress?.(progress)
     }
+    const shortcut = holoShortcut(text)
+    if (shortcut !== undefined && options.holoReply !== undefined) return holo(text, shortcut, options.holoReply, mine)
     const ack = setTimeout(() => { if (said === 0) report({ kind: 'ack' }) }, ACK_MS)
     publish({ exchange: { question: text, pending: true } })
     try {
@@ -194,6 +204,21 @@ export function createLiveStore(): LiveStore {
       throw error
     } finally {
       clearTimeout(ack)
+    }
+  }
+
+  // "Open holo hands" needs no model turn: open the deck, then say what actually happened.
+  const holo = async (text: string, action: 'open' | 'close', reply: NonNullable<LiveStoreOptions['holoReply']>, mine: number): Promise<string> => {
+    publish({ exchange: { question: text, pending: true } })
+    try {
+      const said = reply(action === 'open' ? await api.holoOpen() : (await api.holoClose(), 'closed'))
+      await poll()
+      if (mine === asking) publish({ exchange: { question: text, pending: false, reply: said } })
+      return said
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (mine === asking) publish({ exchange: { question: text, pending: false, error: message } })
+      throw error
     }
   }
 

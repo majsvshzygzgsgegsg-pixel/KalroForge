@@ -20,6 +20,18 @@ const HOLO_REPO = 'https://github.com/zubair-trabzada/holo-gestures.git'
 const HOLO_DIR = '~/holo'
 const HOLO_LOCAL_URL = 'http://127.0.0.1:4890'
 
+/** Ask KairoForge to open Holo Hands full screen; the Personal AI overlay follows the Host's open state. */
+async function openHoloHands(): Promise<{ readonly server?: string; readonly detail?: string }> {
+  const res = await fetch(new URL('personal-ai/holo/open', document.baseURI), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  })
+  if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+  return await res.json() as { readonly server?: string; readonly detail?: string }
+}
+
 interface HoloCommand {
   readonly id: string
   readonly command: string
@@ -59,7 +71,7 @@ export function apply(ctx: Context): void {
     order: 12,
     label: 'Holo Gestures',
   }, function HoloSidebarAction(props: { readonly wide: boolean }): ReactNode {
-    return <HoloSidebarButton {...props} open={() => { ctx.sidebarRight.openTab(HOLO_KIND) }} />
+    return <HoloSidebarButton {...props} open={() => { void openHoloHands().catch(() => { ctx.sidebarRight.openTab(HOLO_KIND) }) }} />
   })), 'local-holo-gestures.sidebar-action')
 
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
@@ -75,8 +87,8 @@ export function apply(ctx: Context): void {
 
 function HoloSidebarButton({ wide, open }: { readonly wide: boolean; readonly open: () => void }): ReactNode {
   return (
-    <Tooltip label="Holo Gestures" delayMs={500} disabled={wide}>
-      <button type="button" className={css.sidebarButton} aria-label="Open Holo Gestures" onClick={open}>
+    <Tooltip label="Open Holo Hands" delayMs={500} disabled={wide}>
+      <button type="button" className={css.sidebarButton} aria-label="Open Holo Hands" onClick={open}>
         <IconEnhanceOutlineRegular size={wide ? 15 : 18} />
         {wide && <span>Holo</span>}
       </button>
@@ -92,6 +104,7 @@ function HoloPanel(_props: PropsRuntime<'sidebar.right.pane.tab'>): ReactNode {
   const [commands, setCommands] = useState<readonly HoloCommand[]>([])
   const [connected, setConnected] = useState<'checking' | 'online' | 'offline'>('checking')
   const [copied, setCopied] = useState(false)
+  const [opening, setOpening] = useState<string | undefined>()
 
   useEffect(() => {
     let alive = true
@@ -153,11 +166,36 @@ function HoloPanel(_props: PropsRuntime<'sidebar.right.pane.tab'>): ReactNode {
       </div>
 
       <section className={css.card}>
-        <h3>Install and run</h3>
-        <p>Run these commands in Terminal to install the Holo Gestures service locally:</p>
-        <pre><code>{`git clone ${HOLO_REPO} ~/holo
-cd ~/holo
-python3 server.py`}</code></pre>
+        <div className={css.row}>
+          <div>
+            <h3>Holo Hands</h3>
+            <p>
+              Say or type “open holo hands” to KairoForge, or press Open. KairoForge starts the local server from
+              <code> {HOLO_DIR}</code>, opens the deck full screen, tracks your face and hands on this computer, and can add
+              and connect anything on it when you ask.
+            </p>
+          </div>
+          <button
+            type="button"
+            className={css.actionButton}
+            onClick={() => {
+              setOpening('Opening…')
+              void openHoloHands().then(
+                (result) => { setOpening(result.detail ?? (result.server === 'started' ? 'Started the server and opened Holo Hands.' : 'Opened.')) },
+                (error: unknown) => { setOpening(`Could not open: ${error instanceof Error ? error.message : String(error)}`) },
+              )
+            }}
+          >
+            Open Holo Hands
+          </button>
+        </div>
+        {opening !== undefined && <p className={css.statusLine}>{opening}</p>}
+      </section>
+
+      <section className={css.card}>
+        <h3>Install</h3>
+        <p>Only needed on a computer without the Holo checkout:</p>
+        <pre><code>{`git clone ${HOLO_REPO} ~/holo`}</code></pre>
       </section>
 
       <section className={css.grid}>

@@ -6,12 +6,17 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { HoloDeck, DEFAULT_HOLO_CONFIG } from './holo.ts'
 import { installPersonalAiHooks } from './hooks.ts'
 import { installPersonalAiRoutes } from './routes.ts'
 import { PersonalAi } from './service.ts'
 import { installPersonalAiTools } from './tools.ts'
 
 export { PersonalAi } from './service.ts'
+export { HoloDeck, holoDomain, DEFAULT_HOLO_CONFIG } from './holo.ts'
+export type { HoloConfig, HoloOpenResult, HoloView } from './holo.ts'
+export { HOLO_TOOLS } from './holo-tools.ts'
+export * from './core/holo-scene.ts'
 export type { AssistantStateView, PersonalNotice, ProjectInput } from './service.ts'
 export type * from './types.ts'
 export { PersonalAiError } from './types.ts'
@@ -34,6 +39,8 @@ export interface Config {
   readonly observedModes: string[]
   /** Escalate SENSITIVE tool calls in coordinator Sessions to a confirmation when the preset would allow them silently. */
   readonly confirmSensitive: boolean
+  /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
+  readonly holo: { readonly dir: string; readonly port: number; readonly autoStart: boolean }
 }
 
 /** Loader schema. */
@@ -41,6 +48,11 @@ export const Config: z<Config> = z.object({
   coordinatorModes: z.array(z.string()).default(['standard']),
   observedModes: z.array(z.string()).default(['fast']),
   confirmSensitive: z.boolean().default(true),
+  holo: z.object({
+    dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),
+    port: z.natural().default(DEFAULT_HOLO_CONFIG.port),
+    autoStart: z.boolean().default(DEFAULT_HOLO_CONFIG.autoStart),
+  }).default(DEFAULT_HOLO_CONFIG),
 })
 
 /**
@@ -50,11 +62,12 @@ export const Config: z<Config> = z.object({
  */
 export function apply(ctx: Context, config: Config): void {
   ctx.plugin(PersonalAi)
-  ctx.inject(['personalAi', 'orchestration', 'mainAgents', 'agents', 'tools', 'systemPrompt'], (scoped) => {
+  ctx.plugin(HoloDeck, config.holo)
+  ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'agents', 'tools', 'systemPrompt'], (scoped) => {
     installPersonalAiHooks(scoped, scoped.personalAi, config)
     installPersonalAiTools(scoped, scoped.personalAi, config)
   })
-  ctx.inject(['personalAi', 'orchestration', 'mainAgents', 'webServer', 'connection'], (scoped) => {
+  ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'webServer', 'connection'], (scoped) => {
     installPersonalAiRoutes(scoped, scoped.personalAi)
   })
 }

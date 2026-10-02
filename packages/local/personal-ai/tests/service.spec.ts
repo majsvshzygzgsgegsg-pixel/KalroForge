@@ -142,7 +142,12 @@ interface Setup {
   readonly paths: { sessions: string; storage: string }
 }
 
-async function setup(paths = { sessions: tempDir('pai-sessions-'), storage: tempDir('pai-storage-') }): Promise<Setup> {
+interface HoloOptions { readonly dir: string; readonly port: number; readonly autoStart: boolean }
+
+async function setup(
+  paths = { sessions: tempDir('pai-sessions-'), storage: tempDir('pai-storage-') },
+  holo: HoloOptions = { dir: tempDir('pai-holo-'), port: 1, autoStart: false },
+): Promise<Setup> {
   const ctx = new Context()
   contexts.add(ctx)
   await mountAgentLoopTestDependencies(ctx)
@@ -173,9 +178,11 @@ async function setup(paths = { sessions: tempDir('pai-sessions-'), storage: temp
   // The harness has no preset registry; Sessions whose id starts with `fast-` report Fast Mode.
   const modeOf = ctx.mainAgents.modeOf.bind(ctx.mainAgents)
   vi.spyOn(ctx.mainAgents, 'modeOf').mockImplementation(agent => String(agent.session.id).startsWith('fast-') ? 'fast' : modeOf(agent))
-  await ctx.plugin(personalAi, { coordinatorModes: ['standard'], observedModes: ['fast'], confirmSensitive: true })
+  await ctx.plugin(personalAi, { coordinatorModes: ['standard'], observedModes: ['fast'], confirmSensitive: true, holo })
   await vi.waitFor(() => { expect(ctx.get('personalAi')).toBeDefined() })
   await ctx.personalAi.whenReady()
+  await vi.waitFor(() => { expect(ctx.get('holoDeck')).toBeDefined() })
+  await ctx.holoDeck.whenReady()
   return { ctx, adapter, paths }
 }
 
@@ -423,6 +430,96 @@ describe('personal ai', () => {
     expect(personality.payload).toMatchObject({ name: 'Nova', voice: { rate: 1.2 } })
     const classified = await handlePersonalAiRoute(ctx.personalAi, ctx, 'GET', ['classify'], new URLSearchParams({ text: 'Hi' }), undefined)
     expect(classified.payload).toMatchObject({ depth: 'direct' })
+  }, 30_000)
+
+  it('builds a Holo Hands scene with tools, follows the deck through routes, and never fakes an open', async () => {
+    const { ctx } = await setup()
+    const route = (method: 'GET' | 'POST', path: string[], body?: unknown) =>
+      handlePersonalAiRoute(ctx.personalAi, ctx, method, path, new URLSearchParams(), body)
+    const leadAgent = await lead(ctx)
+    expect(await toolNames(ctx, leadAgent)).toEqual(expect.arrayContaining([...personalAi.HOLO_TOOLS]))
+    expect((await assembled(ctx, leadAgent)).sections).toContain('open holo hands')
+
+    // No checkout and no server: open says so instead of pretending.
+    const missing = await run<{ open: boolean; server: string; detail?: string }>(ctx, leadAgent, 'open_holo', {})
+    expect(missing).toMatchObject({ open: false, server: 'missing' })
+    expect(missing.detail).toMatch(/server\.py/)
+    expect((await route('GET', ['state'])).payload).toMatchObject({ holo: { open: false } })
+
+    const counter = await run<{ id: string }>(ctx, leadAgent, 'holo_add', {
+      kind: 'widget', title: 'Counter', html: '<button onclick="holo.emit(++n)">+1</button><script>let n = 0</script>',
+    })
+    const total = await run<{ id: string }>(ctx, leadAgent, 'holo_add', { kind: 'text', title: 'Total', text: '0', color: 'gold' })
+    const sensor = await run<{ id: string }>(ctx, leadAgent, 'holo_add', { kind: 'sensor', title: 'Smile', signal: 'smile' })
+    const link = await run<{ id: string }>(ctx, leadAgent, 'holo_connect', { from: counter.id, to: total.id, label: 'count' })
+    await run(ctx, leadAgent, 'holo_connect', { from: sensor.id, to: counter.id })
+    expect((await run<{ id: string }>(ctx, leadAgent, 'holo_connect', { from: counter.id, to: total.id })).id).toBe(link.id)
+    await expect(run(ctx, leadAgent, 'holo_connect', { from: total.id, to: total.id })).rejects.toThrow(/itself/)
+    await expect(run(ctx, leadAgent, 'holo_add', { kind: 'note', title: 'Login', text: 'my password is hunter2' })).rejects.toThrow(/secrets/)
+    await expect(run(ctx, leadAgent, 'holo_add', { kind: 'web', title: 'Bad', url: 'javascript:alert(1)' })).rejects.toThrow(/https/)
+
+    const snapshot = (await route('GET', ['holo'])).payload as { revision: number; scene: { items: Array<{ id: string; x: number; posRev: number }>; connectors: unknown[] } }
+    expect(snapshot.scene.items.map(entry => entry.id)).toEqual([counter.id, total.id, sensor.id])
+    expect(snapshot.scene.connectors).toHaveLength(2)
+
+    // Hand moves are saved without a new revision; a tool move bumps posRev so the deck re-seats the item.
+    await route('POST', ['holo', 'layout'], { items: [{ id: total.id, x: 0.9, y: 0.2, scale: 1.5 }] })
+    const moved = ctx.holoDeck.scene()
+    expect(moved.revision).toBe(snapshot.revision)
+    expect(moved.items.find(entry => entry.id === total.id)).toMatchObject({ x: 0.9, y: 0.2, scale: 1.5, posRev: 1 })
+    const placed = await run<{ posRev: number; x: number }>(ctx, leadAgent, 'holo_update', { id: total.id, x: 0.1 })
+    expect(placed).toMatchObject({ posRev: 2, x: 0.1 })
+
+    // Perception is derived numbers, strictly shaped, in memory only.
+    await expect(route('POST', ['holo', 'perception'], { hands: [], events: [], image: 'data:image/png;base64,AAAA' })).rejects.toMatchObject({ code: 'invalid' })
+    await route('POST', ['holo', 'perception'], {
+      face: { present: true, looking: 'screen', smile: 0.7 },
+      hands: [{ side: 'right', gesture: 'pinch', x: 0.5, y: 0.5, holding: counter.id }],
+      events: ['smile'],
+    })
+    expect(ctx.holoDeck.perception()?.hands[0]?.holding).toBe(counter.id)
+    expect(ctx.holoDeck.seeing()).toMatch(/closed/)
+
+    // An action hands its prompt back for the client to send as a normal request, rate-limited.
+    const ask = await run<{ id: string }>(ctx, leadAgent, 'holo_add', { kind: 'action', title: 'Summarize', prompt: 'Summarize this: {value}' })
+    expect((await route('POST', ['holo', 'activate'], { id: ask.id, value: 'the plan' })).payload).toEqual({ prompt: 'Summarize this: the plan' })
+    await expect(route('POST', ['holo', 'activate'], { id: ask.id })).rejects.toMatchObject({ code: 'invalid' })
+    expect((await route('POST', ['holo', 'activate'], { id: total.id })).payload).toEqual({ prompt: null })
+
+    // Removing an item takes its connectors with it.
+    expect(await run<{ removed: string[] }>(ctx, leadAgent, 'holo_remove', { ids: [counter.id] })).toMatchObject({ removed: [counter.id] })
+    expect(ctx.holoDeck.scene().connectors).toEqual([])
+    const status = await run<{ open: boolean; scene: { items: unknown[] }; camera: string }>(ctx, leadAgent, 'holo_status', {})
+    expect(status.open).toBe(false)
+    expect(status.scene.items).toHaveLength(3)
+    expect(status.camera).toMatch(/closed/)
+  }, 30_000)
+
+  it('starts the Holo server from the checkout and opens the deck', async () => {
+    const holoDir = tempDir('pai-holo-app-')
+    const port = 47_000 + Math.floor(Math.random() * 2000)
+    writeFileSync(join(holoDir, 'holo.html'), '<!doctype html><title>holo</title>')
+    writeFileSync(join(holoDir, 'server.py'), [
+      'import json, os',
+      'from http.server import BaseHTTPRequestHandler, HTTPServer',
+      'class H(BaseHTTPRequestHandler):',
+      '    def log_message(self, *a): pass',
+      '    def do_GET(self):',
+      '        self.send_response(200); self.end_headers(); self.wfile.write(json.dumps([]).encode())',
+      'HTTPServer(("127.0.0.1", int(os.environ["HOLO_PORT"])), H).serve_forever()',
+    ].join('\n'))
+    const { ctx } = await setup(undefined, { dir: holoDir, port, autoStart: true })
+    try {
+      const opened = await ctx.holoDeck.open()
+      expect(opened).toMatchObject({ open: true, server: 'started', url: `http://127.0.0.1:${String(port)}` })
+      expect((await ctx.holoDeck.open()).server).toBe('running')
+      expect(ctx.holoDeck.contextLine()).toContain('Holo Hands is open full screen')
+      expect(ctx.holoDeck.close().open).toBe(false)
+      expect(ctx.holoDeck.contextLine()).toBe('')
+    } finally {
+      const pids = execFileSync('lsof', ['-ti', `tcp:${String(port)}`, '-sTCP:LISTEN'], { encoding: 'utf8' }).split(/\s+/).filter(Boolean)
+      for (const pid of pids) process.kill(Number(pid))
+    }
   }, 30_000)
 
   it('keeps memories, projects, personality, and controls across a restart', async () => {

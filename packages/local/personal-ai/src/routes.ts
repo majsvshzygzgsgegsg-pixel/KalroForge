@@ -13,7 +13,9 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import { z } from 'zod'
 import { AGENT_TAGS, CAPABILITY_CATEGORIES, groupTools } from './core/capabilities.ts'
 import { classifyDepth } from './core/classifier.ts'
+import { HOLO_SIGNALS, HoloSceneError, type HoloPerception } from './core/holo-scene.ts'
 import { MEMORY_SCOPES, type MemoryScope } from './core/memory.ts'
+import type { HoloDeck } from './holo.ts'
 import type { PersonalAi } from './service.ts'
 import { CONTROL_ACTIONS, PersonalAiError, type TaskRef } from './types.ts'
 
@@ -78,6 +80,42 @@ const voiceBody = z.object({ phase: z.enum(['off', 'arming', 'listening', 'speak
 const tagsBody = z.object({ tags: z.array(z.enum(AGENT_TAGS)).max(AGENT_TAGS.length) }).strict()
 const recommendBody = z.object({ task: z.string().min(1).max(4000), project: z.string().min(1).optional() }).strict()
 const converseBody = z.object({ text: z.string().min(1).max(4000) }).strict()
+const unit = z.number().min(0).max(1)
+const degrees = z.number().min(-180).max(180)
+const perceptionBody = z.object({
+  face: z.object({
+    present: z.boolean(),
+    yaw: degrees.optional(),
+    pitch: degrees.optional(),
+    roll: degrees.optional(),
+    looking: z.enum(['screen', 'left', 'right', 'up', 'down']).optional(),
+    smile: unit.optional(),
+    mouthOpen: unit.optional(),
+    blink: unit.optional(),
+    browRaise: unit.optional(),
+    frown: unit.optional(),
+    distance: z.enum(['near', 'mid', 'far']).optional(),
+  }).strict().nullable().optional(),
+  hands: z.array(z.object({
+    side: z.enum(['left', 'right', 'unknown']),
+    gesture: z.enum(['open', 'fist', 'pinch', 'point', 'peace', 'relaxed']),
+    x: unit,
+    y: unit,
+    hover: z.string().min(1).max(120).optional(),
+    holding: z.string().min(1).max(120).optional(),
+  }).strict()).max(2),
+  pose: z.object({
+    present: z.boolean(),
+    armsUp: z.enum(['none', 'left', 'right', 'both']).optional(),
+    lean: z.enum(['left', 'right', 'center']).optional(),
+  }).strict().nullable().optional(),
+  events: z.array(z.enum(HOLO_SIGNALS)).max(20),
+  fps: z.number().min(0).max(240).optional(),
+}).strict()
+const layoutBody = z.object({
+  items: z.array(z.object({ id: z.string().min(1).max(20), x: z.number(), y: z.number(), scale: z.number().optional() }).strict()).max(80),
+}).strict()
+const activateBody = z.object({ id: z.string().min(1).max(20), value: z.string().max(300).optional() }).strict()
 
 const STATUS: Record<PersonalAiError['code'], number> = { 'not-found': 404, 'invalid': 400, 'sensitive': 422, 'conflict': 409 }
 
@@ -174,6 +212,43 @@ async function toolGroups(ctx: Context, sessionId: string | undefined): Promise<
   return { ...sessionId === undefined ? {} : { sessionId }, ...groupTools(names) }
 }
 
+function deckOf(ctx: Context): HoloDeck {
+  const deck = ctx.get('holoDeck')
+  if (deck === undefined) throw new PersonalAiError('not-found', 'Holo Hands is not available')
+  return deck
+}
+
+/**
+ * One Holo Hands request from the browser.
+ * @param deck - Holo deck.
+ * @param action - path segment after `holo`.
+ * @param body - parsed JSON body.
+ * @returns the payload.
+ */
+async function holoAction(deck: HoloDeck, action: string | undefined, body: unknown): Promise<unknown> {
+  try {
+    switch (action) {
+      case 'open': return await deck.open()
+      case 'close': return deck.close()
+      case 'perception':
+        deck.perceive(parse(perceptionBody, body) as unknown as HoloPerception)
+        return { ok: true }
+      case 'layout':
+        await deck.layout(parse(layoutBody, body).items.map(entry => compact(entry)))
+        return { ok: true }
+      case 'activate': {
+        const input = parse(activateBody, body)
+        return { prompt: deck.activation(input.id, input.value) ?? null }
+      }
+      default:
+        throw new PersonalAiError('not-found', `unknown route holo/${action ?? ''}`)
+    }
+  } catch (error) {
+    if (error instanceof HoloSceneError) throw new PersonalAiError('invalid', error.message)
+    throw error
+  }
+}
+
 /**
  * Handle one Personal AI request.
  * @param service - Personal AI service.
@@ -197,7 +272,14 @@ export async function handlePersonalAiRoute(
   const ok = (payload: unknown): { status: number; payload: unknown } => ({ status: 200, payload })
   if (method === 'GET') {
     switch (scope) {
-      case 'state': return ok(service.assistantState(query.get('session') ?? undefined))
+      case 'state': {
+        const holo = ctx.get('holoDeck')
+        return ok({ ...service.assistantState(query.get('session') ?? undefined), ...holo === undefined ? {} : { holo: holo.view() } })
+      }
+      case 'holo': {
+        const holo = deckOf(ctx)
+        return ok({ ...holo.view(), scene: holo.scene(), camera: holo.seeing() })
+      }
       case 'overview': return ok(await overview(service, ctx))
       case 'memory': {
         const scopeParam = query.get('scope')
@@ -286,6 +368,7 @@ export async function handlePersonalAiRoute(
       return ok(await service.recommend(input.task, input.project === undefined ? undefined : service.project(input.project).id))
     }
     case 'converse': return ok(await service.converse(parse(converseBody, body).text))
+    case 'holo': return ok(await holoAction(deckOf(ctx), id, body))
     default:
   }
   return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }

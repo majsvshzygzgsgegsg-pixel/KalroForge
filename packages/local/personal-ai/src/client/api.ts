@@ -37,6 +37,54 @@ export interface StateView {
   readonly delegatedWork: number
   readonly voice: VoicePhase
   readonly at: string
+  /** Holo Hands open state and scene revision. */
+  readonly holo?: HoloView
+}
+
+/** Holo Hands open state. */
+export interface HoloView {
+  readonly open: boolean
+  readonly revision: number
+  readonly url: string
+}
+
+/** One item KairoForge placed on the Holo deck. */
+export interface HoloItem {
+  readonly id: string
+  readonly kind: string
+  readonly title: string
+  readonly text?: string
+  readonly color?: string
+  readonly shape?: string
+  readonly url?: string
+  readonly html?: string
+  readonly prompt?: string
+  readonly signal?: string
+  readonly x: number
+  readonly y: number
+  readonly scale: number
+  readonly posRev: number
+}
+
+/** One connector between Holo items. */
+export interface HoloConnector {
+  readonly id: string
+  readonly from: string
+  readonly to: string
+  readonly label?: string
+  readonly color?: string
+}
+
+/** `GET /personal-ai/holo`. */
+export interface HoloSnapshot extends HoloView {
+  readonly scene: { readonly revision: number; readonly items: readonly HoloItem[]; readonly connectors: readonly HoloConnector[] }
+  readonly camera: string
+}
+
+/** `POST /personal-ai/holo/open`. */
+export interface HoloOpenResult extends HoloView {
+  readonly server: 'running' | 'started' | 'missing' | 'failed'
+  readonly detail?: string
 }
 
 /** Personality settings. */
@@ -339,4 +387,12 @@ export const api = {
   voice: (phase: VoicePhase) => request<StateView>('voice', { phase }),
   converse: (text: string) => request<ConverseTurn>('converse', { text }),
   converseTurn: (turnId: string) => request<ConverseTurn>(`converse/${id(turnId)}`),
+  holo: () => request<HoloSnapshot>('holo'),
+  holoOpen: () => request<HoloOpenResult>('holo/open', {}),
+  holoClose: () => request<HoloView>('holo/close', {}),
+  holoPerception: (report: unknown) => request<{ ok: boolean }>('holo/perception', report),
+  holoLayout: (items: ReadonlyArray<{ readonly id: string; readonly x: number; readonly y: number; readonly scale?: number }>) =>
+    request<{ ok: boolean }>('holo/layout', { items }),
+  holoActivate: (itemId: string, value?: string) =>
+    request<{ prompt: string | null }>('holo/activate', { id: itemId, ...value === undefined ? {} : { value } }),
 }

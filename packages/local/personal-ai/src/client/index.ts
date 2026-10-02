@@ -1,8 +1,8 @@
 /**
  * Browser face of the Personal AI: the Command Center main panel (galaxy HUD
  * plus sections) reached from the sidebar, the compact state bar in every
- * chat header, app-wide notification toasts, and the bridge to the Call
- * plugin's voice runtime when it is installed.
+ * chat header, app-wide notification toasts, the full-screen Holo Hands deck,
+ * and the bridge to the Call plugin's voice runtime when it is installed.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -13,6 +13,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { api } from './api.ts'
 import { CommandCenter, type CommandCenterInjected } from './CommandCenter.tsx'
+import { HoloOverlay, type HoloOverlayInjected } from './HoloOverlay.tsx'
 import { CommandCenterIcon } from './Icon.tsx'
 import { en, NS, zh, type PersonalAiKey } from './locales.ts'
 import { Notifications, type NotificationsInjected } from './Notifications.tsx'
@@ -42,7 +43,13 @@ export const inject = ['slots', 'locale', 'layout', 'uiWorkspace']
 export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'personal-ai: dictionaries')
   const t = ctx.locale.bind(NS)
-  const store = createLiveStore()
+  const store = createLiveStore({
+    holoReply: outcome => outcome === 'closed'
+      ? t('holo.closed')
+      : outcome.server === 'started' ? t('holo.started')
+        : outcome.server === 'running' ? t('holo.opened')
+          : t('holo.cannot', { detail: outcome.detail ?? outcome.server }),
+  })
   ctx.effect(() => () => { store.dispose() }, 'personal-ai: live store')
   const hooks = { live: store.live }
   const openCommandCenter = (): void => { ctx.layout.selectPanel(PANEL_ID) }
@@ -82,6 +89,13 @@ export function apply(ctx: Context): void {
     locale: NS,
     inject: (): NotificationsInjected => ({ hooks, store }),
   }, Notifications))
+
+  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+    name: 'shell.overlay',
+    id: 'personal-ai-holo',
+    locale: NS,
+    inject: (): HoloOverlayInjected => ({ hooks, store, openSession }),
+  }, HoloOverlay))
 
   // The Call plugin publishes its runtime as `voiceCall`; without it the HUD shows text-only controls.
   ctx.inject(['voiceCall'], (scoped) => {

@@ -15,6 +15,8 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { isTopLevelSession } from '@local/main-agents'
 import { AGENT_TAGS, groupTools, proposeAgent, type AgentTag } from './core/capabilities.ts'
 import { DEPTH_GUIDANCE } from './core/classifier.ts'
+import { holoTools } from './holo-tools.ts'
+import type {} from './holo.ts'
 import { MEMORY_SCOPES, relevantMemories, type MemoryScope } from './core/memory.ts'
 import type { Config } from './index.ts'
 import type { PersonalAi } from './service.ts'
@@ -76,6 +78,7 @@ export function coordinatorPrompt(personality: Personality): string {
     'Running work: when the user asks to pause, stop, change, or constrain running work, use pause_task, resume_task, cancel_task, update_task, or add_task_constraint, and report the returned outcome exactly (applied, delivered, or rejected). Never resume possibly destructive work without checking its state first.',
     'Agents: recommend_agent ranks main agents for a task; if the user names a different agent, theirs wins. propose_agent drafts a new agent — show the proposal and create it with create_main_agent only after the user agrees.',
     'Computer control and sensitive actions go through KairoForge\'s normal approval prompts. If something is denied, do not look for a way around it.',
+    'Holo Hands: when the user says "open holo", "open holo hands", or similar, call open_holo and report what it returned. While it is open, build what they ask for on the deck with holo_add and wire things together with holo_connect; a widget can be anything you can write in HTML/CSS/JS.',
   )
   return lines.join('\n')
 }
@@ -197,6 +200,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
 
   const coordinatorTools = (agent: Agent): unknown[] => [
     ...memoryTools('user', self => ({ ...projectId(), session: self.session.id })),
+    ...holoTools(ctx.holoDeck),
     defineTool({
       name: 'list_projects',
       description: 'List registered projects (most recently used first) and which one is active.',
@@ -415,6 +419,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
         order: 132,
         text: () => service.conversationSessionId() === agent.session.id ? VOICE_NARRATION : '',
       }))
+      disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:holo', order: 133, text: () => ctx.holoDeck.contextLine() }))
       service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))
       disposers.push(() => { service.drop(agent.session.id) })
     } else if (agentId !== undefined) {
