@@ -166,6 +166,22 @@ describe('risk classes', () => {
     expect(classifyRisk('remember', { scope: 'project', text: 'x' }).risk).toBe('MODIFYING')
   })
 
+  it('asks before disk, login-item, credential, and system-file changes an unconfined agent could make', () => {
+    for (const command of [
+      'diskutil eraseDisk APFS X disk2', 'sudo dd if=/dev/zero of=/dev/disk2', 'launchctl load ~/Library/LaunchAgents/x.plist', 'crontab -r',
+      'cat ~/.ssh/id_ed25519', 'cp creds ~/.aws/credentials', 'csrutil disable',
+    ]) expect(classifyRisk('bash', { command }).risk, command).toBe('SENSITIVE')
+    for (const path of ['/Users/me/.ssh/config', '/Users/me/.zshrc', '/Users/me/app/.env', '/Users/me/app/.env.local', '/etc/hosts']) {
+      expect(classifyRisk('write', { path }).risk, path).toBe('SENSITIVE')
+    }
+    expect(classifyRisk('read', { path: '/Users/me/.aws/credentials' }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('bash', { command: 'ls ~/Downloads && du -sh ~/Desktop' }).risk).toBe('LOW_RISK')
+    expect(classifyRisk('bash', { command: 'mkdir -p ~/Projects/demo && cp a.txt ~/Documents/' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('write', { path: '/Users/me/Documents/notes.md' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('read', { path: '/Users/me/app/src/env.ts' }).risk).toBe('LOW_RISK')
+    expect(classifyRisk('edit', { path: '/Users/me/app/.envrc.example' }).risk).toBe('MODIFYING')
+  })
+
   it('treats computer control as modifying and typing secrets as sensitive', () => {
     expect(classifyRisk('computer_screenshot', {}).risk).toBe('LOW_RISK')
     expect(classifyRisk('computer_click', { x: 1, y: 2 }).risk).toBe('MODIFYING')

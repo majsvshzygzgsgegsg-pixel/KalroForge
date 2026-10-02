@@ -275,6 +275,14 @@
           danger-full-access:
             sandbox: danger-full-access
             approval: never
+          # Full host access for agents that should work fast: no prompts for
+          # ordinary work, while the Personal AI risk gate still asks before
+          # destructive, credential, and system changes (it needs `ask`).
+          full-access-confirm:
+            sandbox: danger-full-access
+            approval: ask
+            name: Full access, confirm risky
+            description: Full computer access without prompts for ordinary work; destructive, credential, and system changes still ask.
 
     - id: shell-env
       name: '@deepseek-ai/dsh-shell-env'

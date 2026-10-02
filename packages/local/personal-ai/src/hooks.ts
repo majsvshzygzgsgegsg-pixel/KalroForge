@@ -106,7 +106,9 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
     const sessionId = exec.agent?.session.id
     if (sessionId === undefined || decision.kind !== 'allow') return decision
     const live = service.coordinatorLive(sessionId)
-    if (live === undefined) {
+    // A main agent may hold a full-access preset; its sensitive calls still ask the user.
+    const mainAgent = live === undefined && ctx.get('mainAgents')?.recordForSession(sessionId) !== undefined
+    if (live === undefined && !mainAgent) {
       service.noteConversationTool(sessionId, exec.name, exec.arguments)
       return decision
     }
@@ -119,6 +121,7 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
         displayReason: { en: `Sensitive action — ${risk.reason}. Confirm to continue.`, zh: `敏感操作 — ${risk.reason}。确认后继续。` },
       }
     }
+    if (live === undefined) return decision
     live.tool = exec.name
     service.noteConversationTool(sessionId, exec.name, exec.arguments)
     return decision

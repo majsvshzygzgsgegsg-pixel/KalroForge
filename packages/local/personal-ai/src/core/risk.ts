@@ -36,7 +36,19 @@ const SENSITIVE_COMMAND = new RegExp([
   String.raw`\bsudo\b`, String.raw`\b(?:curl|wget)\b[^|]*\|\s*(?:ba|z)?sh\b`, String.raw`\bchmod\s+-R\b`, String.raw`\bkillall\b`,
   String.raw`\b(?:npm|pnpm|yarn)\s+publish\b`, String.raw`\bgh\s+(?:pr\s+merge|release\s+create|repo\s+delete)\b`, String.raw`\bdropdb\b|\bDROP\s+(?:TABLE|DATABASE)\b`,
   String.raw`\b(?:security|defaults)\s+(?:delete|write)\b`, String.raw`\bosascript\b`, String.raw`\bshutdown\b|\breboot\b`,
+  String.raw`\bdiskutil\s+(?:erase|partition|reformat|zero|secureErase)`, String.raw`\bmkfs\b`, String.raw`\bdd\b[^|;&]*\bof=`,
+  String.raw`\blaunchctl\s+(?:load|unload|bootstrap|bootout|remove|disable)\b`, String.raw`\bcrontab\s+-r\b`, String.raw`\b(?:csrutil|spctl|nvram)\b`,
 ].join('|'), 'i')
+/** Credentials and login items: any command touching them asks (an unconfined agent can read or replace them). */
+const SECRET_PATH = new RegExp([
+  String.raw`(?:^|[\s'"=:(])(?:~|\$HOME|/Users/[^/\s]+)?/?\.(?:ssh|aws|gnupg|kube)(?:/|\b)`,
+  String.raw`\.netrc\b`, String.raw`\.docker/config\.json`, String.raw`Library/(?:Keychains|LaunchAgents|LaunchDaemons)\b`,
+].join('|'))
+/** Paths a file tool may not read or change silently: credentials, shell startup files, env files, system folders. */
+const SENSITIVE_FILE = new RegExp([
+  String.raw`(?:^|/)\.(?:zshrc|zprofile|zshenv|bashrc|bash_profile|profile)$`,
+  String.raw`(?:^|/)\.env(?:\.[\w-]+)?$`, String.raw`^/(?:etc|System|Library)/`,
+].join('|'))
 const COMPUTER_READ = /screenshot|list|get_|read|observe|snapshot|describe|find/i
 
 function stringField(args: unknown, ...names: string[]): string {
@@ -61,9 +73,16 @@ export function classifyRisk(tool: string, args: unknown): RiskDecision {
   if (tool === 'bash' || tool === 'pwsh' || tool === 'terminal_send') {
     const command = stringField(args, 'command', 'text', 'input')
     if (SENSITIVE_COMMAND.test(command)) return { risk: 'SENSITIVE', reason: `Run a sensitive command: ${command.slice(0, 80)}` }
+    if (SECRET_PATH.test(command)) return { risk: 'SENSITIVE', reason: `Touch credentials or login items: ${command.slice(0, 80)}` }
     return isReadOnlyCommand(command) ? { risk: 'LOW_RISK', reason: 'read-only command' } : { risk: 'MODIFYING', reason: 'command may change files' }
   }
   const category = categoryOf(tool)
+  if (category === 'FILES') {
+    const path = stringField(args, 'path', 'file_path', 'filePath')
+    if (path !== '' && (SECRET_PATH.test(path) || SENSITIVE_FILE.test(path))) {
+      return { risk: 'SENSITIVE', reason: `Open a credential, startup, or system file: ${path.slice(0, 80)}` }
+    }
+  }
   if (category === 'COMPUTER') {
     if (COMPUTER_READ.test(tool)) return { risk: 'LOW_RISK', reason: 'observes the screen' }
     const typed = stringField(args, 'text', 'value', 'keys')

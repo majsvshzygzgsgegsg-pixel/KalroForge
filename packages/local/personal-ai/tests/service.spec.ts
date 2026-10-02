@@ -270,6 +270,28 @@ describe('personal ai', () => {
     expect(await toolNames(ctx, leadAgent)).toContain('create_workflow')
   }, 30_000)
 
+  it('asks before a main agent\'s sensitive call, whatever its permission preset', async () => {
+    const s = await setup()
+    const { ctx } = s
+    await ctx.plugin(ApprovalService)
+    const asked: string[] = []
+    ctx.on('approval/request', (request) => {
+      asked.push(request.toolName)
+      return Promise.resolve<ApprovalOutcome>('rejected')
+    })
+    const view = await ctx.mainAgents.create('Helper', {}, { kind: 'user' })
+    const helper = liveAgent(ctx, view.sessionId)
+    await vi.waitFor(async () => { expect(await toolNames(ctx, helper)).toContain('remember') })
+
+    const read = await viaTurn(s, helper, 'recall', { query: 'package manager' })
+    expect(read.isError).toBe(false)
+    expect(asked).toEqual([])
+    const sensitive = await viaTurn(s, helper, 'remember', { text: 'Prefers pnpm over npm', scope: 'user' })
+    expect(sensitive.isError).toBe(true)
+    expect(asked).toEqual(['remember'])
+    expect(ctx.personalAi.memories()).toHaveLength(0)
+  }, 30_000)
+
   it('stores memories, refuses secrets, and asks before saving a memory about the user', async () => {
     const s = await setup()
     const { ctx } = s
