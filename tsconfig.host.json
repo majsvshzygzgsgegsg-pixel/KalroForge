@@ -329,6 +329,7 @@
     { "path": "./packages/goal/command-goal" },
     { "path": "./packages/feedback/command-feedback" },
     { "path": "./packages/schedule/schedule" },
+    { "path": "./packages/local/main-agents/tsconfig.host.json" },
     { "path": "./packages/context/time-context" },
     { "path": "./packages/context/file-reference" },
     { "path": "./packages/context/file-reference-local" },

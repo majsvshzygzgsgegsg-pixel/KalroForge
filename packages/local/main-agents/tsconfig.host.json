@@ -1,0 +1,28 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
+  },
+  "include": [
+    "src/*.ts"
+  ],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../../vendor/schemastery" },
+    { "path": "../../core/agent" },
+    { "path": "../../util/brand" },
+    { "path": "../../util/values" },
+    { "path": "../../core/agent-default-model" },
+    { "path": "../../core/session" },
+    { "path": "../../core/system-prompt" },
+    { "path": "../../core/tools" },
+    { "path": "../../api/session-controller/tsconfig.host.json" },
+    { "path": "../../experimental/agent-team" },
+    { "path": "../../host/webserver" },
+    { "path": "../../interaction/permission-presets" },
+    { "path": "../../preset/agent-preset-registry" },
+    { "path": "../../storage/storage-domain" }
+  ]
+}

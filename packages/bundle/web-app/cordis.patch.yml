@@ -274,6 +274,11 @@
     - id: local-holo-gestures
       name: '@local/holo-gestures'
 
+    # KairoForge Agent Registry: persistent main agents, the Agents page, and
+    # the capability-gated main-agent tools for Creator and Lead.
+    - id: local-main-agents
+      name: '@local/main-agents'
+
     - id: office-to-pdf
       name: '@deepseek-ai/dsh-office-to-pdf'
 

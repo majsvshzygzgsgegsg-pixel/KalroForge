@@ -1,0 +1,3 @@
+- insert:
+    - id: local-main-agents
+      name: '@local/main-agents'

@@ -19,6 +19,19 @@ When the user asks Creator mode to make a permanent agent member, KairoForge sho
 
 Temporary subagents are still useful for one-off work. Permanent members are for roles the user wants to keep across later sessions.
 
+## Main agents and the Agent Registry
+
+A main agent is a persistent top-level agent that sits alongside Lead. It is not a sub-agent: each main agent owns its own chat Session, model, mode, tool limits, optional workspace, permission preset, and sub-agent team, and it survives KairoForge restarts. The Agent Registry in [`@local/main-agents`](../packages/local/main-agents/README.md) is the source of truth; it persists to `~/.dsh/storages/main_agents.json`.
+
+Manage main agents in two ways:
+
+- the **Agents** page in the sidebar, which has a **Create Main Agent** button and Start, Stop, Restart, Edit, Clone, Archive, and Open chat actions;
+- the Agent Administration tools, `create_main_agent`, `clone_main_agent`, `edit_main_agent`, `archive_main_agent`, `start_main_agent`, `stop_main_agent`, `restart_main_agent`, `get_main_agent`, `list_main_agents`, `assign_model`, `assign_mode`, `assign_tools`, `assign_workspace`, `create_agent_team`, `manage_agent_permissions`, `send_agent_message`, and `delegate_task`.
+
+Creator and Lead sessions hold Agent Administration by default; the modes that do are configured on the Agents page. A main agent receives Agent Administration only when the user grants it. Every top-level Session, main agent or Lead, can use `list_main_agents`, `get_main_agent`, `send_agent_message`, and `delegate_task`; sub-agents cannot.
+
+Permissions go through the existing permission presets. New main agents start with `workspace-write` and no Agent Administration. A model-initiated call that archives an agent, grants Agent Administration, selects a preset wider than `workspace-write`, sets a workspace, or changes tool limits asks the user for approval first. Full access is granted only with `/permission` inside the agent's own chat.
+
 ## File access
 
 Creator mode file access is workspace-scoped. The active workspace is the project root shown to the session, and permanent members must not silently read or write outside that workspace. Members may edit files, run project commands, commit, push, and restart the app when the user asks for those outcomes, but they must preserve unrelated dirty files and never stage secrets, local caches, build outputs, or private folders.
