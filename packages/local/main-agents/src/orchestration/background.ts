@@ -121,6 +121,22 @@ export class BackgroundRunner {
   }
 
   /**
+   * Add an instruction to a queued or paused task; it is part of the prompt
+   * when the task starts or resumes. A running task is updated by messaging
+   * its Session instead.
+   * @param id - task id.
+   * @param text - instruction to append.
+   * @returns the amended task.
+   */
+  async amend(id: string, text: string): Promise<BackgroundTaskRecord> {
+    const task = this.get(id)
+    if (task.status !== 'queued' && task.status !== 'paused') throw new BackgroundError(`task is ${task.status}; only queued or paused tasks can be amended`)
+    const addition = text.trim()
+    if (addition === '') throw new BackgroundError('an amendment needs text')
+    return this.patch(id, { prompt: `${task.prompt}\n\nUpdate from the user (${new Date().toISOString()}): ${addition}` })
+  }
+
+  /**
    * Record progress reported by the agent working on a task.
    * @param id - task id.
    * @param caller - reporting Session id; must be the task's Session.

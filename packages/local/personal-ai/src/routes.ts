@@ -1,0 +1,310 @@
+/**
+ * Command Center routes under `/personal-ai/*`. Every request first passes the
+ * composition's `connection` fence (login-token cookie, Host/Origin check),
+ * then validates its JSON body. Requests come from the signed-in user.
+ */
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-host-webserver'
+import { z } from 'zod'
+import { AGENT_TAGS, CAPABILITY_CATEGORIES } from './core/capabilities.ts'
+import { classifyDepth } from './core/classifier.ts'
+import { MEMORY_SCOPES, type MemoryScope } from './core/memory.ts'
+import type { PersonalAi } from './service.ts'
+import { CONTROL_ACTIONS, PersonalAiError, type TaskRef } from './types.ts'
+
+/** Route prefix shared with the client. */
+export const PERSONAL_AI_PATH = '/personal-ai'
+
+const MAX_BODY_BYTES = 64 * 1024
+const USER = 'user'
+
+interface Connection {
+  requestRejection(request: { readonly headers: IncomingMessage['headers'] }): 401 | 403 | undefined
+}
+
+const commands = z.object({ dev: z.string(), build: z.string(), test: z.string(), lint: z.string() }).partial().strict()
+const memoryCreate = z.object({
+  scope: z.enum(MEMORY_SCOPES),
+  scopeId: z.string().min(1).optional(),
+  text: z.string().min(1).max(2000),
+  tags: z.array(z.string().min(1).max(40)).max(12).optional(),
+}).strict()
+const memoryUpdate = z.object({
+  text: z.string().min(1).max(2000).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(12).optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+}).strict()
+const projectCreate = z.object({
+  name: z.string().min(1).max(80),
+  path: z.string().min(1).optional(),
+  description: z.string().max(2000).optional(),
+  stack: z.array(z.string().min(1)).max(30).optional(),
+  commands: commands.optional(),
+  docs: z.array(z.string().min(1)).max(30).optional(),
+  open: z.boolean().optional(),
+}).strict()
+const projectUpdate = z.object({
+  name: z.string().min(1).max(80).optional(),
+  path: z.string().min(1).nullable().optional(),
+  description: z.string().max(2000).optional(),
+  stack: z.array(z.string().min(1)).max(30).optional(),
+  commands: commands.optional(),
+  docs: z.array(z.string().min(1)).max(30).optional(),
+  decision: z.string().min(1).max(2000).optional(),
+}).strict()
+const assignBody = z.object({ agentId: z.string().min(1), unassign: z.boolean().optional() }).strict()
+const personalityBody = z.object({
+  name: z.string().min(1).max(40).optional(),
+  instructions: z.string().max(4000).optional(),
+  speakingStyle: z.string().min(1).max(200).optional(),
+  verbosity: z.enum(['brief', 'balanced', 'detailed']).optional(),
+  voice: z.object({ name: z.string().max(200).optional(), rate: z.number().min(0.5).max(2).optional() }).strict().optional(),
+  notifications: z.enum(['all', 'important', 'off']).optional(),
+  handsFree: z.boolean().optional(),
+}).strict()
+const coordinatorBody = z.object({ enabled: z.boolean() }).strict()
+const controlBody = z.object({
+  kind: z.enum(['background', 'workflow', 'session']),
+  id: z.string().min(1),
+  action: z.enum(CONTROL_ACTIONS),
+  text: z.string().min(1).max(4000).optional(),
+}).strict()
+const voiceBody = z.object({ phase: z.enum(['off', 'arming', 'listening', 'speaking']) }).strict()
+const tagsBody = z.object({ tags: z.array(z.enum(AGENT_TAGS)).max(AGENT_TAGS.length) }).strict()
+const recommendBody = z.object({ task: z.string().min(1).max(4000), project: z.string().min(1).optional() }).strict()
+
+const STATUS: Record<PersonalAiError['code'], number> = { 'not-found': 404, 'invalid': 400, 'sensitive': 422, 'conflict': 409 }
+
+function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value)
+  if (!result.success) throw new PersonalAiError('invalid', z.prettifyError(result.error))
+  return result.data
+}
+
+type Compact<T> = { [K in keyof T]: Exclude<T[K], undefined> }
+
+/** Drop undefined members so exact optional properties stay exact. */
+function compact<T extends object>(value: T): Compact<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, member]) => member !== undefined)) as Compact<T>
+}
+
+function sendJson(res: ServerResponse, status: number, payload: unknown): void {
+  res.statusCode = status
+  res.setHeader('content-type', 'application/json; charset=utf-8')
+  res.setHeader('cache-control', 'no-store')
+  res.end(JSON.stringify(payload))
+}
+
+async function readBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = []
+  let size = 0
+  for await (const chunk of req) {
+    const buffer = chunk as Buffer
+    size += buffer.length
+    if (size > MAX_BODY_BYTES) throw new PersonalAiError('invalid', 'request body is too large')
+    chunks.push(buffer)
+  }
+  const text = Buffer.concat(chunks, size).toString('utf8')
+  if (text.trim() === '') return {}
+  try {
+    return JSON.parse(text)
+  } catch {
+    // A non-JSON body is reported as invalid input.
+    throw new PersonalAiError('invalid', 'request body must be JSON')
+  }
+}
+
+/**
+ * Command Center overview: state, active project, running work, recent
+ * activity, metrics, and settings in one request.
+ * @param service - Personal AI service.
+ * @param ctx - Host context.
+ * @returns overview payload.
+ */
+export async function overview(service: PersonalAi, ctx: Context): Promise<Record<string, unknown>> {
+  const background = service.backgroundTasks()
+  const agents = await service.candidates()
+  const workflows = ctx.orchestration.workflows.list()
+  const memories = service.memories({ includeDisabled: true, limit: 5000 })
+  return {
+    state: service.assistantState(),
+    personality: service.personality(),
+    coordinator: service.coordinatorEnabled(),
+    activeProject: service.activeProject() ?? null,
+    counts: {
+      agents: agents.length,
+      agentsBusy: agents.filter(agent => agent.runtime === 'busy').length,
+      projects: service.projects().length,
+      memories: memories.length,
+      background: background.filter(task => task.status === 'running' || task.status === 'queued' || task.status === 'paused').length,
+      workflows: workflows.filter(workflow => workflow.status === 'running' || workflow.status === 'integrating').length,
+    },
+    background: background.slice(0, 30),
+    workflows: workflows.slice(0, 20).map(workflow => ({
+      id: workflow.id,
+      title: workflow.title,
+      status: workflow.status,
+      ownerName: workflow.ownerName,
+      tasks: workflow.tasks.map(task => ({ id: task.id, title: task.title, status: task.status })),
+      createdAt: workflow.createdAt,
+    })),
+    controls: service.controls(20),
+    notifications: service.notifications().slice(-30),
+    metrics: service.metrics().summary,
+  }
+}
+
+/**
+ * Handle one Personal AI request.
+ * @param service - Personal AI service.
+ * @param ctx - Host context.
+ * @param method - HTTP method.
+ * @param parts - path segments after `/personal-ai`.
+ * @param query - URL query.
+ * @param body - parsed JSON body for POST.
+ * @returns status and payload.
+ */
+export async function handlePersonalAiRoute(
+  service: PersonalAi,
+  ctx: Context,
+  method: string,
+  parts: readonly string[],
+  query: URLSearchParams,
+  body: unknown,
+): Promise<{ status: number; payload: unknown }> {
+  await service.whenReady()
+  const [scope, id, action] = parts
+  const ok = (payload: unknown): { status: number; payload: unknown } => ({ status: 200, payload })
+  if (method === 'GET') {
+    switch (scope) {
+      case 'state': return ok(service.assistantState(query.get('session') ?? undefined))
+      case 'overview': return ok(await overview(service, ctx))
+      case 'memory': {
+        const scopeParam = query.get('scope')
+        const memoryScope = scopeParam !== null && (MEMORY_SCOPES as readonly string[]).includes(scopeParam)
+          ? scopeParam as MemoryScope
+          : undefined
+        return ok(service.memories(compact({
+          text: query.get('q') ?? undefined,
+          scope: memoryScope,
+          includeDisabled: query.get('disabled') === '1',
+          limit: 500,
+        })))
+      }
+      case 'projects': return ok({ projects: service.projects(query.get('archived') === '1'), activeProjectId: service.activeProject()?.id ?? null })
+      case 'project':
+        if (id !== undefined && action === 'status') return ok(await service.projectStatus(id))
+        if (id !== undefined) return ok(service.project(id))
+        break
+      case 'personality': return ok({ personality: service.personality(), coordinator: service.coordinatorEnabled() })
+      case 'controls': return ok(service.controls())
+      case 'notifications': return ok(service.notifications(query.get('since') ?? undefined))
+      case 'metrics': return ok(service.metrics(query.get('session') ?? undefined))
+      case 'background': return ok(service.backgroundTasks())
+      case 'agents': return ok({ agents: await service.candidates(), tags: AGENT_TAGS })
+      case 'capabilities': return ok({ categories: CAPABILITY_CATEGORIES, tags: AGENT_TAGS })
+      case 'classify': {
+        const text = query.get('text') ?? ''
+        return ok({ ...classifyDepth(text), decision: service.decide('preview', text) })
+      }
+      default:
+    }
+    return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }
+  }
+  switch (scope) {
+    case 'memory': {
+      if (id === undefined) {
+        const input = parse(memoryCreate, body)
+        return ok(await service.remember(compact(input), USER))
+      }
+      if (action === 'delete') return ok(await service.forget(id))
+      return ok(await service.updateMemory(id, compact(parse(memoryUpdate, body))))
+    }
+    case 'project': {
+      if (id === undefined) {
+        const { open, commands: given, ...input } = parse(projectCreate, body)
+        const project = await service.createProject(compact({ ...input, commands: given === undefined ? undefined : compact(given) }))
+        return ok(open === false ? project : await service.openProject(project.id))
+      }
+      if (action === 'open') return ok(await service.openProject(id))
+      if (action === 'archive') return ok(await service.archiveProject(id))
+      if (action === 'assign') {
+        const input = parse(assignBody, body)
+        return ok(await service.assignAgent(id, input.agentId, input.unassign !== true))
+      }
+      const { commands: given, ...changes } = parse(projectUpdate, body)
+      return ok(await service.updateProject(id, compact({ ...changes, commands: given === undefined ? undefined : compact(given) })))
+    }
+    case 'personality': {
+      const { voice, ...changes } = parse(personalityBody, body)
+      const current = service.personality().voice
+      const merged = voice === undefined ? undefined : { ...current, ...compact(voice) }
+      return ok(await service.updatePersonality(compact({ ...changes, voice: merged })))
+    }
+    case 'coordinator': {
+      await service.setCoordinator(parse(coordinatorBody, body).enabled)
+      return ok({ coordinator: service.coordinatorEnabled() })
+    }
+    case 'control': {
+      const input = parse(controlBody, body)
+      const ref: TaskRef = { kind: input.kind, id: input.id }
+      return ok(await service.control(ref, input.action, input.text, USER))
+    }
+    case 'voice': {
+      service.setVoice(parse(voiceBody, body).phase)
+      return ok(service.assistantState())
+    }
+    case 'agent':
+      if (id !== undefined && action === 'tags') return ok({ tags: await service.setAgentTags(id, parse(tagsBody, body).tags) })
+      break
+    case 'recommend': {
+      const input = parse(recommendBody, body)
+      return ok(await service.recommend(input.task, input.project === undefined ? undefined : service.project(input.project).id))
+    }
+    default:
+  }
+  return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }
+}
+
+/**
+ * Register the Personal AI routes on the composition web server.
+ * @param ctx - Host context carrying `webServer` and `connection`.
+ * @param service - Personal AI service.
+ */
+export function installPersonalAiRoutes(ctx: Context, service: PersonalAi): void {
+  const connection = Reflect.get(ctx, 'connection') as Connection
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'prefix',
+    path: PERSONAL_AI_PATH,
+    handler: async (req, res) => {
+      const rejection = connection.requestRejection(req)
+      if (rejection !== undefined) {
+        res.statusCode = rejection
+        res.end()
+        return
+      }
+      try {
+        // Node always sets url on server requests; String keeps that fact local.
+        const url = new URL(String(req.url), 'http://localhost')
+        const parts = url.pathname.slice(PERSONAL_AI_PATH.length).split('/').filter(part => part !== '').map(decodeURIComponent)
+        const method = req.method ?? 'GET'
+        if (method !== 'GET' && method !== 'POST') {
+          sendJson(res, 405, { code: 'invalid', message: 'method not allowed' })
+          return
+        }
+        const body = method === 'POST' ? await readBody(req) : undefined
+        const outcome = await handlePersonalAiRoute(service, ctx, method, parts, url.searchParams, body)
+        sendJson(res, outcome.status, outcome.payload)
+      } catch (error) {
+        if (error instanceof PersonalAiError) {
+          sendJson(res, STATUS[error.code], { code: error.code, message: error.message })
+          return
+        }
+        const status = typeof error === 'object' && error !== null && 'name' in error && /NotFound|Background|Workflow/i.test(String(error.name)) ? 409 : 500
+        if (status === 500) ctx.logger.error(`personal-ai: ${req.method ?? 'GET'} ${String(req.url)} failed: ${String(error)}`)
+        sendJson(res, status, { code: status === 409 ? 'conflict' : 'internal', message: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  }), `personal-ai: ${PERSONAL_AI_PATH}/*`)
+}

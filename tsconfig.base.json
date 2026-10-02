@@ -31,6 +31,8 @@
       "@local/main-agents": ["./packages/local/main-agents/src"],
       "@local/main-agents/client": ["./packages/local/main-agents/src/client/index.ts"],
       "@local/galaxy": ["./packages/local/galaxy/src/index.ts"],
+      "@local/personal-ai": ["./packages/local/personal-ai/src"],
+      "@local/personal-ai/client": ["./packages/local/personal-ai/src/client/index.ts"],
       "@deepseek-ai/dsh-client-product-analytics": ["./packages/client/product-analytics/src/index.ts"],
       "@deepseek-ai/dsh-client-product-analytics/types": ["./packages/client/product-analytics/src/events.ts"],
       "@deepseek-ai/dsh-client-product-analytics/client": ["./packages/client/product-analytics/src/client/index.ts"],
