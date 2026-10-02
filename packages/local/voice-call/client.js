@@ -40,7 +40,11 @@ window.__ModuleLoader__.load({
     const MAX_PROGRESS_CHARS = 300
     /** How often a playing line is checked, and how many quiet checks mean it ended. */
     const SPEECH_WATCH_MS = 400
-    const SPEECH_QUIET_TICKS = 3
+    const SPEECH_QUIET_TICKS = 2
+    /** Speaking time estimate (about 14 characters a second at rate 1), its floor, and the slack before a line counts as lost. */
+    const SPEECH_MS_PER_CHAR = 70
+    const SPEECH_MIN_MS = 1000
+    const SPEECH_LOST_MS = 4000
 
     const STYLE = `
 .vc-group { position: relative; display: inline-flex; align-items: center; gap: 2px; }
@@ -499,7 +503,8 @@ window.__ModuleLoader__.load({
             // is the user interrupting; anything that looks like the spoken reply
             // is the assistant hearing itself and is dropped entirely.
             if (isBargeInSpeech(interim)) bargeIn(interim)
-            else if (!speaking || bargedIn) setCaption(interim, true)
+            // The assistant's own words are never shown as the user's.
+            else if ((!speaking || bargedIn) && !isSelfEcho(interim)) setCaption(interim, true)
           }
           if (final.trim() === '') return
           const text = final.trim()
@@ -770,19 +775,33 @@ window.__ModuleLoader__.load({
         // A synthesizer left paused (an interrupted audio session) queues forever without this.
         if (voice.paused === true && typeof voice.resume === 'function') voice.resume()
         voice.speak(utterance)
-        watchSpeech(finish)
+        watchSpeech(finish, queued)
+      }
+
+      /** The least time a line takes to say out loud at the chosen rate. */
+      function sayingMs(text) {
+        return Math.max(SPEECH_MIN_MS, (text.length * SPEECH_MS_PER_CHAR) / voicePreference.rate)
       }
 
       /**
        * Safari can drop an utterance's end event (it still plays), which would
        * leave the answer queued behind it until something else cancels speech.
-       * A synthesizer that has gone quiet has finished, whatever it reported.
+       * Its speaking flag is not trustworthy either, so a line never counts as
+       * finished before it could have been said (ending it early reopens the
+       * microphone onto the assistant's own voice): after that, a quiet
+       * synthesizer has finished, and a line still "speaking" long past its
+       * length is treated as lost.
        */
-      function watchSpeech(finish) {
+      function watchSpeech(finish, text) {
         clearSpeechWatch()
         if (typeof voice.speaking !== 'boolean') return
+        const earliest = Date.now() + sayingMs(text)
+        const latest = earliest + sayingMs(text) + SPEECH_LOST_MS
         let quiet = 0
         speechWatch = window.setInterval(function () {
+          const now = Date.now()
+          if (now < earliest) return
+          if (now >= latest) { finish(); return }
           if (voice.speaking || voice.pending) { quiet = 0; return }
           quiet++
           if (quiet >= SPEECH_QUIET_TICKS) finish()

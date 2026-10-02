@@ -463,12 +463,29 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
       results: [Object.assign([{ transcript: 'tell me a long story' }], { isFinal: true })],
     })
   })
-  await React.act(async () => { safariAnswer('First sentence here. Second sentence here.') })
-  assert.equal(spoken.at(-1), 'First sentence here.', 'the long answer started')
+  const longLine = 'This first sentence is long enough to take a few seconds to say out loud.'
+  await React.act(async () => { safariAnswer(longLine + ' Second sentence here.') })
+  assert.equal(spoken.at(-1), longLine, 'the long answer started')
+  // Safari's speaking flag can read false while the line still plays; ending it
+  // early would reopen the floor while the assistant is still talking.
+  synth.speaking = false
+  await new Promise(resolve => window.setTimeout(resolve, 1700))
+  assert.equal(runtime.phase, 'speaking', 'a wrong quiet flag does not end a line before it could have been said')
+  assert.equal(spoken.at(-1), longLine, 'the next sentence did not start early')
+  synth.speaking = true
   const spokenBeforeInterrupt = spoken.length
   React.act(() => { runtime.interruptAndListen() })
   assert.equal(spoken.length, spokenBeforeInterrupt, 'interrupting did not start the next queued sentence')
   assert.equal(runtime.phase, 'listening', 'the interrupt handed the floor back')
+  // The tail of the assistant's own voice reaching the microphone is never shown as the user.
+  const echoSession = await currentSession()
+  React.act(() => {
+    echoSession.onresult({
+      resultIndex: 0,
+      results: [Object.assign([{ transcript: 'long enough to take a few seconds to say' }], { isFinal: false })],
+    })
+  })
+  assert.equal(runtime.caption, '', 'the assistant hearing itself is not captioned as the user')
   React.act(() => { runtime.toggle() })
   synth.speak = plainSpeak
   synth.cancel = plainCancel
