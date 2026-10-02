@@ -202,6 +202,7 @@ async function setup(options: {
     teamProvider: 'spawn',
     orchestration: true,
     engineer: options.engineer ?? false,
+    toolFreeModes: ['chat', 'minimal'],
   })
   await vi.waitFor(() => { expect(ctx.get('orchestration')).toBeDefined() })
   await ctx.mainAgents.whenReady()

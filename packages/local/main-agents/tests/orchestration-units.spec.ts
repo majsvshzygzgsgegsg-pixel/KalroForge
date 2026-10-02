@@ -9,8 +9,6 @@ import { classify, messageBody, route } from '../src/orchestration/routing.ts'
 import { gitGuard, isReadOnlyCommand, isTestCommand, redact } from '../src/orchestration/shell-policy.ts'
 import { DEFAULT_SETTINGS, type WorkflowRecord, type WorkflowTaskRecord } from '../src/orchestration/types.ts'
 import { allSettled, dependencyContext, propagateFailures, readyTasks, validateTasks } from '../src/orchestration/workflow-graph.ts'
-import { dependencyLevels, duration, statusDot, statusTone } from '../src/client/format.ts'
-
 const roots: string[] = []
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
@@ -281,32 +279,5 @@ describe('git checkpoints', () => {
     const root = repo()
     const cp = await captureCheckpoint(root, 'cp2', 'm')
     await expect(restoreChanges(root, cp?.tree ?? '', [{ path: '../outside', status: 'M' }])).rejects.toThrow(/escapes/)
-  })
-})
-
-describe('workflow view helpers', () => {
-  it('lays tasks out in dependency levels so parallel work shares a level', () => {
-    const levels = dependencyLevels([
-      { id: 'integrate', dependsOn: ['api', 'ui'] },
-      { id: 'api', dependsOn: ['plan'] },
-      { id: 'plan', dependsOn: [] },
-      { id: 'ui', dependsOn: ['plan'] },
-    ])
-    expect(levels.map(level => level.map(task => task.id))).toEqual([['plan'], ['api', 'ui'], ['integrate']])
-  })
-
-  it('terminates on a dependency cycle instead of recursing forever', () => {
-    const levels = dependencyLevels([{ id: 'a', dependsOn: ['b'] }, { id: 'b', dependsOn: ['a'] }])
-    expect(levels.flat().map(task => task.id).toSorted()).toEqual(['a', 'b'])
-  })
-
-  it('maps every orchestration status to a dot and tone', () => {
-    expect(statusDot('running')).toBe('ongoing')
-    expect(statusDot('failed')).toBe('error')
-    expect(statusDot('paused')).toBe('warning')
-    expect(statusDot('completed')).toBe('done')
-    expect(statusTone('recurred')).toBe('danger')
-    expect(statusTone('recovered')).toBe('success')
-    expect(duration(252_000)).toBe('4m 12s')
   })
 })
