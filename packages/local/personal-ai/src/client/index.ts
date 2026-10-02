@@ -10,6 +10,7 @@ import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { api } from './api.ts'
 import { CommandCenter, type CommandCenterInjected } from './CommandCenter.tsx'
 import { CommandCenterIcon } from './Icon.tsx'
@@ -31,8 +32,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 export type { VoiceProvider, SpeechToTextProvider, TextToSpeechProvider } from './voice.ts'
 
-/** Required services: slots, dictionaries, and panel selection. */
-export const inject = ['slots', 'locale', 'layout']
+/** Required services: slots, dictionaries, panel selection, and Session navigation. */
+export const inject = ['slots', 'locale', 'layout', 'uiWorkspace']
 
 /**
  * Register the Command Center, the state bar, notifications, and the voice bridge.
@@ -46,12 +47,17 @@ export function apply(ctx: Context): void {
   const hooks = { live: store.live }
   const openCommandCenter = (): void => { ctx.layout.selectPanel(PANEL_ID) }
   const openAgents = (): void => { ctx.layout.selectPanel(AGENTS_PANEL_ID) }
+  // Leaving the panel first shows the conversation the navigation selects.
+  const openSession = (sessionId: string): void => {
+    ctx.layout.selectPanel(null)
+    ctx.uiWorkspace.openSession(sessionId as SessionId)
+  }
 
   ctx.slots.inject('main', () => ctx.slots.register({
     name: 'main',
     key: PANEL_ID,
     locale: NS,
-    inject: (): CommandCenterInjected => ({ hooks, store, openAgents }),
+    inject: (): CommandCenterInjected => ({ hooks, store, openAgents, openSession }),
   }, CommandCenter))
 
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({

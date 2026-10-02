@@ -245,6 +245,17 @@ export class PersonalAiRequestError extends Error {
 
 const BASE = 'personal-ai/'
 
+/** One Command Center turn answered in the conversation Session. */
+export interface ConverseTurn {
+  readonly id: string
+  readonly sessionId: string
+  readonly status: 'running' | 'done' | 'failed'
+  readonly reply?: string
+  readonly error?: string
+  readonly startedAt: string
+  readonly finishedAt?: string
+}
+
 /**
  * Call one `/personal-ai/*` route: GET without a body, POST with one.
  * @param path - path below `/personal-ai/`.
@@ -319,4 +330,6 @@ export const api = {
   recommend: (task: string) => request<AgentScore[]>('recommend', { task }),
   tools: (sessionId?: string) => request<ToolGroups>(sessionId === undefined ? 'tools' : `tools?session=${id(sessionId)}`),
   voice: (phase: VoicePhase) => request<StateView>('voice', { phase }),
+  converse: (text: string) => request<ConverseTurn>('converse', { text }),
+  converseTurn: (turnId: string) => request<ConverseTurn>(`converse/${id(turnId)}`),
 }

@@ -285,8 +285,10 @@ window.__ModuleLoader__.load({
         partial: false,
         reply: '',
         error: '',
+        heard: '',
         toggle,
         start,
+        startWith,
         stopSpeaking,
         interruptAndListen,
         setOption,
@@ -309,6 +311,8 @@ window.__ModuleLoader__.load({
           partial: runtime.partial,
           reply: runtime.reply,
           error: runtime.error,
+          heard: runtime.heard,
+          channel: channel === null ? null : channel.name,
           settings,
           copy,
           supported: runtime.supported,
@@ -317,10 +321,17 @@ window.__ModuleLoader__.load({
         return runtime.snapshot
       }
 
-      publishSnapshot()
-
       let actions = null
       let actionsSession = null
+      /**
+       * Where a call started by another plugin sends its turns instead of the
+       * on-screen composer: `{ name, send(text) => Promise<string> }`, resolving
+       * with the reply to speak. Null for an ordinary chat call.
+       */
+      let channel = null
+      let channelTurn = 0
+
+      publishSnapshot()
 
       let recognition = null
       let wantListening = false
@@ -395,8 +406,10 @@ window.__ModuleLoader__.load({
         if (actions === next && actionsSession === sessionId) return
         actions = next
         if (actionsSession !== sessionId) {
-          // A different conversation: nothing spoken here has been heard yet.
           actionsSession = sessionId
+          // A channel call is not tied to the chat on screen; navigating keeps it.
+          if (channel !== null) return
+          // A different conversation: nothing spoken here has been heard yet.
           if (runtime.live) stopSession()
           spokenKeys = new Set()
           lastReplyText = ''
@@ -482,9 +495,8 @@ window.__ModuleLoader__.load({
           setCaption(text, false)
           // After a barge-in the turn is the user's, so it goes out even while the
           // cancelled voice is still unwinding.
-          if (settings.autoSend && !submittedTurn && (!speaking || bargedIn) && actions !== null) {
-            submitTranscript(text)
-          }
+          const canSend = channel !== null || (settings.autoSend && actions !== null)
+          if (canSend && !submittedTurn && (!speaking || bargedIn)) submitTranscript(text)
         }
         session.onerror = function (event) {
           const code = event !== null && typeof event.error === 'string' ? event.error : ''
@@ -517,6 +529,7 @@ window.__ModuleLoader__.load({
 
       /** Submit one final transcript through the composer the user is looking at. */
       function submitTranscript(text) {
+        if (channel !== null) { submitToChannel(text); return }
         if (actions === null) return
         try {
           actions.setDraft(text + '\n')
@@ -530,6 +543,35 @@ window.__ModuleLoader__.load({
         } catch (failure) {
           setError(copy.failed + ': ' + describe(failure))
         }
+      }
+
+      /** Send one final transcript through the channel and speak whatever it answers. */
+      function submitToChannel(text) {
+        const target = channel
+        const turn = ++channelTurn
+        submittedTurn = true
+        lastSubmittedText = text.trim().toLowerCase()
+        lastSubmittedAt = Date.now()
+        runtime.heard = text
+        setError('')
+        setReply('')
+        setCaption('', false)
+        setPhase('waiting')
+        let pending
+        try { pending = target.send(text) } catch (failure) { pending = Promise.reject(failure) }
+        Promise.resolve(pending).then(function (answer) {
+          if (turn !== channelTurn || !runtime.live) return
+          submittedTurn = false
+          const spoken = typeof answer === 'string' ? answer.slice(0, MAX_SPOKEN_CHARS).trim() : ''
+          setReply(spoken)
+          if (spoken !== '' && settings.speak && voice !== null) speak(spoken)
+          else { setPhase('listening'); beginRecognition() }
+        }, function (failure) {
+          if (turn !== channelTurn || !runtime.live) return
+          submittedTurn = false
+          setError(copy.failed + ': ' + describe(failure))
+          beginRecognition()
+        })
       }
 
       /**
@@ -797,7 +839,7 @@ window.__ModuleLoader__.load({
       }
 
       function syncWatcher() {
-        if (!runtime.live) {
+        if (!runtime.live || channel !== null) {
           if (observer !== null) { observer.disconnect(); observer = null; observedRoot = null }
           if (pollTimer !== null) { window.clearInterval(pollTimer); pollTimer = null }
           return
@@ -835,6 +877,9 @@ window.__ModuleLoader__.load({
 
       function stopSession() {
         runtime.live = false
+        channel = null
+        channelTurn++
+        runtime.heard = ''
         wantListening = false
         speaking = false
         echoUntil = 0
@@ -861,6 +906,19 @@ window.__ModuleLoader__.load({
       /** Begin a call from the button; a no-op when one is already running. */
       function start() {
         if (!runtime.live) startSession()
+      }
+
+      /**
+       * Begin a call whose turns go to `next` instead of the chat composer, so
+       * another surface (the Command Center) can hold a spoken conversation
+       * without a chat on screen. An ordinary chat call is ended first.
+       */
+      function startWith(next) {
+        if (next === null || typeof next !== 'object' || typeof next.send !== 'function') return
+        if (runtime.live && channel !== null && channel.send === next.send) return
+        if (runtime.live) stopSession()
+        channel = { name: typeof next.name === 'string' ? next.name : 'channel', send: next.send }
+        startSession()
       }
 
       function setOption(key, value) {

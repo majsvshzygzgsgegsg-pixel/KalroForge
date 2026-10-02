@@ -116,6 +116,20 @@ export interface StoredPersonalSettings {
   readonly activeProjectId?: string
   /** Coordinator prompt and per-turn hints on Lead Sessions. */
   readonly coordinator?: boolean
+  /** The Session that Command Center conversations (voice or typed) continue. */
+  readonly conversationSessionId?: string
+}
+
+/** One Command Center turn: sent into the conversation Session, answered by KairoForge. */
+export interface ConverseTurn {
+  readonly id: string
+  readonly sessionId: string
+  readonly status: 'running' | 'done' | 'failed'
+  /** Final assistant text of the turn (empty when it answered only with tool work). */
+  readonly reply?: string
+  readonly error?: string
+  readonly startedAt: string
+  readonly finishedAt?: string
 }
 
 /** Typed failure codes for tools and routes. */

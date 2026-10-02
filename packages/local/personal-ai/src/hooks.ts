@@ -8,6 +8,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent'
 import type { PostToolDecision, PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
+import { textOf } from '@local/main-agents'
 import { isDelegatingTool } from './core/assistant-state.ts'
 import { classifyRisk } from './core/risk.ts'
 import type { Config } from './index.ts'
@@ -28,6 +29,9 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
   ctx.on('session/event', (session, event) => {
     if (event.type === 'approval/asked' || event.type === 'approval/decided') {
       service.noteApproval(session.id, (event.data as { id: string }).id, event.type === 'approval/asked')
+    }
+    if (event.type === 'assistant/message') {
+      service.noteConversation(session.id, 'text', textOf((event.data as { message: { content: unknown } }).message.content))
     }
     const live = service.coordinatorLive(session.id)
     if (live === undefined) return
@@ -57,6 +61,7 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
   })
 
   ctx.on('agent/status', ({ agent, status }) => {
+    service.noteConversation(agent.session.id, status === 'running' ? 'running' : 'idle')
     const live = service.coordinatorLive(agent.session.id)
     if (live === undefined) return
     if (status === 'running') {
@@ -82,6 +87,7 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
   })
 
   ctx.on('agent/error', ({ agent, error }) => {
+    service.failConversation(agent.session.id, error instanceof Error ? error.message : String(error))
     const live = service.coordinatorLive(agent.session.id)
     if (live === undefined) return
     live.errored = true

@@ -17,6 +17,10 @@ export interface CallSnapshot {
   readonly partial: boolean
   readonly reply: string
   readonly error: string
+  /** Last transcript sent through a channel call. */
+  readonly heard?: string
+  /** Channel name while a channel call is live, otherwise null. */
+  readonly channel?: string | null
   readonly supported: boolean
   readonly speakingSupported: boolean
   readonly settings: { readonly autoSend: boolean; readonly speak: boolean; readonly handsFree: boolean; readonly bargeIn: boolean }
@@ -39,6 +43,14 @@ export interface VoiceCallRuntime {
   subscribe(listener: () => void): () => void
   setVoice?(preference: { readonly name?: string; readonly rate?: number }): void
   listVoices?(): VoiceOption[]
+  /** Start a call whose turns go to `channel` instead of the chat composer. */
+  startWith?(channel: VoiceChannel): void
+}
+
+/** Where a channel call sends what the user said; resolves with the reply to speak. */
+export interface VoiceChannel {
+  readonly name: string
+  send(text: string): Promise<string>
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -80,6 +92,8 @@ export interface VoiceProvider {
   phase(): VoicePhase
   snapshot(): CallSnapshot | null
   subscribe(listener: () => void): () => void
+  /** Hold a spoken conversation through `channel` without a chat on screen (absent when unsupported). */
+  converse?: ((channel: VoiceChannel) => void) | undefined
 }
 
 /**
@@ -91,8 +105,8 @@ export function voicePhaseOf(snapshot: CallSnapshot | null): VoicePhase {
   if (snapshot === null || !snapshot.live) return 'off'
   if (snapshot.phase === 'speaking') return 'speaking'
   if (snapshot.phase === 'listening') return 'listening'
-  if (snapshot.phase === 'idle' || snapshot.phase === 'error') return 'off'
-  return 'arming'
+  // `waiting` is KairoForge working on the answer: the Host's busy state shows THINKING.
+  return 'off'
 }
 
 /**
@@ -121,5 +135,6 @@ export function browserVoiceProvider(runtime: VoiceCallRuntime): VoiceProvider {
     phase: () => voicePhaseOf(runtime.snapshot),
     snapshot: () => runtime.snapshot,
     subscribe: listener => runtime.subscribe(listener),
+    converse: runtime.startWith === undefined ? undefined : (channel) => { runtime.startWith?.(channel) },
   }
 }

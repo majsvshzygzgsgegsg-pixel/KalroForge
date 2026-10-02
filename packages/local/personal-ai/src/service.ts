@@ -24,8 +24,8 @@ import { findSensitive } from './core/sensitive.ts'
 import { personalAiDomain } from './storage.ts'
 import {
   DEFAULT_PERSONALITY, PersonalAiError,
-  type ControlAction, type ControlRecord, type CoordinatorDecision, type MemoryEntry, type Personality, type ProjectCommands,
-  type ProjectRecord, type StoredPersonalSettings, type TaskRef,
+  type ControlAction, type ConverseTurn, type ControlRecord, type CoordinatorDecision, type MemoryEntry, type Personality,
+  type ProjectCommands, type ProjectRecord, type StoredPersonalSettings, type TaskRef,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -50,6 +50,9 @@ const MEMORY_LIMIT = 2000
 const CONTROL_LIMIT = 300
 const TURN_LIMIT = 500
 const NOTICE_LIMIT = 60
+const CONVERSE_LIMIT = 50
+const CONVERSE_MAX_CHARS = 4000
+const CONVERSE_REPLY_CHARS = 8000
 
 /** Live facts about one coordinator Session. */
 interface LiveSession {
@@ -119,6 +122,8 @@ export class PersonalAi extends Service {
   private readonly decisions = new Map<string, CoordinatorDecision>()
   private readonly approvals = new Map<string, Set<string>>()
   private readonly notices: PersonalNotice[] = []
+  private readonly conversation = new Map<string, ConverseTurn>()
+  private readonly converseBySession = new Map<string, { readonly turnId: string; started: boolean; reply: string }>()
   private voice: VoicePhase = 'off'
   private focus: string | undefined
 
@@ -632,6 +637,110 @@ export class PersonalAi extends Service {
     const agent = await this.registry.get(idOrAgent).catch(() => undefined)
     if (agent?.sessionId !== undefined) return agent.sessionId
     throw new PersonalAiError('not-found', `no live Session or main agent "${idOrAgent}"`)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Conversation: talking to KairoForge from the Command Center, without a chat on screen
+
+  /**
+   * Send one user turn into the conversation Session (created on first use and
+   * kept across restarts). It is an ordinary KairoForge turn: the coordinator,
+   * permissions, and approvals apply exactly as in the chat.
+   * @param text - what the user said or typed.
+   * @returns the turn, still running; poll {@link converseTurn} for the reply.
+   */
+  async converse(text: string): Promise<ConverseTurn> {
+    const body = text.trim()
+    if (body === '') throw new PersonalAiError('invalid', 'say or type something first')
+    if (body.length > CONVERSE_MAX_CHARS) throw new PersonalAiError('invalid', `keep a spoken turn under ${String(CONVERSE_MAX_CHARS)} characters`)
+    const sessionId = await this.conversationSession()
+    const turn: ConverseTurn = { id: randomUUID(), sessionId, status: 'running', startedAt: new Date().toISOString() }
+    this.conversation.set(turn.id, turn)
+    this.converseBySession.set(sessionId, { turnId: turn.id, started: false, reply: '' })
+    while (this.conversation.size > CONVERSE_LIMIT) {
+      const oldest = this.conversation.keys().next().value
+      if (oldest === undefined) break
+      this.conversation.delete(oldest)
+    }
+    try {
+      await this.ctx.sessionController.prompt({
+        requestId: brandString<SessionRequestId>(`personal-ai-${randomUUID()}`),
+        sessionId: SessionId(sessionId),
+        mode: 'queue',
+        content: [{ type: 'text', text: body }],
+      }, AbortSignal.timeout(30_000))
+    } catch (error) {
+      this.finishConverse(sessionId, `the message was not accepted: ${error instanceof Error ? error.message : String(error)}`)
+      throw new PersonalAiError('conflict', `KairoForge could not take the message: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    return turn
+  }
+
+  /**
+   * One Command Center turn.
+   * @param id - turn id.
+   * @returns the turn with its reply once finished.
+   */
+  converseTurn(id: string): ConverseTurn {
+    const turn = this.conversation.get(id)
+    if (turn === undefined) throw new PersonalAiError('not-found', `no conversation turn "${id}"`)
+    return turn
+  }
+
+  /** The conversation Session id, when one exists. */
+  conversationSessionId(): string | undefined {
+    return this.settings().conversationSessionId
+  }
+
+  /**
+   * Observe assistant output of the conversation Session (installed by the hooks).
+   * @param sessionId - Session id.
+   * @param event - `running`, `text` with the assistant's words, or `idle`.
+   * @param text - assistant text for `text` events.
+   */
+  noteConversation(sessionId: string, event: 'running' | 'text' | 'idle', text = ''): void {
+    const pending = this.converseBySession.get(sessionId)
+    if (pending === undefined) return
+    if (event === 'running') pending.started = true
+    else if (event === 'text') { if (text !== '') pending.reply = text }
+    else if (pending.started) this.finishConverse(sessionId)
+  }
+
+  /**
+   * Mark the conversation turn of a Session failed (the agent errored).
+   * @param sessionId - Session id.
+   * @param error - reason.
+   */
+  failConversation(sessionId: string, error: string): void {
+    if (this.converseBySession.has(sessionId)) this.finishConverse(sessionId, error)
+  }
+
+  private finishConverse(sessionId: string, error?: string): void {
+    const pending = this.converseBySession.get(sessionId)
+    if (pending === undefined) return
+    this.converseBySession.delete(sessionId)
+    const turn = this.conversation.get(pending.turnId)
+    if (turn === undefined) return
+    const finishedAt = new Date().toISOString()
+    this.conversation.set(turn.id, error === undefined
+      ? { ...turn, status: 'done', reply: redact(pending.reply).slice(0, CONVERSE_REPLY_CHARS), finishedAt }
+      : { ...turn, status: 'failed', error: redact(error).slice(0, 300), finishedAt })
+  }
+
+  private async conversationSession(): Promise<string> {
+    const known = this.settings().conversationSessionId
+    if (known !== undefined) {
+      const resolved = await this.ctx.sessionController.resolveAgent(SessionId(known)).catch(() => undefined)
+      if (resolved !== undefined && !('error' in resolved)) return known
+    }
+    const project = this.activeProject()
+    const created = await this.ctx.sessionController.create({
+      agentPreset: 'standard',
+      ...project?.path === undefined ? {} : { cwd: project.path },
+    })
+    await this.patchSettings({ conversationSessionId: created.sessionId })
+    await this.ctx.sessionController.rename({ sessionId: created.sessionId, title: `${this.personality().name} — voice` }).catch(() => {})
+    return created.sessionId
   }
 
   // ---------------------------------------------------------------------------

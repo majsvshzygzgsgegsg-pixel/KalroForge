@@ -77,6 +77,7 @@ const controlBody = z.object({
 const voiceBody = z.object({ phase: z.enum(['off', 'arming', 'listening', 'speaking']) }).strict()
 const tagsBody = z.object({ tags: z.array(z.enum(AGENT_TAGS)).max(AGENT_TAGS.length) }).strict()
 const recommendBody = z.object({ task: z.string().min(1).max(4000), project: z.string().min(1).optional() }).strict()
+const converseBody = z.object({ text: z.string().min(1).max(4000) }).strict()
 
 const STATUS: Record<PersonalAiError['code'], number> = { 'not-found': 404, 'invalid': 400, 'sensitive': 422, 'conflict': 409 }
 
@@ -227,6 +228,9 @@ export async function handlePersonalAiRoute(
         const text = query.get('text') ?? ''
         return ok({ ...classifyDepth(text), decision: service.decide('preview', text) })
       }
+      case 'converse':
+        if (id !== undefined) return ok(service.converseTurn(id))
+        return ok({ sessionId: service.conversationSessionId() ?? null })
       default:
     }
     return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }
@@ -281,6 +285,7 @@ export async function handlePersonalAiRoute(
       const input = parse(recommendBody, body)
       return ok(await service.recommend(input.task, input.project === undefined ? undefined : service.project(input.project).id))
     }
+    case 'converse': return ok(await service.converse(parse(converseBody, body).text))
     default:
   }
   return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }

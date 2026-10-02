@@ -118,9 +118,10 @@ function sessionController(ctx: Context) {
     }
   }
   return {
-    async create(request: { sessionId: SessionId; cwd?: string }) {
-      await ctx.agentLoop.create(request.sessionId, { provider: 'mock', model: 'main' }, request.cwd === undefined ? {} : { cwd: request.cwd })
-      return { sessionId: request.sessionId }
+    async create(request: { sessionId?: SessionId; cwd?: string }) {
+      const sessionId = request.sessionId ?? SessionId(`session-${String(++callNumber)}`)
+      await ctx.agentLoop.create(sessionId, { provider: 'mock', model: 'main' }, request.cwd === undefined ? {} : { cwd: request.cwd })
+      return { sessionId }
     },
     resolveAgent,
     async prompt(request: { sessionId: SessionId; content: readonly ContentBlock[] }) {
@@ -366,6 +367,27 @@ describe('personal ai', () => {
     const latest = ctx.personalAi.metrics().recent[0]
     expect(latest).toMatchObject({ depth: 'direct', toolCalls: 0, delegated: false, mode: 'standard' })
     expect(ctx.personalAi.decisionOf('lead-session')?.depth).toBe('direct')
+  }, 30_000)
+
+  it('answers a Command Center turn without a chat on screen and keeps one conversation Session', async () => {
+    const { ctx } = await setup()
+    const first = await ctx.personalAi.converse('Hi')
+    expect(first.status).toBe('running')
+    await vi.waitFor(() => { expect(ctx.personalAi.converseTurn(first.id).status).toBe('done') })
+    expect(ctx.personalAi.converseTurn(first.id).reply).toBe('ok')
+    expect(ctx.personalAi.conversationSessionId()).toBe(first.sessionId)
+    expect(ctx.personalAi.decisionOf(first.sessionId)?.depth).toBe('direct')
+
+    const routed = await handlePersonalAiRoute(ctx.personalAi, ctx, 'POST', ['converse'], new URLSearchParams(), { text: 'And after that?' })
+    const second = routed.payload as { id: string; sessionId: string }
+    expect(second.sessionId).toBe(first.sessionId)
+    await vi.waitFor(async () => {
+      const polled = await handlePersonalAiRoute(ctx.personalAi, ctx, 'GET', ['converse', second.id], new URLSearchParams(), undefined)
+      expect(polled.payload).toMatchObject({ status: 'done', reply: 'ok' })
+    })
+    await expect(ctx.personalAi.converse('   ')).rejects.toMatchObject({ code: 'invalid' })
+    await expect(handlePersonalAiRoute(ctx.personalAi, ctx, 'GET', ['converse', 'missing'], new URLSearchParams(), undefined))
+      .rejects.toMatchObject({ code: 'not-found' })
   }, 30_000)
 
   it('serves the Command Center overview and rejects secrets at the route', async () => {

@@ -333,6 +333,44 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   assert.equal(runtime.phase, 'idle', 'the runtime returned to idle')
   await until('the strip to leave', () => stripContainer.querySelector('.vc-caption') === null)
 
+  // ---- channel call: another surface owns the conversation ----------------
+  const sent = []
+  let answer = null
+  const channel = {
+    name: 'personal-ai',
+    send(text) { sent.push(text); return new Promise((resolve) => { answer = resolve }) },
+  }
+  const draftsBeforeChannel = drafts.length
+  spoken.length = 0
+  React.act(() => { runtime.startWith(channel) })
+  assert.equal(runtime.live, true, 'a channel call is live')
+  assert.equal(runtime.snapshot.channel, 'personal-ai', 'the snapshot names the channel')
+  const channelSession = await currentSession()
+  React.act(() => {
+    channelSession.onresult({
+      resultIndex: 0,
+      results: [Object.assign([{ transcript: 'what time is my meeting' }], { isFinal: true })],
+    })
+  })
+  assert.deepEqual(sent, ['what time is my meeting'], 'the final transcript went to the channel')
+  assert.equal(drafts.length, draftsBeforeChannel, 'a channel call never types into the composer')
+  assert.equal(runtime.heard, 'what time is my meeting', 'the runtime remembers what it sent')
+  assert.equal(runtime.phase, 'waiting', 'the call waits for the channel to answer')
+  await React.act(async () => { answer('Your meeting is at three.') })
+  await until('the channel answer to be spoken', () => spoken.length > 0)
+  assert.deepEqual(spoken, ['Your meeting is at three.'], 'the channel answer was spoken')
+  assert.equal(runtime.phase, 'speaking', 'the call speaks the channel answer')
+  // Chat navigation must not end a call that is not tied to the chat.
+  React.act(() => {
+    root.render(React.createElement(micEntry.component, {
+      sessionId: 'session-other', inputActions, locked: false, runtime,
+    }))
+  })
+  assert.equal(runtime.live, true, 'opening another chat keeps the channel call')
+  React.act(() => { runtime.toggle() })
+  assert.equal(runtime.live, false, 'the channel call ended')
+  assert.equal(runtime.snapshot.channel, null, 'ending the call drops the channel')
+
   React.act(() => { root.unmount(); stripRoot.unmount() })
   for (const dispose of effects) if (typeof dispose === 'function') dispose()
 

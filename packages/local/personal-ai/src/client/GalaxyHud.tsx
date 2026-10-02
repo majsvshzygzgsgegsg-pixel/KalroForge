@@ -6,7 +6,7 @@
  * raises its own permission prompt.
  */
 import { useEffect, useState } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { OrbState } from '@local/galaxy'
 import type { LiveSnapshot, LiveStore } from './store.ts'
 import { GalaxyView } from './GalaxyView.tsx'
@@ -14,11 +14,59 @@ import { readHudPrefs } from './prefs.ts'
 import type { Translate } from './locales.ts'
 import css from './CommandCenter.module.css'
 
+const GROW = css.grow ?? ''
+
 /** HUD props. */
 export interface GalaxyHudProps {
   readonly live: LiveSnapshot
   readonly store: LiveStore
   readonly t: Translate
+  /** Open the conversation Session in the chat view (approvals are answered there). */
+  readonly openSession: (sessionId: string) => void
+  /** The personality's name, for the transcript. */
+  readonly assistantName: string
+}
+
+/**
+ * Typed questions to KairoForge: the text fallback for the spoken conversation.
+ * @param props - store and copy.
+ * @returns the ask form.
+ */
+function AskForm({ store, t, busy, assistantName }: {
+  readonly store: LiveStore
+  readonly t: Translate
+  readonly busy: boolean
+  readonly assistantName: string
+}) {
+  const [text, setText] = useState('')
+  return (
+    <form
+      className={css.row}
+      onSubmit={(event) => {
+        event.preventDefault()
+        const question = text.trim()
+        if (question === '' || busy) return
+        setText('')
+        void store.ask(question).catch(() => {})
+      }}
+    >
+      <Input
+        className={GROW}
+        value={text}
+        maxLength={4000}
+        placeholder={t('ask.placeholder', { name: assistantName })}
+        aria-label={t('ask.label')}
+        onChange={(event) => { setText(event.target.value) }}
+        // App-wide key handling swallows the form's implicit Enter submission.
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+          event.preventDefault()
+          event.currentTarget.form?.requestSubmit()
+        }}
+      />
+      <Button size="sm" variant="primary" type="submit" disabled={busy || text.trim() === ''}>{t('ask.send')}</Button>
+    </form>
+  )
 }
 
 async function micGranted(): Promise<boolean> {
@@ -61,7 +109,7 @@ function useMicWhileListening(listening: boolean): MediaStream | undefined {
  * @param props - live snapshot, store, and copy.
  * @returns the galaxy with its state line and voice controls.
  */
-export function GalaxyHud({ live, store, t }: GalaxyHudProps) {
+export function GalaxyHud({ live, store, t, openSession, assistantName }: GalaxyHudProps) {
   const state = live.state
   const orb: OrbState = live.error !== undefined ? 'error' : state?.orb ?? 'idle'
   const voice = store.provider()
@@ -82,6 +130,11 @@ export function GalaxyHud({ live, store, t }: GalaxyHudProps) {
     speaking: t('state.SPEAKING'),
     error: t('state.error'),
   }
+  const exchange = live.exchange
+  const awaiting = exchange?.pending === true && (state?.pendingApprovals ?? 0) > 0
+  // While the microphone is hearing words, show them; otherwise the last question asked.
+  const caption = live.voice?.live === true ? live.voice.caption : ''
+  const heardNow = caption !== '' ? caption : exchange?.question ?? ''
   const line = live.error !== undefined
     ? t('state.offline', { message: live.error })
     : state === undefined ? t('state.connecting') : t(`state.${state.state}`)
@@ -104,13 +157,43 @@ export function GalaxyHud({ live, store, t }: GalaxyHudProps) {
         )}
         {(state?.pendingApprovals ?? 0) > 0 && <p className={css.warning}>{t('state.approvals', { count: String(state?.pendingApprovals ?? 0) })}</p>}
         {(state?.delegatedWork ?? 0) > 0 && <p className={css.muted}>{t('state.delegated', { count: String(state?.delegatedWork ?? 0) })}</p>}
-        {live.voice?.caption !== undefined && live.voice.caption !== '' && <p className={css.caption}>{t('voice.caption', { text: live.voice.caption })}</p>}
+        <div className={css.transcript} aria-live="polite">
+          {heardNow !== '' && (
+            <p className={css.turn}>
+              <span className={css.speaker}>{t('ask.you')}</span>
+              <span className={live.voice?.partial === true ? css.partial : undefined}>{heardNow}</span>
+            </p>
+          )}
+          {exchange !== undefined && heardNow === exchange.question && (
+            <p className={css.turn}>
+              <span className={css.speaker}>{assistantName}</span>
+              {exchange.pending
+                ? <span className={css.muted}>{awaiting ? t('ask.needsApproval') : t('ask.thinking')}</span>
+                : exchange.error !== undefined
+                  ? <span className={css.warning}>{t('ask.failed', { message: exchange.error })}</span>
+                  : <span>{exchange.reply === '' || exchange.reply === undefined ? t('ask.noText') : exchange.reply}</span>}
+            </p>
+          )}
+          {exchange?.sessionId !== undefined && (
+            <Button size="sm" variant={awaiting ? 'primary' : 'ghost'} onClick={() => { if (exchange.sessionId !== undefined) openSession(exchange.sessionId) }}>
+              {awaiting ? t('ask.openToApprove') : t('ask.openConversation')}
+            </Button>
+          )}
+        </div>
+        <AskForm store={store} t={t} busy={exchange?.pending === true} assistantName={assistantName} />
         <div className={css.row}>
           {voice === undefined || !live.voiceAvailable
             ? <span className={css.muted}>{t('voice.unavailable')}</span>
             : (
               <>
-                <Button size="sm" variant={live.voice?.live === true ? 'outline' : 'primary'} onClick={() => { if (live.voice?.live === true) voice.stt.stop(); else voice.stt.start() }}>
+                <Button
+                  size="sm"
+                  variant={live.voice?.live === true ? 'outline' : 'primary'}
+                  onClick={() => {
+                    if (live.voice?.live === true) voice.stt.stop()
+                    else if (!store.talk()) voice.stt.start()
+                  }}
+                >
                   {live.voice?.live === true ? t('voice.endCall') : t('voice.talk')}
                 </Button>
                 <Button size="sm" variant="outline" disabled={state?.voice !== 'speaking'} onClick={() => { voice.tts.stop() }}>{t('voice.stop')}</Button>

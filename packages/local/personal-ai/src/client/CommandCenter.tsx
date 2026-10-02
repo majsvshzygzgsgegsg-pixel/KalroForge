@@ -32,6 +32,8 @@ export interface CommandCenterInjected {
   readonly store: LiveStore
   /** Open the Agents page (create/edit agents, model routing). */
   readonly openAgents: () => void
+  /** Leave the panel and show one Session's chat. */
+  readonly openSession: (sessionId: string) => void
 }
 
 /** Full props. */
@@ -42,7 +44,7 @@ export type CommandCenterProps = PropsRuntime<'main'> & InjectFace<CommandCenter
  * @param props - live store, navigation, and copy.
  * @returns the page.
  */
-export function CommandCenter({ useLive, store, openAgents, t }: CommandCenterProps) {
+export function CommandCenter({ useLive, store, openAgents, openSession, t }: CommandCenterProps) {
   const live = useLive(snapshot => snapshot)
   const [section, setSection] = useState<Section>('overview')
   const [overview, setOverview] = useState<Overview | undefined>()
@@ -73,7 +75,7 @@ export function CommandCenter({ useLive, store, openAgents, t }: CommandCenterPr
             <h1 className={css.title}>{t('page.title')}</h1>
             <p className={css.muted}>{t('page.subtitle')}</p>
           </header>
-          <GalaxyHud live={live} store={store} t={t} />
+          <GalaxyHud live={live} store={store} t={t} openSession={openSession} assistantName={overview?.personality.name ?? 'KairoForge'} />
           {error !== undefined && <p className={css.warning} role="alert">{t('page.loadError', { message: error })}</p>}
           <div className={css.layout}>
             <nav className={css.nav} role="tablist" aria-orientation="vertical" aria-label={t('nav.label')}>

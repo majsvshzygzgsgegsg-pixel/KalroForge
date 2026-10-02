@@ -12,6 +12,9 @@ const VISIBLE_MS = 700
 const HIDDEN_MS = 4000
 const NOTICE_MS = 4000
 const MAX_TOASTS = 4
+const ANSWER_POLL_MS = 600
+/** Long enough for a turn that waits on an approval; the conversation keeps going after this. */
+const ANSWER_TIMEOUT_MS = 15 * 60_000
 
 /** Everything the live surfaces render. */
 export interface LiveSnapshot {
@@ -20,6 +23,17 @@ export interface LiveSnapshot {
   readonly voice: CallSnapshot | null
   readonly voiceAvailable: boolean
   readonly toasts: readonly Notice[]
+  /** The latest Command Center exchange (spoken or typed). */
+  readonly exchange?: Exchange
+}
+
+/** One question to KairoForge from the Command Center and its answer. */
+export interface Exchange {
+  readonly question: string
+  readonly pending: boolean
+  readonly reply?: string
+  readonly error?: string
+  readonly sessionId?: string
 }
 
 /** Observable snapshot in the shape slot hooks consume. */
@@ -34,6 +48,13 @@ export interface LiveStore {
   /** Install or remove the voice provider. */
   setProvider(provider: VoiceProvider | undefined): () => void
   provider(): VoiceProvider | undefined
+  /**
+   * Ask KairoForge in the conversation Session and wait for the answer.
+   * @returns the reply text (empty when the turn answered only with work).
+   */
+  ask(text: string): Promise<string>
+  /** Start a voice call whose turns go to {@link ask}; false when voice is unavailable. */
+  talk(): boolean
   /** Refresh now (after a user action). */
   refresh(): Promise<void>
   dismissToast(id: string): void
@@ -113,6 +134,33 @@ export function createLiveStore(): LiveStore {
     void api.voice(phase).then((state) => { publish({ state }) }, () => {})
   }
 
+  let asking = 0
+  const ask = async (text: string): Promise<string> => {
+    const mine = ++asking
+    publish({ exchange: { question: text, pending: true } })
+    try {
+      const started = await api.converse(text)
+      publish({ exchange: { question: text, pending: true, sessionId: started.sessionId } })
+      void poll()
+      const deadline = Date.now() + ANSWER_TIMEOUT_MS
+      let turn = started
+      while (turn.status === 'running') {
+        if (disposed) throw new Error('closed')
+        if (Date.now() > deadline) throw new Error('no answer yet; it is still working in the conversation')
+        await new Promise((resolve) => { setTimeout(resolve, ANSWER_POLL_MS) })
+        turn = await api.converseTurn(started.id)
+      }
+      if (turn.status === 'failed') throw new Error(turn.error ?? 'the turn failed')
+      const reply = turn.reply ?? ''
+      if (mine === asking) publish({ exchange: { question: text, pending: false, reply, sessionId: turn.sessionId } })
+      return reply
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (mine === asking) publish({ exchange: { ...snapshot.exchange, question: text, pending: false, error: message } })
+      throw error
+    }
+  }
+
   noticeTimer = setInterval(() => { void pollNotices() }, NOTICE_MS)
   void pollNotices()
 
@@ -149,6 +197,12 @@ export function createLiveStore(): LiveStore {
       }
     },
     provider: () => provider,
+    ask,
+    talk() {
+      if (provider?.converse === undefined) return false
+      provider.converse({ name: 'personal-ai', send: ask })
+      return true
+    },
     refresh: poll,
     dismissToast(id) {
       publish({ toasts: snapshot.toasts.filter(toast => toast.id !== id) })

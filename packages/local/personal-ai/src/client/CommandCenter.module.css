@@ -135,6 +135,37 @@
   overflow-wrap: anywhere;
 }
 
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.turn {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.speaker {
+  flex: none;
+  min-width: 64px;
+  color: var(--pa-accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.partial {
+  color: var(--dsw-alias-label-tertiary);
+  font-style: italic;
+}
+
 /* Layout */
 
 .layout {
