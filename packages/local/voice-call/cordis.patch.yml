@@ -1,0 +1,3 @@
+- insert:
+    - id: voice-call
+      name: '@local/voice-call'

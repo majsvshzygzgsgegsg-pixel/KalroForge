@@ -1,0 +1,35 @@
+{
+  "name": "@local/voice-call",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Call button on every chat bar: talk to the assistant, hear the reply, interrupt it by speaking, and keep the live transcript on the chat",
+  "type": "module",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json"
+  ],
+  "meta": {
+    "title": "Call",
+    "description": "The Call button on every chat bar: talk to the assistant, hear the reply, interrupt it by speaking, and keep the live transcript on the chat."
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  }
+}
