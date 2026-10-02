@@ -212,6 +212,12 @@ async function toolGroups(ctx: Context, sessionId: string | undefined): Promise<
   return { ...sessionId === undefined ? {} : { sessionId }, ...groupTools(names) }
 }
 
+/** Assistant state plus whether Holo Hands is open; every state reply carries both so the deck never flickers shut. */
+function stateView(service: PersonalAi, ctx: Context, sessionId?: string): Record<string, unknown> {
+  const holo = ctx.get('holoDeck')
+  return { ...service.assistantState(sessionId), ...holo === undefined ? {} : { holo: holo.view() } }
+}
+
 function deckOf(ctx: Context): HoloDeck {
   const deck = ctx.get('holoDeck')
   if (deck === undefined) throw new PersonalAiError('not-found', 'Holo Hands is not available')
@@ -272,10 +278,8 @@ export async function handlePersonalAiRoute(
   const ok = (payload: unknown): { status: number; payload: unknown } => ({ status: 200, payload })
   if (method === 'GET') {
     switch (scope) {
-      case 'state': {
-        const holo = ctx.get('holoDeck')
-        return ok({ ...service.assistantState(query.get('session') ?? undefined), ...holo === undefined ? {} : { holo: holo.view() } })
-      }
+      case 'state':
+        return ok(stateView(service, ctx, query.get('session') ?? undefined))
       case 'holo': {
         const holo = deckOf(ctx)
         return ok({ ...holo.view(), scene: holo.scene(), camera: holo.seeing() })
@@ -358,7 +362,7 @@ export async function handlePersonalAiRoute(
     }
     case 'voice': {
       service.setVoice(parse(voiceBody, body).phase)
-      return ok(service.assistantState())
+      return ok(stateView(service, ctx))
     }
     case 'agent':
       if (id !== undefined && action === 'tags') return ok({ tags: await service.setAgentTags(id, parse(tagsBody, body).tags) })

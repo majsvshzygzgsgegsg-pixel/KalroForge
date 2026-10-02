@@ -152,7 +152,10 @@ export function createLiveStore(options: LiveStoreOptions = {}): LiveStore {
     publish({ voice: provider.snapshot(), voiceAvailable: provider.stt.available || provider.tts.available })
     if (phase === reportedPhase) return
     reportedPhase = phase
-    void api.voice(phase).then((state) => { publish({ state }) }, () => {})
+    void api.voice(phase).then((state) => {
+      const holo = state.holo ?? snapshot.state?.holo
+      publish({ state: holo === undefined ? state : { ...state, holo } })
+    }, () => {})
   }
 
   let asking = 0

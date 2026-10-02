@@ -445,6 +445,9 @@ describe('personal ai', () => {
     expect(missing).toMatchObject({ open: false, server: 'missing' })
     expect(missing.detail).toMatch(/server\.py/)
     expect((await route('GET', ['state'])).payload).toMatchObject({ holo: { open: false } })
+    // Voice phase changes answer with the same state shape, so the open deck is never dropped mid-talk.
+    expect((await route('POST', ['voice'], { phase: 'listening' })).payload).toMatchObject({ state: 'LISTENING', holo: { open: false } })
+    await route('POST', ['voice'], { phase: 'off' })
 
     const counter = await run<{ id: string }>(ctx, leadAgent, 'holo_add', {
       kind: 'widget', title: 'Counter', html: '<button onclick="holo.emit(++n)">+1</button><script>let n = 0</script>',
