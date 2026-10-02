@@ -24,6 +24,7 @@ void main() {
 const SKY_FRAGMENT = /* glsl */ `
 uniform float uTime;
 uniform vec2 uResolution;
+uniform float uPixelRatio;
 uniform vec3 uBloomColor;
 uniform float uBloom;
 uniform float uNebulaBoost;
@@ -61,7 +62,9 @@ float fbm(vec2 p) {
 }
 
 // One star layer on a square grid in screen space. density: cells per unit of screen height.
-float stars(vec2 p, float density, float chance, float radiusPx, float twinkleSpeed, float seed) {
+float stars(vec2 p, float density, float chance, float radiusCss, float twinkleSpeed, float seed) {
+  // Sized in CSS pixels so the sky looks the same at any pixel ratio; never sub-pixel.
+  float radiusPx = max(radiusCss * uPixelRatio, 1.0);
   vec2 q = p * density;
   vec2 cell = floor(q);
   vec2 f = fract(q);
@@ -97,8 +100,8 @@ void main() {
   col += uBloomColor * bloom * uBloom * 0.045;
   col += vec3(0.55, 0.85, 0.95) * exp(-r * r * 220.0) * uBloom * 0.012;
 
-  float fine = stars(p, 150.0, 0.16, 1.2, 1.3, 0.0);
-  float soft = stars(p, 26.0, 0.2, 2.8, 0.7, 51.0);
+  float fine = stars(p, 150.0, 0.16, 0.6, 1.3, 0.0);
+  float soft = stars(p, 26.0, 0.2, 1.4, 0.7, 51.0);
   col += vec3(0.75, 0.85, 1.0) * (fine * 0.7 + soft * 0.9);
 
   col *= 1.0 - 0.6 * smoothstep(0.35, 1.15, r);
@@ -118,6 +121,7 @@ export class SkyLayer {
   private readonly uniforms = {
     uTime: { value: 0 },
     uResolution: { value: new Vector2(1, 1) },
+    uPixelRatio: { value: 1 },
     uBloomColor: { value: new Color() },
     uBloom: { value: 0 },
     uNebulaBoost: { value: 0 },
@@ -137,12 +141,14 @@ export class SkyLayer {
   }
 
   /**
-   * Tell the shader the drawing-buffer size, so stars stay square.
-   * @param width - pixels.
-   * @param height - pixels.
+   * Tell the shader the viewport size, so stars stay square and keep their size.
+   * @param width - CSS pixels.
+   * @param height - CSS pixels.
+   * @param pixelRatio - drawing-buffer pixels per CSS pixel.
    */
-  setSize(width: number, height: number): void {
-    this.uniforms.uResolution.value.set(width, height)
+  setSize(width: number, height: number, pixelRatio: number): void {
+    this.uniforms.uResolution.value.set(width * pixelRatio, height * pixelRatio)
+    this.uniforms.uPixelRatio.value = pixelRatio
   }
 
   /**

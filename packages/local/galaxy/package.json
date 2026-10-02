@@ -9,7 +9,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "demo": "vite demo --port 5180"
+    "demo": "vite demo --port 5180",
+    "lint:tokens": "node scripts/check-tokens.mjs"
   },
   "dependencies": {
     "three": "0.186.1"

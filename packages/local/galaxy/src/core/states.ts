@@ -7,6 +7,16 @@ export type OrbState = 'idle' | 'arming' | 'listening' | 'processing' | 'speakin
 /** Every state, in display order. */
 export const ORB_STATES: readonly OrbState[] = ['idle', 'arming', 'listening', 'processing', 'speaking', 'error']
 
+/** What the screen-reader live region announces for each state. */
+export const STATE_LABELS: Readonly<Record<OrbState, string>> = {
+  idle: 'Assistant idle',
+  arming: 'Waiting for the microphone',
+  listening: 'Listening',
+  processing: 'Thinking',
+  speaking: 'Speaking',
+  error: 'Something went wrong',
+}
+
 /** Every visual parameter that varies by state. Defined for every state in {@link buildStateTable} only. */
 export interface VisualParams {
   /** Main wireframe colour. */

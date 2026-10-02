@@ -1,12 +1,15 @@
-import { createGalaxy, ORB_STATES, type Galaxy, type OrbState } from '../src/index.ts'
+import { createGalaxy, ORB_STATES, type Galaxy, type OrbState, type PerformanceMode } from '../src/index.ts'
 
 const stage = document.querySelector<HTMLElement>('#stage')
 const controls = document.querySelector<HTMLElement>('#controls')
 if (stage === null || controls === null) throw new Error('demo markup missing')
 
-const requested = new URLSearchParams(location.search).get('state')
-const initial: OrbState = ORB_STATES.find(state => state === requested) ?? 'idle'
-let galaxy: Galaxy = createGalaxy(stage, { state: initial })
+const query = new URLSearchParams(location.search)
+const initial: OrbState = ORB_STATES.find(state => state === query.get('state')) ?? 'idle'
+const PERFORMANCE_MODES = ['auto', 'on', 'off'] as const
+let performanceMode: PerformanceMode = PERFORMANCE_MODES.find(mode => mode === query.get('performance')) ?? 'auto'
+let reducedMotion: boolean | 'auto' = query.has('reduced') ? query.get('reduced') === 'on' : 'auto'
+let galaxy: Galaxy = createGalaxy(stage, { state: initial, performance: performanceMode, reducedMotion })
 const stateButtons = new Map<OrbState, HTMLButtonElement>()
 
 function button(label: string, onClick: () => void): HTMLButtonElement {
@@ -81,14 +84,38 @@ const toneButton = button('Play test tone', () => {
   showState('speaking')
 })
 
+function select<T extends string>(label: string, values: readonly T[], onChange: (value: T) => void): HTMLSelectElement {
+  const element = document.createElement('select')
+  element.setAttribute('aria-label', label)
+  for (const value of values) element.add(new Option(`${label}: ${value}`, value))
+  element.addEventListener('change', () => {
+    const value = values.find(candidate => candidate === element.value)
+    if (value !== undefined) onChange(value)
+  })
+  controls?.append(element)
+  return element
+}
+
+select('performance', PERFORMANCE_MODES, (mode) => {
+  performanceMode = mode
+  galaxy.setPerformanceMode(mode)
+}).value = performanceMode
+select('reduced motion', PERFORMANCE_MODES, (value) => {
+  reducedMotion = value === 'auto' ? 'auto' : value === 'on'
+  galaxy.setReducedMotion(reducedMotion)
+}).value = reducedMotion === 'auto' ? 'auto' : reducedMotion ? 'on' : 'off'
+
 button('Destroy + recreate', () => {
   const current = galaxy.getState()
   galaxy.destroy()
-  galaxy = createGalaxy(stage, { state: current })
+  galaxy = createGalaxy(stage, { state: current, performance: performanceMode, reducedMotion })
   if (micStream !== undefined) galaxy.connectAudio('mic', micStream)
 })
 
-const source = document.createElement('span')
-source.className = 'label'
-controls.append(source)
-setInterval(() => { source.textContent = `audio: ${galaxy.getAudioSource()}` }, 250)
+const readout = document.createElement('span')
+readout.className = 'label'
+controls.append(readout)
+setInterval(() => {
+  const perf = galaxy.getPerformance()
+  readout.textContent = `audio: ${galaxy.getAudioSource()} · ${Math.round(perf.fps)} fps${perf.degraded ? ' · performance' : ''}`
+}, 250)
