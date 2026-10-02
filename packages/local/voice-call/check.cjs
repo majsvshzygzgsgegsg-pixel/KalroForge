@@ -118,8 +118,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   // ---- slot harness --------------------------------------------------------
   const entries = []
   const effects = []
+  const provided = new Map()
   const ctx = {
     effect(callback) { const dispose = callback(); effects.push(dispose); return () => {} },
+    provide(name, value) { provided.set(name, value); return () => { provided.delete(name) } },
     slots: {
       inject(key, callback) { callback(); return () => {} },
       register(options, component) { entries.push({ options, component }); return () => {} },
@@ -139,6 +141,11 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   assert.equal(micEntry.options.order, -20, 'the call control keeps a deterministic visual order')
 
   const runtime = micEntry.options.inject('session-1').runtime
+  assert.equal(provided.get('voiceCall'), runtime, 'the runtime is provided as the voiceCall service')
+  assert.equal(typeof runtime.setVoice, 'function', 'the runtime accepts a voice preference')
+  assert.ok(Array.isArray(runtime.listVoices()), 'the runtime lists installed voices')
+  runtime.setVoice({ rate: 5 })
+  runtime.setVoice({ name: '', rate: 1.25 })
   assert.equal(runtime.supported, true, 'the runtime detected speech recognition')
   assert.equal(runtime.settings.bargeIn, true, 'talking over the reply works out of the box')
   assert.equal(runtime.speakingSupported, true, 'the runtime detected speech synthesis')

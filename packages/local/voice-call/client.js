@@ -272,6 +272,7 @@ window.__ModuleLoader__.load({
       const voice = window.speechSynthesis === undefined ? null : window.speechSynthesis
       const settings = readSettings()
       const listeners = new Set()
+      const voicePreference = { name: '', rate: 1 }
 
       const runtime = {
         supported: Recognizer !== null,
@@ -289,6 +290,8 @@ window.__ModuleLoader__.load({
         stopSpeaking,
         interruptAndListen,
         setOption,
+        setVoice,
+        listVoices,
         bindActions,
         subscribe,
         dispose,
@@ -602,8 +605,31 @@ window.__ModuleLoader__.load({
         if (list !== null && list.length > 0) voiceList = list
       }
 
+      /** Names and languages of the installed speech voices, for a settings picker. */
+      function listVoices() {
+        refreshVoices()
+        const out = []
+        for (let index = 0; index < voiceList.length; index++) {
+          out.push({ name: voiceList[index].name, lang: voiceList[index].lang, local: voiceList[index].localService === true })
+        }
+        return out
+      }
+
+      /** Prefer one named voice (empty restores the automatic choice) and a speaking rate (0.5-2). */
+      function setVoice(preference) {
+        if (preference !== null && typeof preference === 'object') {
+          if (typeof preference.name === 'string') voicePreference.name = preference.name
+          if (typeof preference.rate === 'number' && preference.rate >= 0.5 && preference.rate <= 2) voicePreference.rate = preference.rate
+        }
+      }
+
       function preferredVoice() {
         if (voiceList.length === 0) refreshVoices()
+        if (voicePreference.name !== '') {
+          for (let index = 0; index < voiceList.length; index++) {
+            if (voiceList[index].name === voicePreference.name) return voiceList[index]
+          }
+        }
         let exact = null
         let match = null
         let named = null
@@ -662,7 +688,7 @@ window.__ModuleLoader__.load({
         }
         const chosen = preferredVoice()
         if (chosen !== null) utterance.voice = chosen
-        utterance.rate = 1
+        utterance.rate = voicePreference.rate
         utterance.pitch = 1.04
         utterance.volume = 1
         utterance.onend = function () { currentUtterance = null; speakNext() }
@@ -1082,6 +1108,8 @@ window.__ModuleLoader__.load({
         const runtime = createRuntime()
         ctx.effect(function () { return installStyles() })
         ctx.effect(function () { return function () { runtime.dispose() } })
+        // Other browser plugins (the Personal AI HUD) observe and steer the call through this service.
+        ctx.provide('voiceCall', runtime)
         ctx.slots.inject(CALL_SLOT, function () {
           return ctx.slots.register({
             name: CALL_SLOT,
