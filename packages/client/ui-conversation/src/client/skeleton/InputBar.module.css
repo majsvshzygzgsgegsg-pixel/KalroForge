@@ -293,12 +293,17 @@
   --dsh-composer-model-icon-display: block;
 }
 
-/* KairoForge composer */
+/* KairoForge composer. The + menu and pickers open above the card from
+   .overlayAnchor, so the card must neither clip (overflow) nor become a
+   backdrop root (backdrop-filter on the card itself): either hides the
+   menus or stops their glass from blurring the page behind them. */
 .card {
-  overflow: hidden;
+  isolation: isolate;
   border: 1px solid rgb(226 232 240 / 0.16);
   border-radius: 28px;
   background:
+    /* Top highlight, kept clear of the 28px corners. */
+    linear-gradient(90deg, transparent, rgb(226 232 240 / 0.32), transparent) top center / calc(100% - 56px) 2px no-repeat,
     linear-gradient(135deg, rgb(15 23 42 / 0.82), rgb(30 41 59 / 0.68)),
     radial-gradient(circle at 16% 0%, rgb(148 163 184 / 0.16), transparent 34%),
     radial-gradient(circle at 92% 100%, rgb(96 120 158 / 0.15), transparent 34%);
@@ -306,16 +311,17 @@
     0 24px 70px rgb(2 6 23 / 0.36),
     0 0 0 1px rgb(255 255 255 / 0.06) inset,
     0 0 42px rgb(148 163 184 / 0.10);
-  backdrop-filter: blur(24px) saturate(1.25);
+  backdrop-filter: none;
 }
 
+/* The glass blur lives on a layer behind the content, like MenuSurface's material. */
 .card::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgb(226 232 240 / 0.42), transparent);
-  opacity: 0.75;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  backdrop-filter: blur(24px) saturate(1.25);
   pointer-events: none;
 }
 
