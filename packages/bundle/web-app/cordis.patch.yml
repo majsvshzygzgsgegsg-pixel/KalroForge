@@ -279,6 +279,12 @@
     - id: local-main-agents
       name: '@local/main-agents'
 
+    # KairoForge Personal AI: the coordinator layer over Lead (memory,
+    # projects, personality, interruptions, live state), the Command Center,
+    # and the living-galaxy HUD.
+    - id: local-personal-ai
+      name: '@local/personal-ai'
+
     - id: office-to-pdf
       name: '@deepseek-ai/dsh-office-to-pdf'
 

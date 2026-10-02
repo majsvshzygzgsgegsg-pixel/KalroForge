@@ -127,6 +127,7 @@
     "@deepseek-ai/dsh-command-compact": "workspace:*",
     "@local/holo-gestures": "workspace:*",
     "@local/main-agents": "workspace:*",
+    "@local/personal-ai": "workspace:*",
     "@deepseek-ai/dsh-command-goal": "workspace:*",
     "@deepseek-ai/dsh-compaction-basic": "workspace:*",
     "@deepseek-ai/dsh-compaction-tool-result-pruner": "workspace:*",

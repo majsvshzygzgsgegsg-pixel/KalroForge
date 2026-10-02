@@ -2750,6 +2750,9 @@ importers:
       '@local/main-agents':
         specifier: workspace:*
         version: link:../../local/main-agents
+      '@local/personal-ai':
+        specifier: workspace:*
+        version: link:../../local/personal-ai
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -10092,6 +10095,9 @@ importers:
       '@deepseek-ai/dsh-client-locale':
         specifier: workspace:*
         version: link:../../client/locale
+      '@deepseek-ai/dsh-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
       '@deepseek-ai/dsh-client-ui-layout':
         specifier: workspace:*
         version: link:../../client/ui-layout
@@ -10101,6 +10107,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-renderer':
         specifier: workspace:*
         version: link:../../client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-session':
+        specifier: workspace:*
+        version: link:../../client/ui-session
       '@deepseek-ai/dsh-client-ui-sidebar':
         specifier: workspace:*
         version: link:../../client/ui-sidebar

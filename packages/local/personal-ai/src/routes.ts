@@ -5,9 +5,13 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-host-webserver'
+import { scopeOf } from '@deepseek-ai/dsh-scope'
+import { SessionId } from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-system-prompt'
 import { z } from 'zod'
-import { AGENT_TAGS, CAPABILITY_CATEGORIES } from './core/capabilities.ts'
+import { AGENT_TAGS, CAPABILITY_CATEGORIES, groupTools } from './core/capabilities.ts'
 import { classifyDepth } from './core/classifier.ts'
 import { MEMORY_SCOPES, type MemoryScope } from './core/memory.ts'
 import type { PersonalAi } from './service.ts'
@@ -156,6 +160,20 @@ export async function overview(service: PersonalAi, ctx: Context): Promise<Recor
 }
 
 /**
+ * The tools one live Session actually has, grouped by capability.
+ * @param ctx - Host context.
+ * @param sessionId - Session; without one, every category is empty.
+ * @returns grouped tool names.
+ */
+async function toolGroups(ctx: Context, sessionId: string | undefined): Promise<Record<string, unknown>> {
+  const agent = sessionId === undefined ? undefined : ctx.get('agents')?.get(SessionId(sessionId))
+  const scope = agent === undefined ? undefined : scopeOf(agent.ctx)
+  const prompt = ctx.get('systemPrompt')
+  const names = scope === undefined || prompt === undefined ? [] : (await prompt.assemble({ scope })).tools.map(tool => tool.name)
+  return { ...sessionId === undefined ? {} : { sessionId }, ...groupTools(names) }
+}
+
+/**
  * Handle one Personal AI request.
  * @param service - Personal AI service.
  * @param ctx - Host context.
@@ -204,6 +222,7 @@ export async function handlePersonalAiRoute(
       case 'background': return ok(service.backgroundTasks())
       case 'agents': return ok({ agents: await service.candidates(), tags: AGENT_TAGS })
       case 'capabilities': return ok({ categories: CAPABILITY_CATEGORIES, tags: AGENT_TAGS })
+      case 'tools': return ok(await toolGroups(ctx, query.get('session') ?? service.assistantState().sessionId))
       case 'classify': {
         const text = query.get('text') ?? ''
         return ok({ ...classifyDepth(text), decision: service.decide('preview', text) })
