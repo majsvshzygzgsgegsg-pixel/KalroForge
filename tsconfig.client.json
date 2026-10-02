@@ -108,6 +108,7 @@
     { "path": "./packages/client/ui-sidebar-right" },
     { "path": "./packages/local/holo-gestures/tsconfig.client.json" },
     { "path": "./packages/local/main-agents/tsconfig.client.json" },
+    { "path": "./packages/local/galaxy" },
     { "path": "./packages/client/ui-sidebar-documentpreview/tsconfig.client.json" },
     { "path": "./packages/client/ui-sidebar-browser/tsconfig.client.json" },
     { "path": "./packages/client/ui-sidebar-files" },

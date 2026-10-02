@@ -1,0 +1,10 @@
+/* Every colour the galaxy demo UI uses. Dark only. */
+:root {
+  --galaxy-bg: #03050b;
+  --galaxy-panel: rgb(10 18 28 / 72%);
+  --galaxy-border: rgb(120 200 210 / 22%);
+  --galaxy-text: #cfe9ec;
+  --galaxy-text-dim: #7fa3a8;
+  --galaxy-accent: #3cc8b4;
+  --galaxy-accent-text: #03110f;
+}

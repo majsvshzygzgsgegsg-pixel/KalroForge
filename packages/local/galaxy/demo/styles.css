@@ -1,0 +1,51 @@
+@import './tokens.css';
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--galaxy-bg);
+  color: var(--galaxy-text);
+  font: 13px/1.4 system-ui, sans-serif;
+  overflow: hidden;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+#controls {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: calc(100% - 32px);
+  padding: 8px;
+  border: 1px solid var(--galaxy-border);
+  border-radius: 10px;
+  background: var(--galaxy-panel);
+}
+
+#controls button,
+#controls select {
+  padding: 5px 10px;
+  border: 1px solid var(--galaxy-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--galaxy-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+#controls button[aria-pressed='true'] {
+  background: var(--galaxy-accent);
+  color: var(--galaxy-accent-text);
+}
+
+#controls .label {
+  align-self: center;
+  color: var(--galaxy-text-dim);
+}
