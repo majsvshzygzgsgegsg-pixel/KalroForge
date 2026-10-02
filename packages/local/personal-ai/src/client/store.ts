@@ -79,6 +79,11 @@ export interface LiveStore {
 export interface LiveStoreOptions {
   /** The reply to the Holo Hands shortcut: the open result, or "closed". */
   readonly holoReply?: (outcome: HoloOpenResult | 'closed') => string
+  /** Words for a typed question's progress and failure, so its answer is spoken as well as shown. */
+  readonly speech?: {
+    readonly progress: (progress: Progress) => string
+    readonly failed: (message: string) => string
+  }
 }
 
 /**
@@ -158,8 +163,31 @@ export function createLiveStore(options: LiveStoreOptions = {}): LiveStore {
     }, () => {})
   }
 
+  // A voice call speaks its own turns (it passes `onProgress`); a typed question is spoken here.
+  const aloud = (onProgress: ((progress: Progress) => void) | undefined): ((line: string) => void) | undefined => {
+    if (onProgress !== undefined || options.speech === undefined) return undefined
+    return (line) => { if (provider?.snapshot()?.live !== true) provider?.tts.say(line) }
+  }
+
   let asking = 0
   const ask = async (text: string, onProgress?: (progress: Progress) => void): Promise<string> => {
+    const speak = aloud(onProgress)
+    if (speak === undefined) return answer(text, onProgress)
+    const words = options.speech
+    const turn = asking + 1
+    // A question asked after this one owns the voice; this one goes quiet.
+    const say = (line: string): void => { if (turn === asking) speak(line) }
+    try {
+      const reply = await answer(text, (progress) => { if (words !== undefined) say(words.progress(progress)) })
+      if (reply !== '') say(reply)
+      return reply
+    } catch (error) {
+      if (words !== undefined) say(words.failed(error instanceof Error ? error.message : String(error)))
+      throw error
+    }
+  }
+
+  const answer = async (text: string, onProgress?: (progress: Progress) => void): Promise<string> => {
     const mine = ++asking
     let sessionId: string | undefined
     let said = 0

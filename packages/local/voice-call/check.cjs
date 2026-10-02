@@ -385,6 +385,27 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   assert.equal(runtime.live, false, 'the channel call ended')
   assert.equal(runtime.snapshot.channel, null, 'ending the call drops the channel')
 
+  // ---- typed answers: spoken outside a call --------------------------------
+  React.act(() => { finishUtterance() })
+  spoken.length = 0
+  React.act(() => { runtime.say('On it.') })
+  assert.deepEqual(spoken, ['On it.'], 'a line is spoken without a call')
+  assert.equal(runtime.phase, 'speaking', 'the runtime speaks outside a call')
+  React.act(() => { runtime.say('Your deck has a counter now.') })
+  React.act(() => { finishUtterance() })
+  assert.deepEqual(spoken, ['On it.', 'Your deck has a counter now.'], 'the answer follows the acknowledgement')
+  React.act(() => { finishUtterance() })
+  assert.equal(runtime.phase, 'idle', 'outside a call the runtime returns to idle after speaking')
+  assert.equal(runtime.live, false, 'speaking a typed answer never opens the microphone')
+  React.act(() => { runtime.setOption('speak', false) })
+  React.act(() => { runtime.say('Muted line.') })
+  assert.equal(spoken.at(-1), 'Your deck has a counter now.', 'spoken replies off keeps typed answers silent')
+  React.act(() => { runtime.setOption('speak', true) })
+  React.act(() => { runtime.startWith(channel) })
+  React.act(() => { runtime.say('Not during a call.') })
+  assert.equal(spoken.at(-1), 'Your deck has a counter now.', 'a live call speaks only its own turns')
+  React.act(() => { runtime.toggle() })
+
   React.act(() => { root.unmount(); stripRoot.unmount() })
   for (const dispose of effects) if (typeof dispose === 'function') dispose()
 

@@ -17,6 +17,7 @@ import { HoloOverlay, type HoloOverlayInjected } from './HoloOverlay.tsx'
 import { CommandCenterIcon } from './Icon.tsx'
 import { en, NS, zh, type PersonalAiKey } from './locales.ts'
 import { Notifications, type NotificationsInjected } from './Notifications.tsx'
+import { describeProgress } from './progress.ts'
 import { StateBar, type StateBarInjected } from './StateBar.tsx'
 import { createLiveStore } from './store.ts'
 import { browserVoiceProvider } from './voice.ts'
@@ -49,6 +50,10 @@ export function apply(ctx: Context): void {
       : outcome.server === 'started' ? t('holo.started')
         : outcome.server === 'running' ? t('holo.opened')
           : t('holo.cannot', { detail: outcome.detail ?? outcome.server }),
+    speech: {
+      progress: progress => describeProgress(progress, t),
+      failed: message => t('ask.failed', { message }),
+    },
   })
   ctx.effect(() => () => { store.dispose() }, 'personal-ai: live store')
   const hooks = { live: store.live }

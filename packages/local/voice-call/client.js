@@ -291,6 +291,7 @@ window.__ModuleLoader__.load({
         toggle,
         start,
         startWith,
+        say,
         stopSpeaking,
         interruptAndListen,
         setOption,
@@ -728,7 +729,7 @@ window.__ModuleLoader__.load({
             echoUntil = Date.now() + ECHO_HOLD_MS
             setPhase('listening')
             beginRecognition()
-          } else if (runtime.live) {
+          } else {
             setPhase('idle')
           }
           return
@@ -783,6 +784,16 @@ window.__ModuleLoader__.load({
         const chunks = speechChunks(text)
         speakQueue.length = 0
         for (let index = 0; index < chunks.length; index++) speakQueue.push(chunks[index])
+      }
+
+      /**
+       * Speak one line outside a call (a typed question's answer), when spoken
+       * replies are on. A live call speaks its own turns, so this stays silent then.
+       */
+      function say(text) {
+        if (runtime.live || !settings.speak || voice === null || typeof text !== 'string') return
+        const line = text.slice(0, MAX_SPOKEN_CHARS).trim()
+        if (line !== '') speakAfterCurrent(line)
       }
 
       function stopSpeaking() {

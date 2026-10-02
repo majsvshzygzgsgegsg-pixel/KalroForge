@@ -45,6 +45,8 @@ export interface VoiceCallRuntime {
   listVoices?(): VoiceOption[]
   /** Start a call whose turns go to `channel` instead of the chat composer. */
   startWith?(channel: VoiceChannel): void
+  /** Speak one line outside a call when spoken replies are on; silent during a live call. */
+  say?(text: string): void
 }
 
 /**
@@ -83,6 +85,8 @@ export interface TextToSpeechProvider {
   stop(): void
   /** Interrupt the reply and start listening. */
   interrupt(): void
+  /** Speak one line outside a call (a typed question's answer); a no-op when spoken replies are off. */
+  say(text: string): void
   setVoice(preference: { readonly name?: string; readonly rate?: number }): void
   voices(): VoiceOption[]
 }
@@ -105,8 +109,10 @@ export interface VoiceProvider {
  * @returns voice phase.
  */
 export function voicePhaseOf(snapshot: CallSnapshot | null): VoicePhase {
-  if (snapshot === null || !snapshot.live) return 'off'
+  if (snapshot === null) return 'off'
+  // A typed question's answer is spoken outside a call; the orb still shows it speaking.
   if (snapshot.phase === 'speaking') return 'speaking'
+  if (!snapshot.live) return 'off'
   if (snapshot.phase === 'listening') return 'listening'
   // `waiting` is KairoForge working on the answer: the Host's busy state shows THINKING.
   return 'off'
@@ -132,6 +138,7 @@ export function browserVoiceProvider(runtime: VoiceCallRuntime): VoiceProvider {
       get available() { return runtime.snapshot?.speakingSupported === true },
       stop: () => { runtime.stopSpeaking() },
       interrupt: () => { runtime.interruptAndListen() },
+      say: (text) => { runtime.say?.(text) },
       setVoice: (preference) => { runtime.setVoice?.(preference) },
       voices: () => runtime.listVoices?.() ?? [],
     },
