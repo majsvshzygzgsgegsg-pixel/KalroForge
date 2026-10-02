@@ -134,8 +134,9 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   )
   const micEntry = entries.find(entry => entry.options.id === 'voice-call-control')
   const captionEntry = entries.find(entry => entry.options.id === 'voice-call-caption')
-  assert.ok(micEntry !== undefined && captionEntry !== undefined, 'both entries carry id and order')
-  assert.equal(micEntry.options.order, -20, 'the call control shadows the built-in activity without slot collisions')
+  assert.ok(micEntry !== undefined && captionEntry !== undefined, 'both entries carry id, priority, and order')
+  assert.equal(micEntry.options.priority, -20, 'the call control shadows the built-in activity without slot collisions')
+  assert.equal(micEntry.options.order, -20, 'the call control keeps a deterministic visual order')
 
   const runtime = micEntry.options.inject('session-1').runtime
   assert.equal(runtime.supported, true, 'the runtime detected speech recognition')

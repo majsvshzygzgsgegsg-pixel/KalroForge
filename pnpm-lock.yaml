@@ -9931,6 +9931,8 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1
 
+  packages/local/voice-call: {}
+
   packages/lsp/lsp:
     devDependencies:
       '@deepseek-ai/cordis':

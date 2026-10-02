@@ -1086,6 +1086,7 @@ window.__ModuleLoader__.load({
           return ctx.slots.register({
             name: CALL_SLOT,
             id: 'voice-call-control',
+            priority: -20,
             order: -20,
             inject: function () { return { runtime: runtime } },
           }, CallControl)
