@@ -310,7 +310,7 @@ describe('@local/main-agents', () => {
       name: 'global_probe',
       description: 'A global tool outside the allow list.',
       parameters: {},
-      output: { schema: { type: 'json' } },
+      output: { schema: { type: 'json' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
       execute: () => Promise.resolve({ ok: true }),
     }))
     const leadAgent = await lead(ctx)
