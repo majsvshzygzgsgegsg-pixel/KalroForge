@@ -89,7 +89,13 @@ export class AgentsRequestError extends Error {
 
 const BASE = 'main-agents/'
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
+/**
+ * Call one `/main-agents/*` route: GET without a body, POST with one.
+ * @param path - path below `/main-agents/`.
+ * @param body - JSON body for POST.
+ * @returns the parsed response.
+ */
+export async function request<T>(path: string, body?: unknown): Promise<T> {
   const init: RequestInit = body === undefined
     ? { credentials: 'same-origin' }
     : { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }

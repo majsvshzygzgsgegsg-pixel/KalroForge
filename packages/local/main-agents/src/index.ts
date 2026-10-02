@@ -5,10 +5,13 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { installOrchestration } from './orchestration/index.ts'
 import { MainAgentRegistry } from './registry.ts'
 import { installMainAgentRoutes } from './routes.ts'
 import { installMainAgentTools } from './tools.ts'
 
+export { Orchestrator } from './orchestration/index.ts'
+export type * as Orchestration from './orchestration/types.ts'
 export { MainAgentRegistry, isTopLevelSession } from './registry.ts'
 export { ADMIN_TOOLS, COMMUNICATION_TOOLS, approvalReason } from './tools.ts'
 export type * from './types.ts'
@@ -27,6 +30,12 @@ export interface Config {
   readonly defaultPermissionPreset: string
   /** Continuable-subagent provider used for main-agent sub-agent teammates. */
   readonly teamProvider: string
+  /** Mount agent orchestration (workflows, checkpoints, loop recovery, background tasks, delegation, model routing). */
+  readonly orchestration: boolean
+  /** Create the permanent KairoForge Engineer main agent (stopped) on first start. */
+  readonly engineer: boolean
+  /** Modes whose preset promises a fixed toolset (Chat: none, Minimal: one shell); no main-agent or orchestration tools there. */
+  readonly toolFreeModes: string[]
 }
 
 /** Loader schema; defaults grant administration to Creator mode (`cordis`) and Lead (`standard`). */
@@ -35,6 +44,9 @@ export const Config: z<Config> = z.object({
   defaultMode: z.string().default('standard'),
   defaultPermissionPreset: z.string().default('workspace-write'),
   teamProvider: z.string().default('spawn'),
+  orchestration: z.boolean().default(true),
+  engineer: z.boolean().default(true),
+  toolFreeModes: z.array(z.string()).default(['chat', 'minimal']),
 })
 
 /**
@@ -48,6 +60,7 @@ export function apply(ctx: Context, config: Config): void {
     defaultMode: config.defaultMode,
     defaultPermissionPreset: config.defaultPermissionPreset,
     teamProvider: config.teamProvider,
+    toolFreeModes: config.toolFreeModes,
   })
   ctx.inject(['mainAgents', 'agents', 'tools', 'systemPrompt'], (scoped) => {
     installMainAgentTools(scoped, scoped.mainAgents)
@@ -55,4 +68,5 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['mainAgents', 'webServer', 'connection', 'sessionController'], (scoped) => {
     installMainAgentRoutes(scoped, scoped.mainAgents)
   })
+  if (config.orchestration) installOrchestration(ctx, { engineer: config.engineer })
 }

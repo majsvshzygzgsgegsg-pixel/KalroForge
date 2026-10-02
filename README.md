@@ -15,6 +15,7 @@ The project includes KairoForge branding, a custom web profile, model-label upda
 - KairoForge web branding, icons, app manifest, and chat styling.
 - Top-right mode switching between normal chat and coding workflow.
 - Sub‑Agents mode for research, design, coding, testing, publishing, and repo-maintenance helper agents.
+- Persistent main agents with agent orchestration: workflows of specialist sub-agents, Git checkpoints with safe rollback, loop recovery, background tasks, delegation between main agents, model routing, Fast Mode, and the KairoForge Engineer. See [`docs/kairoforge-creator-mode.md`](docs/kairoforge-creator-mode.md#agent-orchestration).
 - KairoForge model display names in the model picker.
 - A phone-ready PWA-style web entry.
 - A setup page with every supported launch command.

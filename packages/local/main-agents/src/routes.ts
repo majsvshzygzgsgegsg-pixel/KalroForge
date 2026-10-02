@@ -8,6 +8,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { z } from 'zod'
+import { handleOrchestrationRoute, orchestrationErrorStatus } from './orchestration/routes.ts'
+import type {} from './orchestration/service.ts'
 import type { MainAgentRegistry } from './registry.ts'
 import { MainAgentError, type MainAgentActor, type MainAgentModel } from './types.ts'
 
@@ -144,6 +146,17 @@ export function installMainAgentRoutes(ctx: Context, registry: MainAgentRegistry
     // Node always sets url on server requests; String keeps that fact local.
     const url = new URL(String(req.url), 'http://localhost')
     const parts = url.pathname.slice(MAIN_AGENTS_PATH.length).split('/').filter(part => part !== '').map(decodeURIComponent)
+    if (parts[0] === 'orchestration') {
+      const service = ctx.get('orchestration')
+      if (service === undefined) {
+        sendJson(res, 503, { code: 'unavailable', message: 'agent orchestration is disabled' })
+        return
+      }
+      const method = req.method ?? 'GET'
+      const outcome = await handleOrchestrationRoute(service, method, parts.slice(1), method === 'POST' ? await readBody(req) : undefined)
+      sendJson(res, outcome.status, outcome.payload)
+      return
+    }
     if (req.method === 'GET' && parts.length === 1 && parts[0] === 'state') {
       sendJson(res, 200, {
         agents: await registry.list(url.searchParams.get('archived') === '1'),
@@ -254,6 +267,11 @@ export function installMainAgentRoutes(ctx: Context, registry: MainAgentRegistry
       } catch (error) {
         if (error instanceof MainAgentError) {
           sendJson(res, STATUS[error.code], { code: error.code, message: error.message })
+          return
+        }
+        const orchestrationStatus = orchestrationErrorStatus(error)
+        if (orchestrationStatus !== undefined && error instanceof Error) {
+          sendJson(res, orchestrationStatus, { code: orchestrationStatus === 404 ? 'not-found' : orchestrationStatus === 400 ? 'invalid' : 'conflict', message: error.message })
           return
         }
         ctx.logger.error(`main-agents: ${req.method ?? 'GET'} ${String(req.url)} failed: ${String(error)}`)

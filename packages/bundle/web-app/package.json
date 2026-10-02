@@ -38,6 +38,7 @@
     "presets/minimal.patch.yml",
     "presets/cordis.patch.yml",
     "presets/builder.patch.yml",
+    "presets/fast.patch.yml",
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
@@ -51,7 +52,8 @@
         "./presets/ptc.patch.yml",
         "./presets/minimal.patch.yml",
         "./presets/cordis.patch.yml",
-        "./presets/builder.patch.yml"
+        "./presets/builder.patch.yml",
+        "./presets/fast.patch.yml"
       ]
     }
   },

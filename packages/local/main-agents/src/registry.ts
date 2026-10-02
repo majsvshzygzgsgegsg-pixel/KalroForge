@@ -52,6 +52,8 @@ export interface RegistryOptions {
   readonly defaultPermissionPreset: string
   /** Continuable-subagent provider used for sub-agent teammates. */
   readonly teamProvider: string
+  /** Agent presets that promise a fixed toolset (e.g. Chat's none); main-agent and orchestration tools stay out. */
+  readonly toolFreeModes?: readonly string[]
 }
 
 /** Activity lines retained per record. */
@@ -177,9 +179,19 @@ export class MainAgentRegistry extends Service {
    * @returns preset id, falling back to the configured default mode.
    */
   modeOf(agent: Agent): string {
-    return agent.session.header.agentPreset
-      ?? this.ctx.get('agentPresets')?.composedPreset(agent.ctx)
+    // The live composition wins: a blank Session can recompose while its creation header keeps the old preset.
+    return this.ctx.get('agentPresets')?.composedPreset(agent.ctx)
+      ?? agent.session.header.agentPreset
       ?? this.options.defaultMode
+  }
+
+  /**
+   * Whether main-agent and orchestration tools may be added to a live Agent's toolset.
+   * @param agent - live Agent.
+   * @returns false in modes whose preset promises a fixed toolset.
+   */
+  allowsTools(agent: Agent): boolean {
+    return !(this.options.toolFreeModes ?? []).includes(this.modeOf(agent))
   }
 
   /**
@@ -190,7 +202,7 @@ export class MainAgentRegistry extends Service {
    * @returns true when the admin tool set may be installed for this Agent.
    */
   canAdminister(agent: Agent): boolean {
-    if (!isTopLevelSession(agent.session.header)) return false
+    if (!isTopLevelSession(agent.session.header) || !this.allowsTools(agent)) return false
     const record = this.recordForSession(agent.session.id)
     if (record !== undefined) return record.status !== 'archived' && record.permissions.agentAdministration
     return this.settings().administratorModes.includes(this.modeOf(agent))
@@ -537,6 +549,40 @@ export class MainAgentRegistry extends Service {
     await this.prompt(sessionId, frame('task', actor, `main agent "${bound.name}"`, text))
     await this.note(bound.id, 'task', `Task from ${actorName(actor)}: ${text.slice(0, 80)}`)
     return { target: bound.id, sessionId, status: 'accepted' }
+  }
+
+  /**
+   * Deliver pre-framed text to a running main agent's Session, starting or
+   * queueing a turn. Orchestration uses this for workflows, delegations, and
+   * background tasks so every path shares the registry's Session handling.
+   * @param idOrName - target main agent.
+   * @param text - complete framed message.
+   * @param activity - activity line recorded on the agent.
+   * @returns delivery receipt.
+   */
+  async promptAgent(
+    idOrName: string,
+    text: string,
+    activity: { readonly kind: 'message' | 'task'; readonly text: string },
+    beforePrompt?: (sessionId: string) => void,
+  ): Promise<MainAgentDelivery> {
+    await this.ready
+    const record = this.requireDeliverable(this.require(idOrName))
+    const bound = await this.ensureSession(record)
+    const sessionId = this.sessionIdOf(bound)
+    beforePrompt?.(sessionId)
+    await this.prompt(sessionId, text)
+    await this.note(bound.id, activity.kind, activity.text.slice(0, 120))
+    return { target: bound.id, sessionId, status: 'accepted' }
+  }
+
+  /**
+   * Deliver pre-framed text to any top-level Session (Lead, Creator, or a main agent).
+   * @param sessionId - top-level Session id.
+   * @param text - complete framed message.
+   */
+  async promptSession(sessionId: string, text: string): Promise<void> {
+    await this.prompt(await this.topLevelSession(sessionId), text)
   }
 
   // ---------------------------------------------------------------------------

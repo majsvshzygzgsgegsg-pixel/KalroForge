@@ -25,6 +25,20 @@ import { bundlePatchPaths, composeEntries } from '@deepseek-ai/dsh-app-boot'
 /** Profile entry ids whose volatile fields these scenarios edit through Settings. */
 const SETTINGS_NAMESPACE = 'agent-preset-registry'
 const SUBAGENT_MODEL_SELECTION_SETTINGS_NAMESPACE = 'subagent-model-selection-settings'
+/** Tools the Agent Registry (`@local/main-agents`) adds to top-level KairoForge sessions, outside any preset. */
+const MAIN_AGENT_LAYER_TOOLS: ReadonlySet<string> = new Set([
+  // Communication (every top-level Session in a mode with tools).
+  'list_main_agents', 'get_main_agent', 'send_agent_message', 'delegate_task',
+  // Agent Administration (administrator modes; mutating calls ask for approval).
+  'create_main_agent', 'clone_main_agent', 'edit_main_agent', 'archive_main_agent',
+  'start_main_agent', 'stop_main_agent', 'restart_main_agent',
+  'assign_model', 'assign_mode', 'assign_tools', 'assign_workspace', 'create_agent_team', 'manage_agent_permissions',
+  // Orchestration: checkpoints, workflows, delegation, background tasks.
+  'create_checkpoint', 'list_checkpoints', 'compare_checkpoint', 'restore_checkpoint', 'delete_checkpoint', 'propose_rollback',
+  'create_workflow', 'workflow_status', 'cancel_workflow', 'retry_workflow_task', 'finish_workflow',
+  'delegate_to_main_agent', 'request_agent_review', 'return_task_result',
+  'start_background_task', 'list_background_tasks', 'control_background_task', 'report_task_progress',
+])
 import { applyChildComposition, childSessionMeta } from '@deepseek-ai/dsh-subagent'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-compaction-basic'
@@ -47,8 +61,10 @@ const CLAUDE_CODE_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-clau
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 const MODEL_IDENTITY_RULE = 'The active KairoForge model identity for this session is {{model}}. When the user asks who you are, say you are KairoForge running on {{model}}. Never answer that you are DeepSeek, DeepSeek Harness, FreeLLMAPI, Claude, OpenAI, Anthropic, or auto; those are only hidden transport details.'
 const MINIMAL_PROMPT = `You are KairoForge, a coding assistant inside the KairoForge app.
+KairoForge is your product identity, your visible assistant name, and your behavioral frame.
 Your product identity is always KairoForge, regardless of which AI provider, gateway, or model is serving this session. Do not identify the app, product, or assistant as DeepSeek Harness.
 ${MODEL_IDENTITY_RULE}
+In Creator mode, reusable specialists are permanent KairoForge agent members stored in \`.kairoforge/agent-members.json\`; keep file edits inside the active workspace and publish direct Git commits when the user asks.
 Answer clearly, preserve secrets, and only claim actions that actually happened.`
 const CHAT_PROMPT = `You are KairoForge, the built-in AI assistant inside the KairoForge app.
 Your product identity is always KairoForge, regardless of which AI provider, gateway, or model is serving this conversation. Do not identify the app, product, or assistant as DeepSeek Harness.
@@ -265,7 +281,7 @@ describe('the shipped Web composition', () => {
     const listed = await ctx.agentPresets.list()
 
     expect(listed.map(preset => preset.id).sort())
-      .toEqual(['builder', 'chat', 'cordis', 'minimal', 'ptc', 'self-edit', 'standard'])
+      .toEqual(['builder', 'chat', 'cordis', 'fast', 'minimal', 'ptc', 'self-edit', 'standard'])
     expect(listed.every(preset => !('path' in preset))).toBe(true)
     expect(ctx.agentPresets.defaultId).toBe('standard')
   })
@@ -300,13 +316,16 @@ describe('the shipped Web composition', () => {
       // layer mounts cleanly and simply contributes nothing. `glob`/`grep` are
       // excluded for the reason the TUI composition e2e excludes them — they
       // depend on ripgrep being present on the machine.
-      expect(toolNames(ctx, handle.agent).filter(name => name !== 'glob' && name !== 'grep')).toEqual([
+      const tools = toolNames(ctx, handle.agent)
+      expect(tools.filter(name => name !== 'glob' && name !== 'grep' && !MAIN_AGENT_LAYER_TOOLS.has(name))).toEqual([
         'ask_user_question', 'bash', 'create_goal', 'edit', 'exit_plan_mode',
         'get_goal', 'interrupt_agent', 'job_kill', 'job_list', 'job_output', 'list_agents', 'present', 'read', 'read_image',
         'send_message', 'skill',
         'subagent', 'subagent_fork', 'todo_write', 'update_goal', 'web_fetch', 'web_search',
         'workflow', 'write',
       ])
+      // The Agent Registry layers its tools onto top-level KairoForge sessions (Lead is an administrator mode).
+      expect(tools).toEqual(expect.arrayContaining([...MAIN_AGENT_LAYER_TOOLS]))
       expect(ctx.commands.find(handle.agent, 'goal')).toBeDefined()
     } finally {
       await handle.dispose()
@@ -480,6 +499,29 @@ describe('the shipped Web composition', () => {
       expect(text('deployment:persona-prefix')).toContain('You are in Builder mode')
       expect(text('deployment:persona-prefix')).toContain('ask_user_question')
       expect(text('deployment:persona-suffix')).toContain('Build new projects inside it.')
+    } finally {
+      await handle.dispose()
+    }
+  })
+
+  it('composes Fast mode as a lean coder that keeps every safety rule', async () => {
+    const handle = await ctx.agents.create({
+      sessionId: SessionId('preset-fast'),
+      setup: agentCtx => ctx.agentPresets.mount(agentCtx, 'fast').then(() => undefined),
+    })
+    try {
+      const tools = toolNames(ctx, handle.agent)
+      expect(tools).toEqual(expect.arrayContaining(['bash', 'read', 'write', 'edit', 'todo_write', 'ask_user_question']))
+      // Less planning and no delegation: plan mode, goals, sub-agents, and workflows stay out.
+      for (const absent of ['exit_plan_mode', 'subagent', 'subagent_fork', 'workflow', 'goal']) {
+        expect(tools).not.toContain(absent)
+      }
+      expect(ctx.commands.find(handle.agent, 'goal')).toBeUndefined()
+      const prefix = (await ctx.systemPrompt.assemble({ scope: handle.agent })).sections
+        .find(section => section.name === 'deployment:persona-prefix')?.text ?? ''
+      expect(prefix).toContain('Fast Mode')
+      expect(prefix).toContain('Never claim a check passed unless you ran it')
+      expect(prefix).toContain('Every permission prompt, approval, and Git protection still applies')
     } finally {
       await handle.dispose()
     }
@@ -897,7 +939,9 @@ describe('a delegated child', () => {
       },
     })
     try {
-      expect(toolNames(ctx, child.agent)).toEqual(toolNames(ctx, parent.agent))
+      // The Agent Registry's tools belong to top-level Sessions only; everything the preset composes is inherited.
+      expect(toolNames(ctx, child.agent))
+        .toEqual(toolNames(ctx, parent.agent).filter(name => !MAIN_AGENT_LAYER_TOOLS.has(name)))
       // The shipped `standard` preset is the whole coding agent; an empty
       // child here is the defect, and equality alone would not catch it.
       expect(toolNames(ctx, child.agent)).toContain('bash')

@@ -6,7 +6,8 @@
     "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
   },
   "include": [
-    "src/*.ts"
+    "src/*.ts",
+    "src/orchestration/*.ts"
   ],
   "references": [
     { "path": "../../../vendor/cordis" },
@@ -15,6 +16,7 @@
     { "path": "../../util/brand" },
     { "path": "../../util/values" },
     { "path": "../../core/agent-default-model" },
+    { "path": "../../core/scope" },
     { "path": "../../core/session" },
     { "path": "../../core/system-prompt" },
     { "path": "../../core/tools" },
@@ -22,6 +24,7 @@
     { "path": "../../experimental/agent-team" },
     { "path": "../../host/webserver" },
     { "path": "../../interaction/permission-presets" },
+    { "path": "../../llm/llm" },
     { "path": "../../preset/agent-preset-registry" },
     { "path": "../../storage/storage-domain" }
   ]

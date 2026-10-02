@@ -29,6 +29,8 @@ export type AgentPresetSettingsKey =
   | 'presetCordisDescription'
   | 'presetBuilderName'
   | 'presetBuilderDescription'
+  | 'presetFastName'
+  | 'presetFastDescription'
   | 'inUse'
   | 'noDescription'
   | 'brokenBadge'
@@ -76,6 +78,9 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   presetBuilderName: 'Builder mode',
   presetBuilderDescription:
     'Live website and app builder. KairoForge builds, deploys, verifies a public URL you can open on phone or laptop, and can rename the app URL when you ask.',
+  presetFastName: 'Fast mode',
+  presetFastDescription:
+    'Quick coding mode. Less upfront planning, no sub-agents, and a smaller context; uses the fast model when one is configured. Permissions, approvals, Git protections, and honest test reporting stay the same.',
 
   inUse: 'New task default',
 
@@ -123,6 +128,8 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetCordisDescription: '高级构建模式。KairoForge 可以创建项目、克隆 GitHub 仓库，构建插件、界面、工具、提示词、工作流、模型设置、自定义模式和持久 Agent 团队成员，并在你要求时验证、提交并推送。',
   presetBuilderName: '构建模式',
   presetBuilderDescription: '在线网站与应用构建模式。KairoForge 会构建、部署并验证可在手机或电脑打开的公开网址，也能按你的要求更改应用网址名称。',
+  presetFastName: '快速模式',
+  presetFastDescription: '快速编程模式。更少的前期规划、不使用子 Agent、上下文更小；配置了快速模型时会使用它。权限、审批、Git 保护和如实的测试报告保持不变。',
 
   inUse: '新任务默认',
 

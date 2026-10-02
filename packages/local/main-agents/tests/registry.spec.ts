@@ -131,6 +131,8 @@ async function setup(paths: Roots = freshRoots(), planned: Array<ReturnType<type
     defaultMode: 'standard',
     defaultPermissionPreset: 'workspace-write',
     teamProvider: 'spawn',
+    orchestration: true,
+    engineer: false,
   })
   await vi.waitFor(() => { expect(ctx.get('mainAgents')).toBeDefined() })
   await ctx.mainAgents.whenReady()

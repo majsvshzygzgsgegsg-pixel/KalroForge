@@ -12,9 +12,13 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import { defineTool, type PreToolDecision, type ToolExecution } from '@deepseek-ai/dsh-tools'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import { syncDeferred } from './deferred-sync.ts'
+import type {} from './orchestration/service.ts'
+import { ORCHESTRATION_KEEP } from './orchestration/tools.ts'
 import { isTopLevelSession, type MainAgentRegistry } from './registry.ts'
 import type { MainAgentActor, MainAgentModel, MainAgentPermissions, MainAgentRecord, MainAgentTools } from './types.ts'
 
@@ -219,14 +223,20 @@ export function installMainAgentTools(ctx: Context, registry: MainAgentRegistry)
       })),
       scoped.tools.register(defineTool({
         name: 'delegate_task',
-        description: 'Delegate a complete task to a running main agent. It works in its own chat and reports back to you with send_agent_message.',
+        description: 'Delegate a complete task to a running main agent. It works in its own chat and returns the result to you (same as delegate_to_main_agent).',
         parameters: {
           agent_id: AGENT_ID,
           task: { type: 'string', required: true, description: 'Complete, self-contained task description with the expected result.' },
         },
         output: JSON_OUTPUT,
         async execute(args, exec) {
-          return toJson(await registry.delegateTask(args.agent_id, args.task, actorOf(callerOf(exec.agent, 'delegate_task'))))
+          const actor = actorOf(callerOf(exec.agent, 'delegate_task'))
+          const orchestration = ctx.get('orchestration')
+          if (orchestration !== undefined && actor.kind === 'session') {
+            const record = await orchestration.delegations.delegate({ sessionId: actor.sessionId, name: actor.name }, args.agent_id, args.task, 'task')
+            return toJson({ delegation_id: record.id, target: record.toAgentId, sessionId: record.toSessionId, depth: record.depth, status: 'accepted' })
+          }
+          return toJson(await registry.delegateTask(args.agent_id, args.task, actor))
         },
       })),
     ]
@@ -450,7 +460,7 @@ export function installMainAgentTools(ctx: Context, registry: MainAgentRegistry)
     const { allow, deny } = record.tools
     if (allow.length > 0 || deny.length > 0) {
       const keep = new Set<string>([
-        ...COMMUNICATION_TOOLS, ...TEAM_TOOLS, PTC_TRANSPORT,
+        ...COMMUNICATION_TOOLS, ...TEAM_TOOLS, ...ORCHESTRATION_KEEP, PTC_TRANSPORT,
         ...record.permissions.agentAdministration ? ADMIN_TOOLS : [],
       ])
       const allowed = new Set([...allow, ...keep])
@@ -481,8 +491,12 @@ export function installMainAgentTools(ctx: Context, registry: MainAgentRegistry)
   const sync = (agent: Agent): void => {
     if (ctx.agents.get(agent.id) !== agent) return
     const state = installed.get(agent) ?? {}
-    const topLevel = isTopLevelSession(agent.session.header)
-    if (topLevel && state.communication === undefined) state.communication = registerCommunication(agent)
+    const communicates = isTopLevelSession(agent.session.header) && registry.allowsTools(agent)
+    if (communicates && state.communication === undefined) state.communication = registerCommunication(agent)
+    if (!communicates && state.communication !== undefined) {
+      state.communication()
+      delete state.communication
+    }
     const admin = registry.canAdminister(agent)
     if (admin && state.admin === undefined) state.admin = registerAdmin(agent)
     if (!admin && state.admin !== undefined) {
@@ -513,13 +527,30 @@ export function installMainAgentTools(ctx: Context, registry: MainAgentRegistry)
     state.communication?.()
   }
 
-  const syncAll = (): void => { for (const agent of ctx.agents.list()) sync(agent) }
+  let active = true
+  const syncAll = (): void => { if (active) syncDeferred(ctx.agents.list(), sync) }
 
   void registry.whenReady().then(syncAll)
-  ctx.on('agent/created', ({ agent }) => { void registry.whenReady().then(() => { sync(agent) }) })
+  ctx.on('agent/created', ({ agent }) => { void registry.whenReady().then(() => { if (active) syncDeferred([agent], sync) }) })
   ctx.on('agent/disposed', ({ agent }) => { release(agent) })
   ctx.on('main-agents/changed', () => { syncAll() })
-  ctx.effect(() => () => { for (const agent of [...installed.keys()]) release(agent) }, 'main-agents: scoped tools')
+  // A blank Session can switch preset; the composition then announces a tool change. Batched so our own
+  // registrations never re-enter a sync.
+  let pending = false
+  const scheduleSyncAll = (): void => {
+    if (pending || !active) return
+    pending = true
+    queueMicrotask(() => {
+      pending = false
+      syncAll()
+    })
+  }
+  ctx.on('agent-preset/selected', scheduleSyncAll)
+  ctx.on('tools/change', scheduleSyncAll)
+  ctx.effect(() => () => {
+    active = false
+    for (const agent of [...installed.keys()]) release(agent)
+  }, 'main-agents: scoped tools')
 
   ctx.on('tools/pre-execute', async (exec: ToolExecution, next): Promise<PreToolDecision> => {
     const reason = approvalReason(exec.name, exec.arguments)

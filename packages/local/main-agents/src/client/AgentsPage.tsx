@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Button, Checkbox, IconArchiveOutlineRegular, IconCopyOutlineRegular, IconEditOutlineRegular, IconPauseOutlineRegular,
-  IconPlayOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular, Input, Modal, RiskConfirmation, StateDot,
-  Switch, Tag,
+  IconPlayOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular, Input, Modal, RiskConfirmation, SegmentedTabs, StateDot,
+  Switch, Tag, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -12,13 +12,21 @@ import {
   cloneAgent, createAgent, editAgent, loadState, runAction, saveAdministratorModes,
   type AgentAction, type AgentDraft, type AgentView, type AgentsState,
 } from './api.ts'
+import { AgentDashboard } from './AgentDashboard.tsx'
 import { AgentEditor } from './AgentEditor.tsx'
 import { modeLabel } from './labels.ts'
+import { loadOrchestration, type Notification, type OrchestrationState } from './orchestration-api.ts'
+import { BackgroundView, CheckpointsView, OrchestrationView } from './OrchestrationViews.tsx'
 import css from './AgentsPage.module.css'
 
 /** Polling interval for status changes made by agents or other windows. */
-const REFRESH_MS = 5000
+const REFRESH_MS = 4000
 const DEFAULT_MODE = 'standard'
+const TOAST_MS = 5000
+
+/** Tabs of the page. */
+type View = 'agents' | 'orchestration' | 'background' | 'checkpoints'
+const VIEWS = ['agents', 'orchestration', 'background', 'checkpoints'] as const
 
 /** Navigation the page borrows from the workspace UI. */
 export interface AgentsInjected {
@@ -55,18 +63,38 @@ export function AgentsPage({ openSession, startSession, t }: AgentsPageProps) {
   const [cloneName, setCloneName] = useState('')
   const [archiving, setArchiving] = useState<AgentView | undefined>()
   const [acknowledged, setAcknowledged] = useState(false)
+  const [view, setView] = useState<View>('agents')
+  const [orchestration, setOrchestration] = useState<OrchestrationState | undefined>()
+  const [dashboard, setDashboard] = useState<string | undefined>()
+  const [toasts, setToasts] = useState<readonly Notification[]>([])
+  const seen = useRef<Set<string> | undefined>(undefined)
   const generation = useRef(0)
 
   const refresh = useCallback(async () => {
     const mine = ++generation.current
-    try {
-      const next = await loadState(archived)
-      if (mine !== generation.current) return
-      setState(next)
+    // Orchestration may be disabled in config; the Agents tab works without it.
+    const [registry, orchestrated] = await Promise.allSettled([loadState(archived), loadOrchestration()])
+    if (mine !== generation.current) return
+    if (registry.status === 'fulfilled') {
+      setState(registry.value)
       setLoadError(undefined)
-    } catch (error) {
-      if (mine === generation.current) setLoadError(errorText(error))
+    } else {
+      setLoadError(errorText(registry.reason))
     }
+    if (orchestrated.status === 'rejected') {
+      setOrchestration(undefined)
+      return
+    }
+    setOrchestration(orchestrated.value)
+    const notices = orchestrated.value.notifications
+    if (seen.current === undefined) {
+      seen.current = new Set(notices.map(notice => notice.id))
+      return
+    }
+    const known = seen.current
+    const fresh = notices.filter(notice => !known.has(notice.id)).toReversed()
+    for (const notice of fresh) known.add(notice.id)
+    if (fresh.length > 0) setToasts(queue => [...queue, ...fresh].slice(-5))
   }, [archived])
 
   useEffect(() => {
@@ -111,6 +139,16 @@ export function AgentsPage({ openSession, startSession, t }: AgentsPageProps) {
     return group?.models.find(entry => entry.id === agent.model?.model)?.name ?? `${agent.model.provider}/${agent.model.model}`
   }
 
+  const tabProps = (current: OrchestrationState, registry: AgentsState) => ({
+    state: current,
+    agents: registry.agents,
+    t,
+    busy: busy !== undefined,
+    act,
+    openSession,
+    openDashboard: setDashboard,
+  })
+
   const actionButton = (agent: AgentView, label: string, icon: ReactNode, onClick: () => void, disabled = false) => (
     <Button
       size="sm"
@@ -138,97 +176,148 @@ export function AgentsPage({ openSession, startSession, t }: AgentsPageProps) {
             </Button>
           </header>
 
+          {orchestration !== undefined && (
+            <SegmentedTabs<View>
+              label={t('tabs.label')}
+              value={view}
+              onChange={setView}
+              items={[
+                { value: 'agents', label: t('tabs.agents'), id: 'main-agents-tab-agents', panelId: 'main-agents-panel-agents' },
+                ...VIEWS.slice(1).map(value => ({ value, label: t(`tabs.${value}`), id: `main-agents-tab-${value}`, panelId: `main-agents-panel-${value}` })),
+              ]}
+            />
+          )}
+
           {actionError !== undefined && <p className={css.error} role="alert">{actionError}</p>}
 
-          <section className={css.card}>
-            <div className={css.cardHead}>
-              <StateDot state="done" />
-              <span className={css.agentName}>{t('lead.name')}</span>
-              <span className={css.spacer} />
-              <Button size="sm" variant="outline" icon={<IconPlusOutlineRegular size={14} />} onClick={startSession}>{t('lead.newChat')}</Button>
-            </div>
-            <p className={css.description}>{t('lead.description')}</p>
-            {state !== undefined && state.options.modes.length > 0 && (
-              <div className={css.adminBox}>
-                <span className={css.fieldLabel}>{t('admin.title')}</span>
-                <span className={css.hint}>{t('admin.description')}</span>
-                <div className={css.adminModes}>
-                  {state.options.modes.map(mode => (
-                    <Checkbox
-                      key={mode.id}
-                      label={modeName(mode.id)}
-                      checked={state.settings.administratorModes.includes(mode.id)}
-                      disabled={busy !== undefined}
-                      onChange={(next) => { toggleAdminMode(mode.id, next) }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          <div className={css.toolbar}>
-            <label className={css.switchLabel}>
-              <span>{t('page.showArchived')}</span>
-              <Switch checked={archived} onChange={setArchived} label={t('page.showArchived')} />
-            </label>
-          </div>
-
-          {state === undefined && loadError === undefined && <p className={css.muted}>{t('page.loading')}</p>}
-          {loadError !== undefined && (
-            <div className={css.error} role="alert">
-              {t('page.loadError', { message: loadError })}
-              <Button size="sm" variant="outline" onClick={() => { void refresh() }}>{t('page.retry')}</Button>
+          {orchestration !== undefined && state !== undefined && view !== 'agents' && (
+            <div id={`main-agents-panel-${view}`} role="tabpanel" aria-labelledby={`main-agents-tab-${view}`}>
+              {view === 'orchestration' && (
+                <OrchestrationView {...tabProps(orchestration, state)} models={state.options.models} />
+              )}
+              {view === 'background' && <BackgroundView {...tabProps(orchestration, state)} />}
+              {view === 'checkpoints' && <CheckpointsView {...tabProps(orchestration, state)} />}
             </div>
           )}
-          {state !== undefined && state.agents.length === 0 && <p className={css.muted}>{t('page.empty')}</p>}
 
-          <ul className={css.list}>
-            {state?.agents.map(agent => (
-              <li key={agent.id} className={css.card}>
+          {(orchestration === undefined || view === 'agents') && (
+            <div id="main-agents-panel-agents" role="tabpanel" aria-labelledby="main-agents-tab-agents" className={css.panelBody}>
+              <section className={css.card}>
                 <div className={css.cardHead}>
-                  <StateDot state={dotState(agent)} />
-                  <span className={css.agentName}>{agent.name}</span>
-                  <span className={css.muted}>
-                    {t(`status.${agent.status}`)}
-                    {agent.status === 'running' ? ` · ${t(`runtime.${agent.runtime}`)}` : ''}
-                  </span>
+                  <StateDot state="done" />
+                  <span className={css.agentName}>{t('lead.name')}</span>
                   <span className={css.spacer} />
-                  {agent.status !== 'archived' && agent.sessionId !== undefined && (
-                    <Button size="sm" variant="outline" onClick={() => { if (agent.sessionId !== undefined) openSession(agent.sessionId) }}>
-                      {t('action.open')}
-                    </Button>
-                  )}
+                  <Button size="sm" variant="outline" icon={<IconPlusOutlineRegular size={14} />} onClick={startSession}>{t('lead.newChat')}</Button>
                 </div>
-                {agent.description !== '' && <p className={css.description}>{agent.description}</p>}
-                <div className={css.tags}>
-                  <Tag>{modeName(agent.mode)}</Tag>
-                  <Tag>{modelName(agent)}</Tag>
-                  <Tag>{presetName(agent.permissions.preset)}</Tag>
-                  {agent.permissions.agentAdministration && <Tag tone="info">{t('tag.admin')}</Tag>}
-                  {agent.workspace !== undefined && <Tag>{t('tag.workspace', { path: agent.workspace })}</Tag>}
-                  {(agent.tools.allow.length > 0 || agent.tools.deny.length > 0) && <Tag>{t('tag.tools')}</Tag>}
+                <p className={css.description}>{t('lead.description')}</p>
+                {state !== undefined && state.options.modes.length > 0 && (
+                  <div className={css.adminBox}>
+                    <span className={css.fieldLabel}>{t('admin.title')}</span>
+                    <span className={css.hint}>{t('admin.description')}</span>
+                    <div className={css.adminModes}>
+                      {state.options.modes.map(mode => (
+                        <Checkbox
+                          key={mode.id}
+                          label={modeName(mode.id)}
+                          checked={state.settings.administratorModes.includes(mode.id)}
+                          disabled={busy !== undefined}
+                          onChange={(next) => { toggleAdminMode(mode.id, next) }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <div className={css.toolbar}>
+                <label className={css.switchLabel}>
+                  <span>{t('page.showArchived')}</span>
+                  <Switch checked={archived} onChange={setArchived} label={t('page.showArchived')} />
+                </label>
+              </div>
+
+              {state === undefined && loadError === undefined && <p className={css.muted}>{t('page.loading')}</p>}
+              {loadError !== undefined && (
+                <div className={css.error} role="alert">
+                  {t('page.loadError', { message: loadError })}
+                  <Button size="sm" variant="outline" onClick={() => { void refresh() }}>{t('page.retry')}</Button>
                 </div>
-                <div className={css.actions}>
-                  {agent.status === 'archived'
-                    ? actionButton(agent, t('action.restore'), <IconPlayOutlineRegular size={14} />, () => { void lifecycle(agent, 'start') })
-                    : (
-                      <>
-                        {agent.status === 'running'
-                          ? actionButton(agent, t('action.stop'), <IconPauseOutlineRegular size={14} />, () => { void lifecycle(agent, 'stop') })
-                          : actionButton(agent, t('action.start'), <IconPlayOutlineRegular size={14} />, () => { void lifecycle(agent, 'start') })}
-                        {actionButton(agent, t('action.restart'), <IconRefreshOutlineRegular size={14} />, () => { void lifecycle(agent, 'restart') })}
-                        {actionButton(agent, t('action.edit'), <IconEditOutlineRegular size={14} />, () => { setEditor({ agent }) })}
-                        {actionButton(agent, t('action.clone'), <IconCopyOutlineRegular size={14} />, () => { setCloneName(''); setCloning(agent) })}
-                        {actionButton(agent, t('action.archive'), <IconArchiveOutlineRegular size={14} />, () => { setAcknowledged(false); setArchiving(agent) })}
-                      </>
-                    )}
-                </div>
-              </li>
-            ))}
-          </ul>
+              )}
+              {state !== undefined && state.agents.length === 0 && <p className={css.muted}>{t('page.empty')}</p>}
+
+              <ul className={css.list}>
+                {state?.agents.map(agent => (
+                  <li key={agent.id} className={css.card}>
+                    <div className={css.cardHead}>
+                      <StateDot state={dotState(agent)} />
+                      <span className={css.agentName}>{agent.name}</span>
+                      <span className={css.muted}>
+                        {t(`status.${agent.status}`)}
+                        {agent.status === 'running' ? ` · ${t(`runtime.${agent.runtime}`)}` : ''}
+                      </span>
+                      <span className={css.spacer} />
+                      {agent.status !== 'archived' && agent.sessionId !== undefined && (
+                        <Button size="sm" variant="outline" onClick={() => { if (agent.sessionId !== undefined) openSession(agent.sessionId) }}>
+                          {t('action.open')}
+                        </Button>
+                      )}
+                    </div>
+                    {agent.description !== '' && <p className={css.description}>{agent.description}</p>}
+                    <div className={css.tags}>
+                      <Tag>{modeName(agent.mode)}</Tag>
+                      <Tag>{modelName(agent)}</Tag>
+                      <Tag>{presetName(agent.permissions.preset)}</Tag>
+                      {agent.permissions.agentAdministration && <Tag tone="info">{t('tag.admin')}</Tag>}
+                      {agent.workspace !== undefined && <Tag>{t('tag.workspace', { path: agent.workspace })}</Tag>}
+                      {(agent.tools.allow.length > 0 || agent.tools.deny.length > 0) && <Tag>{t('tag.tools')}</Tag>}
+                    </div>
+                    <div className={css.actions}>
+                      {agent.status === 'archived'
+                        ? actionButton(agent, t('action.restore'), <IconPlayOutlineRegular size={14} />, () => { void lifecycle(agent, 'start') })
+                        : (
+                          <>
+                            {agent.status === 'running'
+                              ? actionButton(agent, t('action.stop'), <IconPauseOutlineRegular size={14} />, () => { void lifecycle(agent, 'stop') })
+                              : actionButton(agent, t('action.start'), <IconPlayOutlineRegular size={14} />, () => { void lifecycle(agent, 'start') })}
+                            {actionButton(agent, t('action.restart'), <IconRefreshOutlineRegular size={14} />, () => { void lifecycle(agent, 'restart') })}
+                            {actionButton(agent, t('action.edit'), <IconEditOutlineRegular size={14} />, () => { setEditor({ agent }) })}
+                            {actionButton(agent, t('action.clone'), <IconCopyOutlineRegular size={14} />, () => { setCloneName(''); setCloning(agent) })}
+                            {actionButton(agent, t('action.archive'), <IconArchiveOutlineRegular size={14} />, () => { setAcknowledged(false); setArchiving(agent) })}
+                          </>
+                        )}
+                      {orchestration !== undefined && (
+                        <>
+                          <span className={css.spacer} />
+                          {actionButton(agent, t('action.activity'), undefined, () => { setDashboard(agent.id) })}
+                        </>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
+
+      <AgentDashboard
+        agentId={dashboard}
+        t={t}
+        modeName={modeName}
+        presetName={presetName}
+        openSession={(sessionId) => { setDashboard(undefined); openSession(sessionId) }}
+        onClose={() => { setDashboard(undefined) }}
+      />
+
+      {toasts[0] !== undefined && (
+        <Toast
+          key={toasts[0].id}
+          text={toasts[0].text}
+          {...toasts[0].level === 'success' ? { tone: 'success' as const } : {}}
+          holdMs={TOAST_MS}
+          onDone={() => { setToasts(queue => queue.slice(1)) }}
+        />
+      )}
 
       {state !== undefined && (
         <AgentEditor

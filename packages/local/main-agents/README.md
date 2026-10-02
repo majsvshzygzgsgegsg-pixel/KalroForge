@@ -16,6 +16,10 @@ Records persist in the `main_agents` storage domain at `~/.dsh/storages/main_age
 - **Tools.** Sessions with Agent Administration get `create_main_agent`, `clone_main_agent`, `edit_main_agent`, `archive_main_agent`, `start_main_agent`, `stop_main_agent`, `restart_main_agent`, `assign_model`, `assign_mode`, `assign_tools`, `assign_workspace`, `create_agent_team`, and `manage_agent_permissions`. Every top-level Session gets `list_main_agents`, `get_main_agent`, `send_agent_message`, and `delegate_task`.
 - **REST.** The page uses `GET /main-agents/state` together with `POST /main-agents/create`, `POST /main-agents/settings`, and `POST /main-agents/agent/<id>/<action>`. Every route uses the web connection's authentication and its Host and Origin checks.
 
+## Orchestration
+
+`src/orchestration/` adds workflows, Git checkpoints and rollback, loop detection and recovery, background tasks, delegation between main agents, model routing, Fast Mode support, and the KairoForge Engineer template. It is mounted when `orchestration` is true (the default). Its state lives in the `main_agent_orchestration` storage domain, and its routes are under `/main-agents/orchestration/`. See [Agent orchestration](../../../docs/kairoforge-creator-mode.md#agent-orchestration) for usage and how to disable each feature.
+
 ## Security model
 
 - Agent Administration belongs to top-level Sessions whose mode is listed in `administratorModes`. By default that is `cordis` (Creator) and `standard` (KairoForge Lead). A main agent holds it only when the user grants it. Sub-agents never hold it.

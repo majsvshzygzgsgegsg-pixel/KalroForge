@@ -13,6 +13,7 @@ describe('preset display copy', () => {
     ['minimal', 'presetMinimalName', 'presetMinimalDescription'],
     ['cordis', 'presetCordisName', 'presetCordisDescription'],
     ['builder', 'presetBuilderName', 'presetBuilderDescription'],
+    ['fast', 'presetFastName', 'presetFastDescription'],
   ] as const)('localizes the shipped %s preset in English and Chinese', (id, nameKey, descriptionKey) => {
     const preset = { id }
 
