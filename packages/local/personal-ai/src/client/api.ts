@@ -246,10 +246,17 @@ export class PersonalAiRequestError extends Error {
 const BASE = 'personal-ai/'
 
 /** One Command Center turn answered in the conversation Session. */
+/** One live progress update of a running turn (see the Host's `ConverseUpdate`). */
+export type ConverseUpdate =
+  | { readonly kind: 'say'; readonly text: string }
+  | { readonly kind: 'tool'; readonly category: string; readonly changes: boolean }
+  | { readonly kind: 'approval' }
+
 export interface ConverseTurn {
   readonly id: string
   readonly sessionId: string
   readonly status: 'running' | 'done' | 'failed'
+  readonly updates?: readonly ConverseUpdate[]
   readonly reply?: string
   readonly error?: string
   readonly startedAt: string

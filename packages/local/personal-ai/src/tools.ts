@@ -44,6 +44,15 @@ const VERBOSITY: Readonly<Record<Personality['verbosity'], string>> = {
   detailed: 'Give thorough answers with the reasoning the user needs (not your private chain of thought).',
 }
 
+/** Runtime context for the Command Center conversation Session, whose words are spoken aloud. */
+export const VOICE_NARRATION = [
+  'This is the Command Center conversation: the user hears what you write, read aloud, usually without a screen.',
+  'When a request needs tools, put one short spoken update (under 15 words) in the same message as each tool step, saying what you are doing right now in plain words, e.g. "Checking your project files now." or "Running the tests, this takes a moment." The user already heard "On it", so do not open with it.',
+  'When the step you are starting is the last one before your answer, say so, e.g. "Almost done — pulling it together."',
+  'Updates must be true: never say something is finished before a tool result shows it. A greeting or a simple question needs no update; just answer.',
+  'Keep the final answer short and easy to listen to: no tables, code blocks, or long lists unless the user asks.',
+].join('\n')
+
 /**
  * Coordinator prompt section for one personality.
  * @param personality - effective personality.
@@ -401,6 +410,11 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
         interpolate: false,
       }))
       disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:coordinator-context', order: 130, text: () => contextText(agent) }))
+      disposers.push(scoped.systemPrompt.context({
+        name: 'personal-ai:voice-narration',
+        order: 132,
+        text: () => service.conversationSessionId() === agent.session.id ? VOICE_NARRATION : '',
+      }))
       service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))
       disposers.push(() => { service.drop(agent.session.id) })
     } else if (agentId !== undefined) {

@@ -19,6 +19,11 @@ const OWN_GATED = new Set(['forget', 'archive_project', 'remember'])
 
 interface UserMessageData { readonly source?: { readonly kind?: string; readonly form?: string } }
 
+function toolCallCount(content: unknown): number {
+  if (!Array.isArray(content)) return 0
+  return content.filter(block => typeof block === 'object' && block !== null && (block as { type?: unknown }).type === 'tool-call').length
+}
+
 /**
  * Install coordinator hooks.
  * @param ctx - Host context.
@@ -30,8 +35,10 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
     if (event.type === 'approval/asked' || event.type === 'approval/decided') {
       service.noteApproval(session.id, (event.data as { id: string }).id, event.type === 'approval/asked')
     }
+    if (event.type === 'approval/asked') service.noteConversationApproval(session.id)
     if (event.type === 'assistant/message') {
-      service.noteConversation(session.id, 'text', textOf((event.data as { message: { content: unknown } }).message.content))
+      const content = (event.data as { message: { content: unknown } }).message.content
+      service.noteConversationMessage(session.id, textOf(content), toolCallCount(content))
     }
     const live = service.coordinatorLive(session.id)
     if (live === undefined) return
@@ -96,9 +103,13 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
 
   ctx.on('tools/pre-execute', async (exec: ToolExecution, next): Promise<PreToolDecision> => {
     const decision = await next()
-    const agent = exec.agent
-    const live = agent === undefined ? undefined : service.coordinatorLive(agent.session.id)
-    if (live === undefined || decision.kind !== 'allow') return decision
+    const sessionId = exec.agent?.session.id
+    if (sessionId === undefined || decision.kind !== 'allow') return decision
+    const live = service.coordinatorLive(sessionId)
+    if (live === undefined) {
+      service.noteConversationTool(sessionId, exec.name, exec.arguments)
+      return decision
+    }
     const risk = classifyRisk(exec.name, exec.arguments)
     const gated = risk.risk === 'SENSITIVE' && (OWN_GATED.has(exec.name) || config.confirmSensitive)
     if (gated) {
@@ -109,6 +120,7 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
       }
     }
     live.tool = exec.name
+    service.noteConversationTool(sessionId, exec.name, exec.arguments)
     return decision
   })
 

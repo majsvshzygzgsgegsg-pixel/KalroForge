@@ -336,9 +336,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   // ---- channel call: another surface owns the conversation ----------------
   const sent = []
   let answer = null
+  let say = null
   const channel = {
     name: 'personal-ai',
-    send(text) { sent.push(text); return new Promise((resolve) => { answer = resolve }) },
+    send(text, update) { sent.push(text); say = update; return new Promise((resolve) => { answer = resolve }) },
   }
   const draftsBeforeChannel = drafts.length
   spoken.length = 0
@@ -356,10 +357,23 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   assert.equal(drafts.length, draftsBeforeChannel, 'a channel call never types into the composer')
   assert.equal(runtime.heard, 'what time is my meeting', 'the runtime remembers what it sent')
   assert.equal(runtime.phase, 'waiting', 'the call waits for the channel to answer')
+  assert.equal(typeof say, 'function', 'the channel can speak progress while it works')
+  React.act(() => { say('On it.') })
+  assert.deepEqual(spoken, ['On it.'], 'a progress line is spoken while the answer is coming')
+  React.act(() => { say('Checking your calendar now.') })
+  assert.deepEqual(spoken, ['On it.'], 'a new progress line waits for the sentence playing')
+  React.act(() => { finishUtterance() })
+  assert.deepEqual(spoken, ['On it.', 'Checking your calendar now.'], 'the newer progress line follows')
+  React.act(() => { finishUtterance() })
+  assert.equal(runtime.phase, 'waiting', 'after a progress line the call keeps waiting for the answer')
+  React.act(() => { say('Almost done.') })
   await React.act(async () => { answer('Your meeting is at three.') })
-  await until('the channel answer to be spoken', () => spoken.length > 0)
-  assert.deepEqual(spoken, ['Your meeting is at three.'], 'the channel answer was spoken')
+  assert.equal(spoken.at(-1), 'Almost done.', 'the answer does not cut off the progress line')
+  React.act(() => { finishUtterance() })
+  await until('the channel answer to be spoken', () => spoken.at(-1) === 'Your meeting is at three.')
   assert.equal(runtime.phase, 'speaking', 'the call speaks the channel answer')
+  React.act(() => { say('Stale progress.') })
+  assert.equal(spoken.at(-1), 'Your meeting is at three.', 'progress after the answer is ignored')
   // Chat navigation must not end a call that is not tied to the chat.
   React.act(() => {
     root.render(React.createElement(micEntry.component, {

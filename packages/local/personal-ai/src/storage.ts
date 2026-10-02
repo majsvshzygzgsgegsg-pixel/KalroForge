@@ -92,6 +92,7 @@ const settingsSchema = z.object({
   }).strict().optional(),
   activeProjectId: z.string().min(1).optional(),
   coordinator: z.boolean().optional(),
+  conversationSessionId: z.string().min(1).optional(),
 }).strict().transform(value => compact(value) as StoredPersonalSettings)
 
 const initialSettings: StoredPersonalSettings = {}

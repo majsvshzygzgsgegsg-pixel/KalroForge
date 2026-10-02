@@ -47,10 +47,13 @@ export interface VoiceCallRuntime {
   startWith?(channel: VoiceChannel): void
 }
 
-/** Where a channel call sends what the user said; resolves with the reply to speak. */
+/**
+ * Where a channel call sends what the user said; resolves with the reply to
+ * speak. `say` speaks a short progress line while the reply is still coming.
+ */
 export interface VoiceChannel {
   readonly name: string
-  send(text: string): Promise<string>
+  send(text: string, say?: (line: string) => void): Promise<string>
 }
 
 declare module '@deepseek-ai/cordis' {

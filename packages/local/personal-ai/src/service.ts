@@ -20,12 +20,13 @@ import { rankAgents, agentTags, type AgentCandidate, type AgentScore, type Agent
 import { classifyDepth } from './core/classifier.ts'
 import { searchMemories, type MemoryQuery, type MemoryScope } from './core/memory.ts'
 import { summarizeTurns, type MetricsSummary, type TurnRecord } from './core/metrics.ts'
+import { MAX_SAY_CHARS, MAX_UPDATES, repeatsUpdate, toolUpdate } from './core/narration.ts'
 import { findSensitive } from './core/sensitive.ts'
 import { personalAiDomain } from './storage.ts'
 import {
   DEFAULT_PERSONALITY, PersonalAiError,
-  type ControlAction, type ConverseTurn, type ControlRecord, type CoordinatorDecision, type MemoryEntry, type Personality,
-  type ProjectCommands, type ProjectRecord, type StoredPersonalSettings, type TaskRef,
+  type ControlAction, type ConverseTurn, type ConverseUpdate, type ControlRecord, type CoordinatorDecision, type MemoryEntry,
+  type Personality, type ProjectCommands, type ProjectRecord, type StoredPersonalSettings, type TaskRef,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -53,6 +54,15 @@ const NOTICE_LIMIT = 60
 const CONVERSE_LIMIT = 50
 const CONVERSE_MAX_CHARS = 4000
 const CONVERSE_REPLY_CHARS = 8000
+
+/** A Command Center turn still running in its conversation Session. */
+interface PendingConverse {
+  readonly turnId: string
+  started: boolean
+  reply: string
+  /** The current step's tool calls came with the model's own words. */
+  narrated: boolean
+}
 
 /** Live facts about one coordinator Session. */
 interface LiveSession {
@@ -123,7 +133,7 @@ export class PersonalAi extends Service {
   private readonly approvals = new Map<string, Set<string>>()
   private readonly notices: PersonalNotice[] = []
   private readonly conversation = new Map<string, ConverseTurn>()
-  private readonly converseBySession = new Map<string, { readonly turnId: string; started: boolean; reply: string }>()
+  private readonly converseBySession = new Map<string, PendingConverse>()
   private voice: VoicePhase = 'off'
   private focus: string | undefined
 
@@ -656,7 +666,7 @@ export class PersonalAi extends Service {
     const sessionId = await this.conversationSession()
     const turn: ConverseTurn = { id: randomUUID(), sessionId, status: 'running', startedAt: new Date().toISOString() }
     this.conversation.set(turn.id, turn)
-    this.converseBySession.set(sessionId, { turnId: turn.id, started: false, reply: '' })
+    this.converseBySession.set(sessionId, { turnId: turn.id, started: false, reply: '', narrated: false })
     while (this.conversation.size > CONVERSE_LIMIT) {
       const oldest = this.conversation.keys().next().value
       if (oldest === undefined) break
@@ -693,17 +703,64 @@ export class PersonalAi extends Service {
   }
 
   /**
-   * Observe assistant output of the conversation Session (installed by the hooks).
+   * Observe the run state of the conversation Session (installed by the hooks).
    * @param sessionId - Session id.
-   * @param event - `running`, `text` with the assistant's words, or `idle`.
-   * @param text - assistant text for `text` events.
+   * @param event - `running` or `idle`.
    */
-  noteConversation(sessionId: string, event: 'running' | 'text' | 'idle', text = ''): void {
+  noteConversation(sessionId: string, event: 'running' | 'idle'): void {
     const pending = this.converseBySession.get(sessionId)
     if (pending === undefined) return
     if (event === 'running') pending.started = true
-    else if (event === 'text') { if (text !== '') pending.reply = text }
     else if (pending.started) this.finishConverse(sessionId)
+  }
+
+  /**
+   * Observe one assistant message of the conversation Session. Words written
+   * alongside tool calls are the model telling the user what it is doing, so
+   * they become a spoken update; words without tool calls are the answer.
+   * @param sessionId - Session id.
+   * @param text - the message's text.
+   * @param toolCalls - how many tool calls the message makes.
+   */
+  noteConversationMessage(sessionId: string, text: string, toolCalls: number): void {
+    const pending = this.converseBySession.get(sessionId)
+    if (pending === undefined) return
+    if (toolCalls === 0) {
+      if (text !== '') pending.reply = text
+      return
+    }
+    pending.narrated = text !== ''
+    if (pending.narrated) this.pushUpdate(pending, { kind: 'say', text: redact(text).slice(0, MAX_SAY_CHARS) })
+  }
+
+  /**
+   * Observe a tool the permission path allowed to run in the conversation
+   * Session. Skipped when the model already said what this step does.
+   * @param sessionId - Session id.
+   * @param tool - tool name.
+   * @param args - tool arguments.
+   */
+  noteConversationTool(sessionId: string, tool: string, args: unknown): void {
+    const pending = this.converseBySession.get(sessionId)
+    if (pending === undefined || pending.narrated) return
+    this.pushUpdate(pending, toolUpdate(tool, args))
+  }
+
+  /**
+   * Observe an approval prompt in the conversation Session.
+   * @param sessionId - Session id.
+   */
+  noteConversationApproval(sessionId: string): void {
+    const pending = this.converseBySession.get(sessionId)
+    if (pending !== undefined) this.pushUpdate(pending, { kind: 'approval' })
+  }
+
+  private pushUpdate(pending: PendingConverse, update: ConverseUpdate): void {
+    const turn = this.conversation.get(pending.turnId)
+    if (turn === undefined || turn.status !== 'running') return
+    const updates = turn.updates ?? []
+    if (updates.length >= MAX_UPDATES || repeatsUpdate(updates.at(-1), update)) return
+    this.conversation.set(turn.id, { ...turn, updates: [...updates, update] })
   }
 
   /**

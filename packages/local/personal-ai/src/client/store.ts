@@ -4,7 +4,7 @@
  * while anything watches it, follows the voice provider, reports voice-phase
  * changes to the Host, and queues proactive notifications.
  */
-import { api, type Notice, type StateView, type VoicePhase } from './api.ts'
+import { api, type ConverseUpdate, type Notice, type StateView, type VoicePhase } from './api.ts'
 import type { CallSnapshot, VoiceProvider } from './voice.ts'
 
 /** Polling cadence while the page is visible and hidden. */
@@ -15,6 +15,8 @@ const MAX_TOASTS = 4
 const ANSWER_POLL_MS = 600
 /** Long enough for a turn that waits on an approval; the conversation keeps going after this. */
 const ANSWER_TIMEOUT_MS = 15 * 60_000
+/** A quick answer needs no acknowledgement; anything slower gets "On it" first. */
+const ACK_MS = 1500
 
 /** Everything the live surfaces render. */
 export interface LiveSnapshot {
@@ -27,10 +29,15 @@ export interface LiveSnapshot {
   readonly exchange?: Exchange
 }
 
+/** What KairoForge says while a turn runs: a Host update, or the acknowledgement once a turn is slow. */
+export type Progress = ConverseUpdate | { readonly kind: 'ack' }
+
 /** One question to KairoForge from the Command Center and its answer. */
 export interface Exchange {
   readonly question: string
   readonly pending: boolean
+  /** The latest progress while pending. */
+  readonly progress?: Progress
   readonly reply?: string
   readonly error?: string
   readonly sessionId?: string
@@ -50,11 +57,17 @@ export interface LiveStore {
   provider(): VoiceProvider | undefined
   /**
    * Ask KairoForge in the conversation Session and wait for the answer.
+   * @param text - the question.
+   * @param onProgress - called with each new progress update while it works.
    * @returns the reply text (empty when the turn answered only with work).
    */
-  ask(text: string): Promise<string>
-  /** Start a voice call whose turns go to {@link ask}; false when voice is unavailable. */
-  talk(): boolean
+  ask(text: string, onProgress?: (progress: Progress) => void): Promise<string>
+  /**
+   * Start a voice call whose turns go to {@link ask}, speaking progress as it comes.
+   * @param describe - the words for one progress update.
+   * @returns false when voice is unavailable.
+   */
+  talk(describe: (progress: Progress) => string): boolean
   /** Refresh now (after a user action). */
   refresh(): Promise<void>
   dismissToast(id: string): void
@@ -135,29 +148,52 @@ export function createLiveStore(): LiveStore {
   }
 
   let asking = 0
-  const ask = async (text: string): Promise<string> => {
+  const ask = async (text: string, onProgress?: (progress: Progress) => void): Promise<string> => {
     const mine = ++asking
+    let sessionId: string | undefined
+    let said = 0
+    let finished = false
+    const report = (progress: Progress): void => {
+      if (finished || mine !== asking) return
+      said++
+      publish({ exchange: { question: text, pending: true, progress, ...sessionId === undefined ? {} : { sessionId } } })
+      onProgress?.(progress)
+    }
+    const ack = setTimeout(() => { if (said === 0) report({ kind: 'ack' }) }, ACK_MS)
     publish({ exchange: { question: text, pending: true } })
     try {
       const started = await api.converse(text)
-      publish({ exchange: { question: text, pending: true, sessionId: started.sessionId } })
+      sessionId = started.sessionId
+      if (snapshot.exchange?.progress === undefined && mine === asking) publish({ exchange: { question: text, pending: true, sessionId } })
       void poll()
       const deadline = Date.now() + ANSWER_TIMEOUT_MS
       let turn = started
+      let seen = 0
       while (turn.status === 'running') {
         if (disposed) throw new Error('closed')
         if (Date.now() > deadline) throw new Error('no answer yet; it is still working in the conversation')
         await new Promise((resolve) => { setTimeout(resolve, ANSWER_POLL_MS) })
         turn = await api.converseTurn(started.id)
+        const updates = turn.updates ?? []
+        // Several updates in one poll: only the newest is still true, so only it is said.
+        const latest = updates.length > seen ? updates.at(-1) : undefined
+        seen = updates.length
+        if (latest !== undefined && turn.status === 'running') report(latest)
       }
+      finished = true
       if (turn.status === 'failed') throw new Error(turn.error ?? 'the turn failed')
       const reply = turn.reply ?? ''
       if (mine === asking) publish({ exchange: { question: text, pending: false, reply, sessionId: turn.sessionId } })
       return reply
     } catch (error) {
+      finished = true
       const message = error instanceof Error ? error.message : String(error)
-      if (mine === asking) publish({ exchange: { ...snapshot.exchange, question: text, pending: false, error: message } })
+      if (mine === asking) {
+        publish({ exchange: { question: text, pending: false, error: message, ...sessionId === undefined ? {} : { sessionId } } })
+      }
       throw error
+    } finally {
+      clearTimeout(ack)
     }
   }
 
@@ -198,9 +234,12 @@ export function createLiveStore(): LiveStore {
     },
     provider: () => provider,
     ask,
-    talk() {
+    talk(describe) {
       if (provider?.converse === undefined) return false
-      provider.converse({ name: 'personal-ai', send: ask })
+      provider.converse({
+        name: 'personal-ai',
+        send: (text, say) => ask(text, say === undefined ? undefined : (progress) => { say(describe(progress)) }),
+      })
       return true
     },
     refresh: poll,

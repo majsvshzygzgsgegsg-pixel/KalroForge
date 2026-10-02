@@ -68,7 +68,7 @@ type Decision = StreamChunk[] | 'hang'
 
 /** Mock model: `turnScript` makes the next turn call one tool; `hang` waits until the turn is cancelled. */
 class ScriptedAdapter extends MockAdapter {
-  turnScript: { id: string; name: string; args: object; issued: boolean } | undefined
+  turnScript: { id: string; name: string; args: object; issued: boolean; text?: string } | undefined
 
   constructor(private readonly decide: (options: GenerateOptions) => Decision) {
     super([])
@@ -80,7 +80,7 @@ class ScriptedAdapter extends MockAdapter {
     let decision: Decision
     if (script !== undefined && !script.issued) {
       script.issued = true
-      decision = toolCallResponse(script.id, script.name, script.args)
+      decision = toolCallResponse(script.id, script.name, script.args, script.text)
     } else if (script !== undefined) {
       this.turnScript = undefined
       decision = textResponse('turn done')
@@ -390,6 +390,26 @@ describe('personal ai', () => {
       .rejects.toMatchObject({ code: 'not-found' })
   }, 30_000)
 
+  it('narrates a Command Center turn while it works and keeps narration out of the answer', async () => {
+    const { ctx, adapter } = await setup()
+    adapter.turnScript = { id: 'call-narrated', name: 'recall', args: { query: 'meeting' }, issued: false, text: 'On it — checking my notes now.' }
+    const narrated = await ctx.personalAi.converse('When is my meeting?')
+    await vi.waitFor(() => { expect(ctx.personalAi.converseTurn(narrated.id).status).toBe('done') })
+    const first = ctx.personalAi.converseTurn(narrated.id)
+    // The model's own words cover the step, so the tool adds no second line.
+    expect(first.updates).toEqual([{ kind: 'say', text: 'On it — checking my notes now.' }])
+    expect(first.reply).toBe('turn done')
+
+    adapter.turnScript = { id: 'call-silent', name: 'recall', args: { query: 'meeting' }, issued: false }
+    const silent = await ctx.personalAi.converse('And the one after?')
+    await vi.waitFor(() => { expect(ctx.personalAi.converseTurn(silent.id).status).toBe('done') })
+    expect(ctx.personalAi.converseTurn(silent.id).updates).toEqual([{ kind: 'tool', category: 'PROJECT', changes: false }])
+
+    const quick = await ctx.personalAi.converse('Hi')
+    await vi.waitFor(() => { expect(ctx.personalAi.converseTurn(quick.id).status).toBe('done') })
+    expect(ctx.personalAi.converseTurn(quick.id).updates).toBeUndefined()
+  }, 30_000)
+
   it('serves the Command Center overview and rejects secrets at the route', async () => {
     const { ctx } = await setup()
     await lead(ctx)
@@ -410,6 +430,8 @@ describe('personal ai', () => {
     await first.ctx.personalAi.remember({ scope: 'user', text: 'Prefers dark mode' }, 'user')
     await first.ctx.personalAi.createProject({ name: 'Persisted' })
     await first.ctx.personalAi.updatePersonality({ name: 'Nova' })
+    const talked = await first.ctx.personalAi.converse('Hi')
+    await vi.waitFor(() => { expect(first.ctx.personalAi.converseTurn(talked.id).status).toBe('done') })
     await first.ctx.fiber.dispose()
     contexts.delete(first.ctx)
 
@@ -417,5 +439,6 @@ describe('personal ai', () => {
     expect(second.ctx.personalAi.memories().map(entry => entry.text)).toEqual(['Prefers dark mode'])
     expect(second.ctx.personalAi.projects().map(project => project.name)).toEqual(['Persisted'])
     expect(second.ctx.personalAi.personality().name).toBe('Nova')
+    expect(second.ctx.personalAi.conversationSessionId()).toBe(talked.sessionId)
   }, 30_000)
 })

@@ -36,6 +36,8 @@ window.__ModuleLoader__.load({
     const SPEAK_WATCHDOG_MS = 90000
     const MIN_SPOKEN_CHARS = 2
     const MAX_SPOKEN_CHARS = 4000
+    /** A progress line is a sentence, not an answer. */
+    const MAX_PROGRESS_CHARS = 300
 
     const STYLE = `
 .vc-group { position: relative; display: inline-flex; align-items: center; gap: 2px; }
@@ -557,15 +559,22 @@ window.__ModuleLoader__.load({
         setReply('')
         setCaption('', false)
         setPhase('waiting')
+        const say = function (line) {
+          if (turn !== channelTurn || !runtime.live || !submittedTurn) return
+          const progress = typeof line === 'string' ? line.slice(0, MAX_PROGRESS_CHARS).trim() : ''
+          if (progress === '') return
+          setReply(progress)
+          if (settings.speak && voice !== null) speakAfterCurrent(progress)
+        }
         let pending
-        try { pending = target.send(text) } catch (failure) { pending = Promise.reject(failure) }
+        try { pending = target.send(text, say) } catch (failure) { pending = Promise.reject(failure) }
         Promise.resolve(pending).then(function (answer) {
           if (turn !== channelTurn || !runtime.live) return
           submittedTurn = false
           const spoken = typeof answer === 'string' ? answer.slice(0, MAX_SPOKEN_CHARS).trim() : ''
           setReply(spoken)
-          if (spoken !== '' && settings.speak && voice !== null) speak(spoken)
-          else { setPhase('listening'); beginRecognition() }
+          if (spoken !== '' && settings.speak && voice !== null) speakAfterCurrent(spoken)
+          else if (!speaking) { setPhase('listening'); beginRecognition() }
         }, function (failure) {
           if (turn !== channelTurn || !runtime.live) return
           submittedTurn = false
@@ -702,6 +711,11 @@ window.__ModuleLoader__.load({
         if (voice === null || speakQueue.length === 0) {
           currentUtterance = null
           speaking = false
+          if (runtime.live && channel !== null && submittedTurn && !bargedIn) {
+            // A progress line ended while the answer is still coming: keep waiting.
+            setPhase('waiting')
+            return
+          }
           if (bargedIn) {
             // The user owns the microphone now; the recognizer never stopped.
             setPhase('listening')
@@ -757,6 +771,18 @@ window.__ModuleLoader__.load({
         speakQueue.length = 0
         for (let index = 0; index < chunks.length; index++) speakQueue.push(chunks[index])
         speakNext()
+      }
+
+      /**
+       * Speak after the sentence now playing instead of cutting it off. Lines
+       * still queued are dropped: the newest progress (or the answer) replaces
+       * anything that is already out of date.
+       */
+      function speakAfterCurrent(text) {
+        if (!speaking || currentUtterance === null) { speak(text); return }
+        const chunks = speechChunks(text)
+        speakQueue.length = 0
+        for (let index = 0; index < chunks.length; index++) speakQueue.push(chunks[index])
       }
 
       function stopSpeaking() {

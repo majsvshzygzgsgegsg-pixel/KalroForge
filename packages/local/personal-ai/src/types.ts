@@ -2,7 +2,7 @@
  * Personal AI records. They live in their own storage domain, layered on the
  * Agent Registry and orchestration records, which keep their own schemas.
  */
-import type { AgentTag } from './core/capabilities.ts'
+import type { AgentTag, CapabilityCategory } from './core/capabilities.ts'
 import type { Depth } from './core/classifier.ts'
 import type { MemoryScope, RankableMemory } from './core/memory.ts'
 
@@ -120,11 +120,24 @@ export interface StoredPersonalSettings {
   readonly conversationSessionId?: string
 }
 
+/**
+ * One live progress update of a running Command Center turn, spoken while the
+ * work is still going. Every update comes from something that really happened:
+ * the model's own words before a tool step, a tool that was allowed to run, or
+ * an approval prompt.
+ */
+export type ConverseUpdate =
+  | { readonly kind: 'say'; readonly text: string }
+  | { readonly kind: 'tool'; readonly category: CapabilityCategory | 'OTHER'; readonly changes: boolean }
+  | { readonly kind: 'approval' }
+
 /** One Command Center turn: sent into the conversation Session, answered by KairoForge. */
 export interface ConverseTurn {
   readonly id: string
   readonly sessionId: string
   readonly status: 'running' | 'done' | 'failed'
+  /** Progress updates in order, while the turn runs. */
+  readonly updates?: readonly ConverseUpdate[]
   /** Final assistant text of the turn (empty when it answered only with tool work). */
   readonly reply?: string
   readonly error?: string

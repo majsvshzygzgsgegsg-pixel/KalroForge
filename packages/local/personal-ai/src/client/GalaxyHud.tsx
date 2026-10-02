@@ -12,6 +12,7 @@ import type { LiveSnapshot, LiveStore } from './store.ts'
 import { GalaxyView } from './GalaxyView.tsx'
 import { readHudPrefs } from './prefs.ts'
 import type { Translate } from './locales.ts'
+import { describeProgress } from './progress.ts'
 import css from './CommandCenter.module.css'
 
 const GROW = css.grow ?? ''
@@ -168,7 +169,11 @@ export function GalaxyHud({ live, store, t, openSession, assistantName }: Galaxy
             <p className={css.turn}>
               <span className={css.speaker}>{assistantName}</span>
               {exchange.pending
-                ? <span className={css.muted}>{awaiting ? t('ask.needsApproval') : t('ask.thinking')}</span>
+                ? <span className={css.muted}>
+                  {awaiting
+                    ? t('ask.needsApproval')
+                    : exchange.progress === undefined ? t('ask.thinking') : describeProgress(exchange.progress, t)}
+                </span>
                 : exchange.error !== undefined
                   ? <span className={css.warning}>{t('ask.failed', { message: exchange.error })}</span>
                   : <span>{exchange.reply === '' || exchange.reply === undefined ? t('ask.noText') : exchange.reply}</span>}
@@ -191,7 +196,7 @@ export function GalaxyHud({ live, store, t, openSession, assistantName }: Galaxy
                   variant={live.voice?.live === true ? 'outline' : 'primary'}
                   onClick={() => {
                     if (live.voice?.live === true) voice.stt.stop()
-                    else if (!store.talk()) voice.stt.start()
+                    else if (!store.talk(progress => describeProgress(progress, t))) voice.stt.start()
                   }}
                 >
                   {live.voice?.live === true ? t('voice.endCall') : t('voice.talk')}
