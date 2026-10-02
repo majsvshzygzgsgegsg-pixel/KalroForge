@@ -81,6 +81,17 @@ async function micGranted(): Promise<boolean> {
 }
 
 /**
+ * Whether the Call is listening right now, from its own snapshot rather than the
+ * polled Host state: Safari holds a reply back while any microphone capture is
+ * open, so the visuals tap must close the moment the Call starts speaking.
+ * @param live - live snapshot.
+ * @returns whether the Call is listening.
+ */
+export function callListening(live: LiveSnapshot): boolean {
+  return live.voice?.live === true && live.voice.phase === 'listening'
+}
+
+/**
  * The microphone stream for the galaxy visuals while the Call is listening.
  * @param listening - whether the Call is listening.
  * @returns the stream, when the browser already granted the microphone.
@@ -119,8 +130,7 @@ export function GalaxyHud({ live, store, t, openSession, assistantName }: Galaxy
   const state = live.state
   const orb: OrbState = live.error !== undefined ? 'error' : state?.orb ?? 'idle'
   const voice = store.provider()
-  const listening = state?.voice === 'listening'
-  const mic = useMicWhileListening(listening)
+  const mic = useMicWhileListening(callListening(live))
   const [prefs, setPrefs] = useState(readHudPrefs)
   useEffect(() => {
     const onChange = (): void => { setPrefs(readHudPrefs()) }

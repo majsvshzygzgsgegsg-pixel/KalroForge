@@ -11,7 +11,7 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { OrbState } from '@local/galaxy'
 import { api, type HoloSnapshot, type HoloView } from './api.ts'
-import { AskForm, useMicWhileListening } from './GalaxyHud.tsx'
+import { AskForm, callListening, useMicWhileListening } from './GalaxyHud.tsx'
 import { GalaxyView } from './GalaxyView.tsx'
 import type { NS, Translate } from './locales.ts'
 import { readHudPrefs } from './prefs.ts'
@@ -218,7 +218,7 @@ function OrbDock({ live, store, openSession, t, name }: {
   const state = live.state
   const orb: OrbState = live.error !== undefined ? 'error' : state?.orb ?? 'idle'
   const voice = store.provider()
-  const mic = useMicWhileListening(state?.voice === 'listening')
+  const mic = useMicWhileListening(callListening(live))
   const prefs = useMemo(readHudPrefs, [])
   const exchange = live.exchange
   const awaiting = exchange?.pending === true && (state?.pendingApprovals ?? 0) > 0

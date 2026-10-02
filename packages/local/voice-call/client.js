@@ -113,6 +113,16 @@ window.__ModuleLoader__.load({
       return window.SpeechRecognition || window.webkitSpeechRecognition || null
     }
 
+    /**
+     * Whether this is Safari (WebKit without Chromium). Safari holds a spoken
+     * reply back while its speech recognizer has the microphone, and plays it
+     * only when the recognizer next stops, so it cannot listen and speak at once.
+     */
+    function speechWaitsForMicrophone() {
+      const agent = typeof navigator.userAgent === 'string' ? navigator.userAgent : ''
+      return /AppleWebKit/.test(agent) && /Safari/.test(agent) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg\/|OPR|Electron/.test(agent)
+    }
+
     /** The app language the recognizer and the copy should use. */
     function detectLocale() {
       return String(document.documentElement.lang || navigator.language || 'en').toLowerCase()
@@ -273,6 +283,7 @@ window.__ModuleLoader__.load({
       const copy = copyFor(locale)
       const voice = window.speechSynthesis === undefined ? null : window.speechSynthesis
       const settings = readSettings()
+      const micHoldsSpeech = speechWaitsForMicrophone()
       const listeners = new Set()
       const voicePreference = { name: '', rate: 1 }
 
@@ -429,6 +440,11 @@ window.__ModuleLoader__.load({
         return Date.now() < echoUntil
       }
 
+      /** Whether the microphone stays open while a reply is spoken (talking over it interrupts). */
+      function listensWhileSpeaking() {
+        return settings.bargeIn && !micHoldsSpeech
+      }
+
       /** Stop the microphone without ending the call. */
       function stopRecognition() {
         const active = recognition
@@ -437,7 +453,11 @@ window.__ModuleLoader__.load({
         active.onresult = null
         active.onerror = null
         active.onend = null
-        try { active.stop() } catch (_error) { /* already stopped */ }
+        // Its handlers are gone, so nothing waits for a final result: abort releases the microphone at once.
+        try {
+          if (typeof active.abort === 'function') active.abort()
+          else active.stop()
+        } catch (_error) { /* already stopped */ }
       }
 
       function scheduleRestart() {
@@ -453,6 +473,8 @@ window.__ModuleLoader__.load({
       /** Begin one recognition session; restarting is the caller's decision. */
       function beginRecognition() {
         if (!runtime.live || !wantListening || recognition !== null || Recognizer === null) return
+        // The reply's end reopens the microphone; a restart timer must not open it mid-reply.
+        if (speaking && !listensWhileSpeaking()) return
         if (echoHeld() && !speaking) { scheduleRestart(); return }
         let session
         try {
@@ -751,6 +773,8 @@ window.__ModuleLoader__.load({
         utterance.onend = function () { currentUtterance = null; speakNext() }
         utterance.onerror = function () { currentUtterance = null; speakNext() }
         currentUtterance = utterance
+        // A synthesizer left paused (an interrupted audio session) queues forever without this.
+        if (voice.paused === true && typeof voice.resume === 'function') voice.resume()
         voice.speak(utterance)
       }
 
@@ -764,8 +788,12 @@ window.__ModuleLoader__.load({
         // microphone hears the assistant's own voice through the speakers and
         // mistakes it for the user. Keeping it open is the opt-in interruption
         // mode, and even then the self-echo filter and the level gate must both
-        // agree before a word counts as the user.
-        if (!settings.bargeIn) stopRecognition()
+        // agree before a word counts as the user. Safari always closes it (see
+        // speechWaitsForMicrophone), or the reply would wait for the next phrase.
+        if (!listensWhileSpeaking()) {
+          if (restartTimer !== null) { window.clearTimeout(restartTimer); restartTimer = null }
+          stopRecognition()
+        }
         setPhase('speaking')
         voice.cancel()
         const chunks = speechChunks(text)

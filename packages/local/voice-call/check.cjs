@@ -406,6 +406,56 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
   assert.equal(spoken.at(-1), 'Your deck has a counter now.', 'a live call speaks only its own turns')
   React.act(() => { runtime.toggle() })
 
+  // ---- Safari: the microphone closes for every spoken line -----------------
+  // Safari holds speech back while its recognizer has the microphone, even with
+  // talk-over on, so each line closes the microphone and the reply's end reopens it.
+  const safariNavigator = {
+    language: 'en-US',
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15',
+  }
+  registered = null
+  run(window, window, window.document, safariNavigator)
+  const entriesBeforeSafari = entries.length
+  registered.factory(spec => {
+    if (spec === 'react') return React
+    throw new Error('unexpected module request: ' + spec)
+  }).apply(ctx)
+  const safariRuntime = entries.slice(entriesBeforeSafari)
+    .find(entry => entry.options.id === 'voice-call-control').options.inject('session-1').runtime
+  assert.notEqual(safariRuntime, runtime, 'the Safari runtime is a fresh instance')
+  assert.equal(safariRuntime.settings.bargeIn, true, 'talk-over stays on as a preference')
+  let safariAnswer = null
+  let safariSay = null
+  const safariChannel = {
+    name: 'personal-ai',
+    send(_text, update) { safariSay = update; return new Promise((resolve) => { safariAnswer = resolve }) },
+  }
+  spoken.length = 0
+  React.act(() => { safariRuntime.startWith(safariChannel) })
+  const safariSession = await currentSession()
+  React.act(() => {
+    safariSession.onresult({
+      resultIndex: 0,
+      results: [Object.assign([{ transcript: 'add a counter to the deck' }], { isFinal: true })],
+    })
+  })
+  assert.equal(safariRuntime.phase, 'waiting', 'the Safari call waits for the answer')
+  React.act(() => { safariSay('On it.') })
+  assert.deepEqual(spoken, ['On it.'], 'Safari speaks the acknowledgement')
+  assert.equal(safariSession.ended, true, 'Safari closed the microphone to speak')
+  assert.equal(started.filter(session => !session.ended).length, 0, 'no microphone is open while Safari speaks')
+  React.act(() => { finishUtterance() })
+  assert.equal(safariRuntime.phase, 'waiting', 'after the acknowledgement Safari keeps waiting')
+  await React.act(async () => { safariAnswer('Added a counter.') })
+  await until('the Safari answer to be spoken', () => spoken.at(-1) === 'Added a counter.')
+  assert.equal(safariRuntime.phase, 'speaking', 'Safari speaks the answer right away, not on the next phrase')
+  assert.equal(started.filter(session => !session.ended).length, 0, 'the microphone stays closed for the answer')
+  React.act(() => { finishUtterance() })
+  assert.equal(safariRuntime.phase, 'listening', 'the answer ended and Safari listens again')
+  await currentSession()
+  React.act(() => { safariRuntime.toggle() })
+  assert.equal(safariRuntime.live, false, 'the Safari call ended')
+
   React.act(() => { root.unmount(); stripRoot.unmount() })
   for (const dispose of effects) if (typeof dispose === 'function') dispose()
 
