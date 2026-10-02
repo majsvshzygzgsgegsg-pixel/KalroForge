@@ -38,6 +38,9 @@ window.__ModuleLoader__.load({
     const MAX_SPOKEN_CHARS = 4000
     /** A progress line is a sentence, not an answer. */
     const MAX_PROGRESS_CHARS = 300
+    /** How often a playing line is checked, and how many quiet checks mean it ended. */
+    const SPEECH_WATCH_MS = 400
+    const SPEECH_QUIET_TICKS = 3
 
     const STYLE = `
 .vc-group { position: relative; display: inline-flex; align-items: center; gap: 2px; }
@@ -111,16 +114,6 @@ window.__ModuleLoader__.load({
     /** The browser's SpeechRecognition constructor, when this browser has one. */
     function speechRecognitionType() {
       return window.SpeechRecognition || window.webkitSpeechRecognition || null
-    }
-
-    /**
-     * Whether this is Safari (WebKit without Chromium). Safari holds a spoken
-     * reply back while its speech recognizer has the microphone, and plays it
-     * only when the recognizer next stops, so it cannot listen and speak at once.
-     */
-    function speechWaitsForMicrophone() {
-      const agent = typeof navigator.userAgent === 'string' ? navigator.userAgent : ''
-      return /AppleWebKit/.test(agent) && /Safari/.test(agent) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg\/|OPR|Electron/.test(agent)
     }
 
     /** The app language the recognizer and the copy should use. */
@@ -283,7 +276,6 @@ window.__ModuleLoader__.load({
       const copy = copyFor(locale)
       const voice = window.speechSynthesis === undefined ? null : window.speechSynthesis
       const settings = readSettings()
-      const micHoldsSpeech = speechWaitsForMicrophone()
       const listeners = new Set()
       const voicePreference = { name: '', rate: 1 }
 
@@ -365,6 +357,7 @@ window.__ModuleLoader__.load({
       let spokenKeys = new Set()
       const speakQueue = []
       let currentUtterance = null
+      let speechWatch = null
       let voiceList = []
       let voiceSubscribed = false
       let speakStartedAt = 0
@@ -440,11 +433,6 @@ window.__ModuleLoader__.load({
         return Date.now() < echoUntil
       }
 
-      /** Whether the microphone stays open while a reply is spoken (talking over it interrupts). */
-      function listensWhileSpeaking() {
-        return settings.bargeIn && !micHoldsSpeech
-      }
-
       /** Stop the microphone without ending the call. */
       function stopRecognition() {
         const active = recognition
@@ -474,7 +462,7 @@ window.__ModuleLoader__.load({
       function beginRecognition() {
         if (!runtime.live || !wantListening || recognition !== null || Recognizer === null) return
         // The reply's end reopens the microphone; a restart timer must not open it mid-reply.
-        if (speaking && !listensWhileSpeaking()) return
+        if (speaking && !settings.bargeIn) return
         if (echoHeld() && !speaking) { scheduleRestart(); return }
         let session
         try {
@@ -616,9 +604,7 @@ window.__ModuleLoader__.load({
         speaking = false
         echoUntil = 0
         speakStartedAt = 0
-        if (voice !== null) voice.cancel()
-        speakQueue.length = 0
-        currentUtterance = null
+        silenceVoice()
         setReply('')
         if (heard !== undefined && heard !== '') setCaption(heard, true)
         submittedTurn = false
@@ -770,12 +756,49 @@ window.__ModuleLoader__.load({
         utterance.rate = voicePreference.rate
         utterance.pitch = 1.04
         utterance.volume = 1
-        utterance.onend = function () { currentUtterance = null; speakNext() }
-        utterance.onerror = function () { currentUtterance = null; speakNext() }
+        // Only the utterance now playing may advance the queue: a cancelled one
+        // reports its end late (or, in Safari, during cancel()) and must not.
+        const finish = function () {
+          if (currentUtterance !== utterance) return
+          clearSpeechWatch()
+          currentUtterance = null
+          speakNext()
+        }
+        utterance.onend = finish
+        utterance.onerror = finish
         currentUtterance = utterance
         // A synthesizer left paused (an interrupted audio session) queues forever without this.
         if (voice.paused === true && typeof voice.resume === 'function') voice.resume()
         voice.speak(utterance)
+        watchSpeech(finish)
+      }
+
+      /**
+       * Safari can drop an utterance's end event (it still plays), which would
+       * leave the answer queued behind it until something else cancels speech.
+       * A synthesizer that has gone quiet has finished, whatever it reported.
+       */
+      function watchSpeech(finish) {
+        clearSpeechWatch()
+        if (typeof voice.speaking !== 'boolean') return
+        let quiet = 0
+        speechWatch = window.setInterval(function () {
+          if (voice.speaking || voice.pending) { quiet = 0; return }
+          quiet++
+          if (quiet >= SPEECH_QUIET_TICKS) finish()
+        }, SPEECH_WATCH_MS)
+      }
+
+      function clearSpeechWatch() {
+        if (speechWatch !== null) { window.clearInterval(speechWatch); speechWatch = null }
+      }
+
+      /** Drop everything queued or playing; the queue is emptied first so a late end event finds nothing. */
+      function silenceVoice() {
+        speakQueue.length = 0
+        currentUtterance = null
+        clearSpeechWatch()
+        if (voice !== null) voice.cancel()
       }
 
       function speak(text) {
@@ -788,14 +811,12 @@ window.__ModuleLoader__.load({
         // microphone hears the assistant's own voice through the speakers and
         // mistakes it for the user. Keeping it open is the opt-in interruption
         // mode, and even then the self-echo filter and the level gate must both
-        // agree before a word counts as the user. Safari always closes it (see
-        // speechWaitsForMicrophone), or the reply would wait for the next phrase.
-        if (!listensWhileSpeaking()) {
-          if (restartTimer !== null) { window.clearTimeout(restartTimer); restartTimer = null }
-          stopRecognition()
-        }
+        // agree before a word counts as the user.
+        if (!settings.bargeIn) stopRecognition()
         setPhase('speaking')
-        voice.cancel()
+        // cancel() right before speak() makes Safari lose the next end event, so
+        // the synthesizer is only cancelled when something is actually playing.
+        if (currentUtterance !== null || voice.speaking === true || voice.pending === true) silenceVoice()
         const chunks = speechChunks(text)
         speakQueue.length = 0
         for (let index = 0; index < chunks.length; index++) speakQueue.push(chunks[index])
@@ -808,7 +829,8 @@ window.__ModuleLoader__.load({
        * anything that is already out of date.
        */
       function speakAfterCurrent(text) {
-        if (!speaking || currentUtterance === null) { speak(text); return }
+        const stalled = voice !== null && voice.speaking === false && voice.pending === false
+        if (!speaking || currentUtterance === null || stalled) { speak(text); return }
         const chunks = speechChunks(text)
         speakQueue.length = 0
         for (let index = 0; index < chunks.length; index++) speakQueue.push(chunks[index])
@@ -825,9 +847,7 @@ window.__ModuleLoader__.load({
       }
 
       function stopSpeaking() {
-        if (voice !== null) voice.cancel()
-        speakQueue.length = 0
-        currentUtterance = null
+        silenceVoice()
         const wasSpeaking = speaking
         speaking = false
         if (!runtime.live) {
@@ -842,9 +862,7 @@ window.__ModuleLoader__.load({
       /** Cut the reply and start listening at once, for a manual interrupt. */
       function interruptAndListen() {
         const wasSpeaking = speaking
-        if (voice !== null) voice.cancel()
-        speakQueue.length = 0
-        currentUtterance = null
+        silenceVoice()
         speaking = false
         bargedIn = false
         speakStartedAt = 0
@@ -951,9 +969,7 @@ window.__ModuleLoader__.load({
         submittedTurn = false
         if (restartTimer !== null) { window.clearTimeout(restartTimer); restartTimer = null }
         stopRecognition()
-        if (voice !== null) voice.cancel()
-        speakQueue.length = 0
-        currentUtterance = null
+        silenceVoice()
         syncWatcher()
         runtime.caption = ''
         runtime.partial = false
