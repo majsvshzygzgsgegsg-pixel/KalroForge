@@ -4,7 +4,7 @@ import { agentTags, categoryOf, groupTools, proposeAgent, rankAgents, tagsIn, ty
 import { classifyDepth, DEPTH_GUIDANCE, isActionable } from '../src/core/classifier.ts'
 import { relevantMemories, searchMemories, type RankableMemory } from '../src/core/memory.ts'
 import { summarizeTurns, type TurnRecord } from '../src/core/metrics.ts'
-import { classifyRisk } from '../src/core/risk.ts'
+import { catastrophicReason, classifyRisk } from '../src/core/risk.ts'
 import { findSensitive } from '../src/core/sensitive.ts'
 import { parseCategories, voiceToolbelt, voiceTools } from '../src/core/voice-tools.ts'
 import { coordinatorPrompt } from '../src/tools.ts'
@@ -165,6 +165,24 @@ describe('agent selection', () => {
     const builder = proposeAgent('implement and test backend features', 'Backend Builder')
     expect(builder.name).toBe('Backend Builder')
     expect(builder.permissions).toEqual({ preset: 'workspace-write', agentAdministration: false })
+  })
+})
+
+describe('auto-approve hard floor', () => {
+  it('refuses disk, home, root, and protection wipes', () => {
+    for (const command of [
+      'rm -rf ~', 'rm -rf ~/', 'rm -rf $HOME', 'rm -fr /', 'sudo rm -rf /*', 'rm -r -f "/Users/frank"', 'rm -rf /System',
+      'diskutil eraseDisk APFS X disk2', 'mkfs.ext4 /dev/sda1', 'dd if=/dev/zero of=/dev/disk2', 'csrutil disable', 'sudo nvram -c',
+    ]) expect(catastrophicReason('bash', { command }), command).toMatch(/Refused even with auto-approve on/)
+    expect(catastrophicReason('applescript', { script: 'do shell script "rm -rf ~"' })).toBeDefined()
+  })
+
+  it('lets ordinary and project-scoped destructive work through', () => {
+    for (const command of [
+      'rm -rf node_modules', 'rm -rf ~/Projects/app/dist', 'rm -rf /tmp/build', 'git push origin main', 'sudo npm i -g pnpm', 'dd if=a of=b',
+    ]) expect(catastrophicReason('bash', { command }), command).toBeUndefined()
+    expect(catastrophicReason('applescript', { script: 'tell application "Mail" to send theMessage' })).toBeUndefined()
+    expect(catastrophicReason('write', { path: '/', content: '' })).toBeUndefined()
   })
 })
 

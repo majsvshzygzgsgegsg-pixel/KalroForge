@@ -1,16 +1,19 @@
 /**
  * Runtime hooks for the coordinator. They observe coordinator Sessions to
- * drive the live assistant state and turn metrics, and they can only make the
- * permission path stricter: a SENSITIVE call that the preset would run
- * silently becomes a normal confirmation. They never turn an `ask` or `deny`
- * into an `allow`.
+ * drive the live assistant state and turn metrics. By default they only make
+ * the permission path stricter: a SENSITIVE call that the preset would run
+ * silently becomes a normal confirmation. With `autoApprove` on, every `ask`
+ * (from any hook or preset) becomes an `allow` and approval requests are
+ * answered "allowed once"; `deny` decisions stay, and disk-, home-, or
+ * protection-wiping commands are refused.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent'
 import type { PostToolDecision, PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
+import type { ApprovalOutcome } from '@deepseek-ai/dsh-user-approval'
 import { textOf } from '@local/main-agents'
 import { isDelegatingTool } from './core/assistant-state.ts'
-import { classifyRisk } from './core/risk.ts'
+import { catastrophicReason, classifyRisk } from './core/risk.ts'
 import type { Config } from './index.ts'
 import type { PersonalAi } from './service.ts'
 
@@ -31,6 +34,17 @@ function toolCallCount(content: unknown): number {
  * @param config - plugin configuration.
  */
 export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config: Config): void {
+  service.autoApprove = config.autoApprove
+  if (config.autoApprove) {
+    // Outermost (prepended), so an `ask` from any later hook or preset is caught here.
+    ctx.on('tools/pre-execute', async (exec: ToolExecution, next): Promise<PreToolDecision> => {
+      const ruin = catastrophicReason(exec.name, exec.arguments)
+      if (ruin !== undefined) return { kind: 'deny', reason: ruin }
+      const decision = await next()
+      return decision.kind === 'ask' ? { kind: 'allow' } : decision
+    }, true)
+    ctx.on('approval/request', (): Promise<ApprovalOutcome> => Promise.resolve('allowed-once'), true)
+  }
   ctx.on('session/event', (session, event) => {
     if (event.type === 'approval/asked' || event.type === 'approval/decided') {
       service.noteApproval(session.id, (event.data as { id: string }).id, event.type === 'approval/asked')
@@ -115,7 +129,7 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
     const mode = exec.agent === undefined ? undefined : ctx.get('mainAgents')?.modeOf(exec.agent)
     const directPush = mode !== undefined && (ctx.get('orchestration')?.settings().checkpoints.directPushModes ?? []).includes(mode)
     const risk = classifyRisk(exec.name, exec.arguments, { directPush })
-    const gated = risk.risk === 'SENSITIVE' && (OWN_GATED.has(exec.name) || config.confirmSensitive)
+    const gated = !config.autoApprove && risk.risk === 'SENSITIVE' && (OWN_GATED.has(exec.name) || config.confirmSensitive)
     if (gated && exec.agent !== undefined && ctx.get('approval')?.policyOf(exec.agent.session) === 'never') {
       return {
         kind: 'deny',

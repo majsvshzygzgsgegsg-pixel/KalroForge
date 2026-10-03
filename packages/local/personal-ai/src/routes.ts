@@ -219,7 +219,7 @@ async function toolGroups(ctx: Context, sessionId: string | undefined): Promise<
 /** Assistant state plus whether Holo Hands is open; every state reply carries both so the deck never flickers shut. */
 function stateView(service: PersonalAi, ctx: Context, sessionId?: string): Record<string, unknown> {
   const holo = ctx.get('holoDeck')
-  return { ...service.assistantState(sessionId), ...holo === undefined ? {} : { holo: holo.view() } }
+  return { ...service.assistantState(sessionId), autoApprove: service.autoApprove, ...holo === undefined ? {} : { holo: holo.view() } }
 }
 
 function devOf(ctx: Context): DevKit {

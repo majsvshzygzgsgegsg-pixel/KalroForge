@@ -61,6 +61,12 @@ export interface Config {
   readonly bringUpEditor: boolean
   /** Escalate SENSITIVE tool calls in coordinator Sessions to a confirmation when the preset would allow them silently. */
   readonly confirmSensitive: boolean
+  /**
+   * Approve every confirmation automatically (preset prompts and the SENSITIVE
+   * gate alike), so nothing waits on a prompt. Disk-, home-, or
+   * protection-wiping commands are still refused.
+   */
+  readonly autoApprove: boolean
   /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
   readonly holo: { readonly dir: string; readonly port: number; readonly autoStart: boolean }
 }
@@ -73,6 +79,7 @@ export const Config: z<Config> = z.object({
   followEdits: z.boolean().default(true),
   bringUpEditor: z.boolean().default(true),
   confirmSensitive: z.boolean().default(true),
+  autoApprove: z.boolean().default(false),
   holo: z.object({
     dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),
     port: z.natural().default(DEFAULT_HOLO_CONFIG.port),

@@ -155,6 +155,7 @@ async function setup(
   holo: HoloOptions = { dir: tempDir('pai-holo-'), port: 1, autoStart: false },
   // Tests never open the real Cursor: bring-up is off unless a test stubs it.
   bringUpEditor = false,
+  autoApprove = false,
 ): Promise<Setup> {
   const ctx = new Context()
   contexts.add(ctx)
@@ -190,7 +191,7 @@ async function setup(
     return id.startsWith('fast-') ? 'fast' : id.startsWith('chat-') ? 'chat' : modeOf(agent)
   })
   await ctx.plugin(personalAi, {
-    coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, bringUpEditor, confirmSensitive: true, holo,
+    coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, bringUpEditor, confirmSensitive: true, autoApprove, holo,
   })
   await vi.waitFor(() => { expect(ctx.get('personalAi')).toBeDefined() })
   await ctx.personalAi.whenReady()
@@ -392,6 +393,34 @@ describe('personal ai', () => {
     expect(result.text).toMatch(/Do not use screen, keyboard, or other tools to do the same thing/)
     expect(asked).toEqual([])
     expect(ctx.personalAi.memories()).toHaveLength(0)
+  }, 30_000)
+
+  it('auto-approves a sensitive call with approval prompts off when autoApprove is on, without asking', async () => {
+    const s = await setup(undefined, undefined, false, true)
+    const { ctx } = s
+    await ctx.plugin(ApprovalService, { policy: 'never' })
+    const asked: string[] = []
+    ctx.on('approval/request', (request) => {
+      asked.push(request.toolName)
+      return Promise.resolve<ApprovalOutcome>('rejected')
+    })
+    const view = await ctx.mainAgents.create('Helper', {}, { kind: 'user' })
+    const helper = liveAgent(ctx, view.sessionId)
+    await vi.waitFor(async () => { expect(await toolNames(ctx, helper)).toContain('remember') })
+    const result = await viaTurn(s, helper, 'remember', { text: 'Prefers pnpm over npm', scope: 'user' })
+    expect(result.isError).toBe(false)
+    expect(asked).toEqual([])
+    expect(ctx.personalAi.memories()).toHaveLength(1)
+    expect(ctx.personalAi.autoApprove).toBe(true)
+  }, 30_000)
+
+  it('answers approval requests "allowed once" when autoApprove is on', async () => {
+    const { ctx } = await setup(undefined, undefined, false, true)
+    await ctx.plugin(ApprovalService)
+    const lead = await ctx.agentLoop.create(SessionId('auto-approve-lead'), { provider: 'mock', model: 'lead' })
+    const request = { agent: lead, toolName: 'bash' } as never
+    const answered = await (ctx.waterfall(lead, 'approval/request', request, () => Promise.resolve<ApprovalOutcome>('unavailable')) as Promise<ApprovalOutcome>)
+    expect(answered).toBe('allowed-once')
   }, 30_000)
 
   it('stores memories, refuses secrets, and asks before saving a memory about the user', async () => {

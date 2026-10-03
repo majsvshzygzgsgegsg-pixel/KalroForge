@@ -2,8 +2,9 @@
  * Approval classes for coordinator tool calls. The KairoForge permission
  * presets stay the authority: LOW RISK and MODIFYING calls get exactly the
  * decision the preset gives; SENSITIVE calls additionally ask the user when
- * the preset would have allowed them silently. Nothing here ever turns an
- * `ask` or `deny` into an `allow`.
+ * the preset would have allowed them silently. Nothing here turns an `ask`
+ * into an `allow`; the `autoApprove` setting in `hooks.ts` does that, and it
+ * still refuses {@link catastrophicReason} calls.
  */
 import { isReadOnlyCommand } from '@local/main-agents'
 import { categoryOf } from './capabilities.ts'
@@ -91,6 +92,33 @@ const DESTRUCTIVE_PUSH = /\s(?:-f|-d|--force\S*|--delete|--mirror|--prune)(?=\s|
  */
 export function withoutPlainPushes(command: string): string {
   return command.replace(PUSH, push => DESTRUCTIVE_PUSH.test(push) ? push : `git status${/\s*$/.exec(push)?.[0] ?? ''}`)
+}
+
+const HOME_OR_ROOT = String.raw`(?:/|~|\$HOME|\$\{HOME\}|/Users(?:/[^/\s'"]+)?|/System|/Library|/Applications)/?\*?`
+/** Commands that can wipe the disk, the home folder, or the Mac's protections; auto-approve never runs these. */
+const CATASTROPHIC_COMMAND = new RegExp([
+  String.raw`\bdiskutil\s+(?:erase|partition|reformat|zero|secureErase)`, String.raw`\bmkfs\b`, String.raw`\bdd\b[^|;&\n]*\bof=/dev/`,
+  String.raw`\brm\s+(?:-[a-z]*\s+)*-[a-z]*r[a-z]*\s+(?:-[a-z-]+\s+)*['"]?${HOME_OR_ROOT}['"]?(?=\s|$|[;&|])`,
+  String.raw`\bcsrutil\s+disable\b`, String.raw`\bnvram\b`, String.raw`\bspctl\s+--master-disable\b`, String.raw`:\(\)\s*\{\s*:\|:&\s*\};:`,
+].join('|'), 'i')
+const CATASTROPHIC_SCRIPT = /\b(?:erase|format)\s+disk\b/i
+
+/**
+ * The call auto-approve still refuses: a shell command or script that could
+ * erase a disk, the home folder, or the Mac's protections.
+ * @param tool - tool name.
+ * @param args - tool arguments.
+ * @returns a reason when the call must not run without the user, else undefined.
+ */
+export function catastrophicReason(tool: string, args: unknown): string | undefined {
+  const command = tool === 'bash' || tool === 'pwsh' || tool === 'terminal_send'
+    ? stringField(args, 'command', 'text', 'input')
+    : tool === 'applescript' ? stringField(args, 'script') : ''
+  if (command === '') return undefined
+  const ruinous = CATASTROPHIC_COMMAND.test(command) || (tool === 'applescript' && CATASTROPHIC_SCRIPT.test(command))
+  if (!ruinous) return undefined
+  return `Refused even with auto-approve on: "${command.replaceAll(/\s+/g, ' ').slice(0, 80)}" could wipe the disk, the home folder, or the Mac's protections. `
+    + 'Do not retry it another way; tell the user exactly what to run themselves if they really want it.'
 }
 
 /**

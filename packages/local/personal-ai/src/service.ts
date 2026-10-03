@@ -139,6 +139,8 @@ export class PersonalAi extends Service {
   private readonly converseBySession = new Map<string, PendingConverse>()
   private voice: VoicePhase = 'off'
   private focus: string | undefined
+  /** Whether confirmations are approved automatically (the `autoApprove` setting, set when the hooks install). */
+  autoApprove = false
 
   /**
    * @param ctx - Host context.

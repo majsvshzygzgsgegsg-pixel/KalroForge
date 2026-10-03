@@ -55,6 +55,9 @@ export const MAC_CONTROL_GUIDANCE = [
   '(System Events clicks buttons and menus by name). Never write or run pyautogui, pynput,',
   'cliclick, or other simulated mouse/keyboard scripts. Never guess an app\'s terms: use the applescript cookbook or call applescript_dictionary first.',
   'Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen.',
+  'Be fast: do the whole request in one call where you can (one script may open an app and type), go straight to a URL',
+  '(a YouTube search or a channel\'s /videos page, a Maps search) instead of reading the screen, and once a call succeeds reply in one short sentence',
+  'without re-checking the screen.',
 ].join(' ')
 
 /** Shown instead of live context when the Cursor extension is not reporting. */

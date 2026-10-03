@@ -284,6 +284,11 @@
     # and the living-galaxy HUD.
     - id: local-personal-ai
       name: '@local/personal-ai'
+      # Approve every confirmation automatically (nothing waits on a prompt);
+      # disk-, home-, or protection-wiping commands are still refused.
+      # Set to false to get approval prompts back.
+      config:
+        autoApprove: true
 
     - id: office-to-pdf
       name: '@deepseek-ai/dsh-office-to-pdf'
