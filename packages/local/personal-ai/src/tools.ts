@@ -48,6 +48,13 @@ export const EDITOR_BUILD_GUIDANCE = [
   '- Do not call open_in_editor for files you edited; they are already open. Use it only to show a file you did not change.',
 ].join('\n')
 
+/** How to control the Mac: AppleScript first, never simulated input scripts. */
+export const MAC_CONTROL_GUIDANCE = [
+  'Mac control: use the applescript tool first for anything on the Mac — opening, quitting, and switching apps, Finder, Music, Safari tabs, Mail, Notes,',
+  'Reminders, Calendar, volume, notifications, and clicking buttons or menus by name through System Events. Never write or run pyautogui, pynput,',
+  'cliclick, or other simulated mouse/keyboard scripts. Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen.',
+].join(' ')
+
 /** Shown instead of live context when the Cursor extension is not reporting. */
 export const EDITOR_OFFLINE_NOTE = [
   'Cursor\'s live context is not available right now (Cursor is closed, or it has not reloaded the KairoForge extension yet);',
@@ -104,8 +111,9 @@ export function coordinatorPrompt(personality: Personality): string {
     'Running work: when the user asks to pause, stop, change, or constrain running work, use pause_task, resume_task, cancel_task, update_task, or add_task_constraint, and report the returned outcome exactly (applied, delivered, or rejected). Never resume possibly destructive work without checking its state first.',
     'Agents: recommend_agent ranks main agents for a task; if the user names a different agent, theirs wins. propose_agent drafts a new agent — show the proposal and create it with create_main_agent only after the user agrees.',
     'Computer control and sensitive actions go through KairoForge\'s normal approval prompts. If something is denied, do not look for a way around it.',
+    ...process.platform === 'darwin' ? [MAC_CONTROL_GUIDANCE] : [],
     'Life OS: search_brain searches the user\'s own indexed files (notes, PDFs, code) — use it for questions about their work or life before guessing. When the user tells you how people, projects, or problems relate ("Michael is my boss"), record it with link_entities; graph_query recalls it. When you notice you keep doing the same job by hand, write yourself a tool with create_tool.',
-    'Coding: when the user\'s editor is connected you are told its active file, cursor, selection, and problems — "this", "here", and "this error" mean them. Never guess a path: use the repo map you are given, or repo_map / glob, and read before editing. After an edit, a syntax check result may follow; fix a reported failure first. Use open_in_editor to show the user what you changed.',
+    'Coding: when the user\'s editor is connected you are told its active file, cursor, selection, and problems — "this", "here", and "this error" mean them. Never guess a path: use the repo map you are given, or repo_map / glob, and read before editing. After an edit, a syntax check result may follow; fix a reported failure first. Files you edit open in Cursor automatically.',
     'Holo Hands: when the user says "open holo", "open holo hands", or similar, call open_holo and report what it returned. While it is open, build what they ask for on the deck with holo_add and wire things together with holo_connect; a widget can be anything you can write in HTML/CSS/JS.',
   )
   return lines.join('\n')
@@ -254,7 +262,8 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       })
     }
     const text = kit.contextFor(agent.session.id, agent.session.header.cwd, request)
-    const guidance = kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE
+    const editor = kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE
+    const guidance = process.platform === 'darwin' ? `${editor}\n${MAC_CONTROL_GUIDANCE}` : editor
     return text === '' ? guidance : `${text}\n\n${guidance}`
   }
   /** Editor tools (every mode except the answer-only ones) plus `github` in the build modes. */

@@ -31,7 +31,7 @@ import * as mainAgents from '@local/main-agents'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as personalAi from '../src/index.ts'
 import { handlePersonalAiRoute } from '../src/routes.ts'
-import { EDITOR_BUILD_GUIDANCE, EDITOR_OFFLINE_NOTE } from '../src/tools.ts'
+import { EDITOR_BUILD_GUIDANCE, EDITOR_OFFLINE_NOTE, MAC_CONTROL_GUIDANCE } from '../src/tools.ts'
 
 const SIGNAL = new AbortController().signal
 const roots: string[] = []
@@ -290,6 +290,10 @@ describe('personal ai', () => {
     await vi.waitFor(async () => { expect((await assembled(ctx, leadAgent)).contexts).toContain(EDITOR_BUILD_GUIDANCE) })
     expect((await assembled(ctx, leadAgent)).contexts).toContain(EDITOR_OFFLINE_NOTE)
     expect(await toolNames(ctx, leadAgent)).toEqual(expect.arrayContaining(['editor_context', 'repo_map', 'open_in_editor']))
+    if (process.platform === 'darwin') {
+      expect((await assembled(ctx, leadAgent)).contexts).toContain(MAC_CONTROL_GUIDANCE)
+      expect(await toolNames(ctx, leadAgent)).toContain('applescript')
+    }
 
     const fast = await ctx.agentLoop.create(SessionId('fast-editor'), { provider: 'mock', model: 'lead' })
     await vi.waitFor(async () => { expect(await toolNames(ctx, fast)).toContain('open_in_editor') })
@@ -299,6 +303,7 @@ describe('personal ai', () => {
     await vi.waitFor(() => { expect(ctx.agents.get(SessionId('chat-editor'))).toBe(chat) })
     expect(await toolNames(ctx, chat)).not.toContain('open_in_editor')
     expect((await assembled(ctx, chat)).contexts).not.toContain('Cursor is the user\'s editor')
+    expect((await assembled(ctx, chat)).contexts).not.toContain(MAC_CONTROL_GUIDANCE)
 
     // A live editor report replaces the offline note with the editor's own context.
     ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [tempDir('pai-workspace-')], openFiles: [], diagnostics: [], at: new Date().toISOString() })

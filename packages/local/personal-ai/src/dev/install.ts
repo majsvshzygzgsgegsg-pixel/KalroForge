@@ -34,6 +34,29 @@ const EDIT_TOOLS = new Set(['edit', 'write', 'str_replace_editor', 'apply_patch'
 /** Name of the AppleScript / JXA tool. */
 export const APPLESCRIPT_TOOL = 'applescript'
 const OSASCRIPT = '/usr/bin/osascript'
+const SIMULATED_INPUT_COMMAND = /\b(?:pyautogui|pynput|cliclick|autopy|pyobjc-framework-Quartz)\b/i
+const SIMULATED_INPUT_IMPORT = /^\s*(?:import|from)\s+(?:pyautogui|pynput|autopy)\b/m
+const SIMULATED_INPUT_REASON = 'Simulated mouse/keyboard scripts (pyautogui, pynput, cliclick) are not used on this Mac. '
+  + 'Control apps with the applescript tool instead (System Events can click buttons and menus by name); '
+  + 'use the screenshot-and-click computer tools only for an app AppleScript cannot reach.'
+
+/**
+ * Why a call that drives the Mac through simulated input is refused, if it is one.
+ * @param tool - tool name.
+ * @param args - tool arguments.
+ * @returns the refusal reason, or undefined to let the call through.
+ */
+export function simulatedInputReason(tool: string, args: unknown): string | undefined {
+  if (tool === 'bash' || tool === 'pwsh' || tool === 'terminal_send') {
+    const command = pathArg(args, 'command', 'text', 'input') ?? ''
+    return SIMULATED_INPUT_COMMAND.test(command) ? SIMULATED_INPUT_REASON : undefined
+  }
+  if (EDIT_TOOLS.has(tool)) {
+    const content = pathArg(args, 'content', 'new_string', 'new_str', 'file_text', 'patch', 'input') ?? ''
+    return SIMULATED_INPUT_IMPORT.test(content) ? SIMULATED_INPUT_REASON : undefined
+  }
+  return undefined
+}
 const MAX_SCRIPT_OUTPUT = 20_000
 const MAX_BRIDGE_BODY = 160 * 1024
 const LOOPBACK_HOST = /^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/
@@ -143,6 +166,15 @@ export function installDevHooks(ctx: Context, dev: DevKit, follows: (agent: Agen
     return next()
   }, { prepend: true })
 
+  if (process.platform === 'darwin') {
+    ctx.on('tools/pre-execute', async (exec: ToolExecution, next: () => Promise<PreToolDecision>): Promise<PreToolDecision> => {
+      const reason = simulatedInputReason(exec.name, exec.arguments)
+      if (reason === undefined) return next()
+      dev.counters.simulatedInputStops = (dev.counters.simulatedInputStops ?? 0) + 1
+      return { kind: 'deny', reason }
+    })
+  }
+
   ctx.on('tools/pre-execute', async (exec: ToolExecution, next: () => Promise<PreToolDecision>): Promise<PreToolDecision> => {
     if (exec.name !== GITHUB_TOOL) return next()
     const gate = githubGateOf(exec.arguments, protectedBranchesOf(ctx))
@@ -211,7 +243,8 @@ function applescriptTool(): unknown {
     name: APPLESCRIPT_TOOL,
     description: [
       'Run an AppleScript (or JavaScript for Automation) on this Mac with osascript and return its result.',
-      'Use it to control Mac apps: Finder, Music, Safari, Mail, Calendar, Reminders, Notes, System Events, app windows, notifications.',
+      'The first choice for controlling the Mac: Finder, Music, Safari, Mail, Calendar, Reminders, Notes, app windows, notifications,',
+      'and clicking buttons or menus by name through System Events. Use it instead of pyautogui-style mouse/keyboard scripts.',
       'Prefer the file and terminal tools for files and shell commands. Scripts that run shell commands, delete, send messages,',
       'press keys, shut down, or touch passwords ask the user first.',
     ].join(' '),

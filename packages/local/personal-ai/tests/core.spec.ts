@@ -316,6 +316,13 @@ describe('coordinator prompt', () => {
     expect(text).toMatch(/Never store passwords, API keys/)
     expect(text).not.toMatch(/J\.?A\.?R\.?V\.?I\.?S/i)
   })
+
+  it.runIf(process.platform === 'darwin')('tells the coordinator to control the Mac with AppleScript, not simulated input', () => {
+    const text = coordinatorPrompt(DEFAULT_PERSONALITY)
+    expect(text).toContain('use the applescript tool first')
+    expect(text).toMatch(/Never write or run pyautogui/)
+    expect(text).not.toContain('Use open_in_editor to show the user what you changed')
+  })
 })
 
 describe('voice toolbelt', () => {

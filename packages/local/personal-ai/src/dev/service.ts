@@ -146,6 +146,8 @@ export interface DevCounters {
   followedEdits?: number
   /** Projects KairoForge opened in Cursor because a request needed it and Cursor was not connected. */
   editorLaunches?: number
+  /** Simulated mouse/keyboard scripts refused in favour of the applescript tool. */
+  simulatedInputStops?: number
   syntaxFailures: number
   loopStops: number
   jsonHints: number
@@ -204,7 +206,7 @@ export class DevKit extends Service {
   readonly loops = new LoopBreaker()
   readonly counters: DevCounters = {
     pathHints: 0, syntaxChecks: 0, syntaxFailures: 0, loopStops: 0, jsonHints: 0, repoMaps: 0, warmups: 0,
-    followedEdits: 0, editorLaunches: 0,
+    followedEdits: 0, editorLaunches: 0, simulatedInputStops: 0,
   }
   private readonly token = randomBytes(24).toString('base64url')
   private snapshot: EditorSnapshot | undefined

@@ -9,7 +9,7 @@ import { classifyRisk, withoutPlainPushes } from '../src/core/risk.ts'
 import { EXTENSION_MANIFEST, EXTENSION_SOURCE } from '../src/dev/extension-source.ts'
 import { githubGate, githubUrl, parseRemote, parseSlug, renderGithubResponse, slimGithub } from '../src/dev/github.ts'
 import { RepoIndex } from '../src/dev/repo-index.ts'
-import { runOsascript } from '../src/dev/install.ts'
+import { runOsascript, simulatedInputReason } from '../src/dev/install.ts'
 import { compareVersions } from '../src/dev/service.ts'
 import { checkSyntax } from '../src/dev/syntax.ts'
 
@@ -198,6 +198,23 @@ describe('editor extension package', () => {
     expect(commands).toEqual(expect.arrayContaining(['kairoforge.askInMode', 'kairoforge.chooseMode']))
     for (const command of commands) expect(EXTENSION_SOURCE).toContain(`registerCommand('${command}'`)
     expect(EXTENSION_MANIFEST.contributes.configuration.properties['kairoforge.mode'].default).toBe('standard')
+  })
+})
+
+describe('simulated input refusal', () => {
+  it('refuses pyautogui-style scripts and points at the applescript tool', () => {
+    for (const command of ['pip install pyautogui', 'python3 -c "import pyautogui; pyautogui.click(10, 10)"', 'cliclick c:100,200', 'pip3 install pynput']) {
+      expect(simulatedInputReason('bash', { command }), command).toMatch(/applescript tool/)
+    }
+    expect(simulatedInputReason('write', { file_path: 'a.py', content: 'import os\nimport pyautogui\n' })).toMatch(/applescript tool/)
+    expect(simulatedInputReason('edit', { file_path: 'a.py', old_string: 'x', new_string: 'from pynput import mouse' })).toMatch(/applescript tool/)
+  })
+
+  it('lets ordinary commands, edits, and AppleScript through', () => {
+    expect(simulatedInputReason('bash', { command: 'pnpm test' })).toBeUndefined()
+    expect(simulatedInputReason('bash', { command: 'osascript -e \'tell application "Music" to play\'' })).toBeUndefined()
+    expect(simulatedInputReason('write', { file_path: 'notes.md', content: 'We stopped using pyautogui.' })).toBeUndefined()
+    expect(simulatedInputReason('applescript', { script: 'tell application "Finder" to activate' })).toBeUndefined()
   })
 })
 
