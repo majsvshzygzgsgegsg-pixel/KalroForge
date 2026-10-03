@@ -56,9 +56,12 @@ export const MAC_CONTROL_GUIDANCE = [
   'cliclick, or other simulated mouse/keyboard scripts. Never guess an app\'s terms: use the applescript cookbook or call applescript_dictionary first.',
   'Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen;',
   'when they are not in your list and use_tools is, open COMPUTER with use_tools first.',
-  'Be fast: do the whole request in one call where you can (one script may open an app and type), go straight to a URL',
-  '(a YouTube search or a channel\'s /videos page, a Maps search) instead of reading the screen, and once a call succeeds reply in one short sentence',
-  'without re-checking the screen.',
+  'AppleScript is the fastest way to do anything on this Mac it can reach (apps, windows, menus, Finder, Notes, Reminders, Calendar, Music, volume,',
+  'the clipboard, and opening or reading browser tabs and URLs): always use mac_action or applescript for those, not bash, screen tools, or',
+  'browser automation. Use browser tools only to read or fill in a page\'s content.',
+  'Be fast: do the whole request in one call where you can. mac_action already opens the app it needs (type_text, new_note, open_url, the',
+  'searches), so never call open_app first. Go straight to a URL (a YouTube search or a channel\'s /videos page, a Maps search) instead of',
+  'reading the screen, and once a call succeeds reply in one short sentence without re-checking the screen.',
 ].join(' ')
 
 /** What "Cursor" means in a request: the code editor app, never the mouse pointer or another Cursor product. */

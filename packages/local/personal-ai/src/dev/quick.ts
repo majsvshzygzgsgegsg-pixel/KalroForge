@@ -1,5 +1,5 @@
 /**
- * Quick commands without a model round trip. When a coordinator request is a
+ * Quick commands without a model round trip. When a typed request is a
  * plain Mac command, that step is served by a local "instant" route which
  * issues the one matching mac_action call — through the normal tool and
  * permission path — and, once it succeeds, a one-line reply. A failed call
@@ -7,11 +7,11 @@
  */
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import { LlmAdapter, ToolCallId, type GenerateOptions, type LlmProviderInfo, type StreamChunk, type UserMessage } from '@deepseek-ai/dsh-llm'
-import { messageBody } from '@local/main-agents'
+import { scopeOf } from '@deepseek-ai/dsh-scope'
+import { isTopLevelSession, messageBody } from '@local/main-agents'
 import { parseQuickCommand, type AppResolver, type QuickCommand } from '../core/quick-commands.ts'
-import type { PersonalAi } from '../service.ts'
 import { resolveInstalledApp } from './apps.ts'
 
 /** The local route that serves quick-command steps. */
@@ -82,16 +82,21 @@ function lastUserRequest(messages: readonly UserMessage[]): string | undefined {
 }
 
 /**
- * Install quick commands on coordinator Sessions (macOS only).
+ * Install quick commands on every top-level Session that has mac_action (macOS only).
  * @param ctx - Host context.
- * @param service - Personal AI service.
  * @param resolve - maps a spoken app name to an installed app.
  */
-export function installQuickCommands(ctx: Context, service: PersonalAi, resolve: AppResolver = resolveInstalledApp): void {
+export function installQuickCommands(ctx: Context, resolve: AppResolver = resolveInstalledApp): void {
   if (process.platform !== 'darwin') return
   const plans = new Map<string, Plan>()
   const routes = new Map<string, { readonly provider: string; readonly model: string }>()
   ctx.llm.registerAdapter([INSTANT_PROVIDER], new InstantAdapter(sessionId => plans.get(sessionId)))
+  // Any top-level Session that can run mac_action (Lead, Fast, editor, and main-agent Sessions alike).
+  const hasMacAction = (agent: Agent): boolean => {
+    if (!isTopLevelSession(agent.session.header)) return false
+    const scope = scopeOf(agent.ctx)
+    return scope !== undefined && ctx.tools.get(MAC_ACTION, scope) !== undefined
+  }
 
   ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
@@ -99,7 +104,7 @@ export function installQuickCommands(ctx: Context, service: PersonalAi, resolve:
     const request = lastUserRequest(payload.messages)
     if (request === undefined) return decision
     plans.delete(sessionId)
-    if (decision.kind !== 'enter' || service.coordinatorLive(sessionId) === undefined) return decision
+    if (decision.kind !== 'enter' || !hasMacAction(payload.agent)) return decision
     const command = parseQuickCommand(request, resolve)
     if (command !== undefined) plans.set(sessionId, { turn: payload.turn, step: payload.step, callId: `kf-quick-${randomUUID()}`, command })
     return decision

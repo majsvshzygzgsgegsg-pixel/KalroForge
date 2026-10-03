@@ -63,6 +63,13 @@ const MUSIC: Readonly<Record<string, string>> = {
   play: 'play', pause: 'pause', playpause: 'playpause', next: 'next track', previous: 'previous track',
 }
 
+const NOTES_APP = /^(?:apple\s+)?notes$/i
+
+function newNote(body: string, title?: string): string {
+  const name = title?.trim() || body.split('\n')[0]?.slice(0, 80) || 'Note'
+  return ['tell application "Notes"', '  activate', `  show (make new note with properties {name:${asText(name)}, body:${asText(body)}})`, 'end tell'].join('\n')
+}
+
 /** Every Mac action, by name. */
 export const MAC_ACTIONS = {
   open_app: { summary: 'open or focus an app (app)', required: ['app'], risk: 'change', build: args => `tell application ${asText(need(args, 'app'))} to activate` },
@@ -107,10 +114,7 @@ export const MAC_ACTIONS = {
     summary: 'create an Apple Notes note and show it (body; optional title)',
     required: ['body'],
     risk: 'change',
-    build: (args) => {
-      const title = args.title?.trim() || need(args, 'body').split('\n')[0]?.slice(0, 80) || 'Note'
-      return ['tell application "Notes"', '  activate', `  show (make new note with properties {name:${asText(title)}, body:${asText(need(args, 'body'))}})`, 'end tell'].join('\n')
-    },
+    build: args => newNote(need(args, 'body'), args.title),
   },
   new_reminder: {
     summary: 'create a Reminders item (title; optional body)',
@@ -119,10 +123,11 @@ export const MAC_ACTIONS = {
     build: args => `tell application "Reminders" to make new reminder with properties {name:${asText(need(args, 'title'))}, body:${asText(args.body ?? '')}}`,
   },
   type_text: {
-    summary: 'type text into an app that has no better action, after focusing it (text; optional app)',
+    summary: 'type text into an app that has no better action, after focusing it (text; optional app; for Notes it makes a new note)',
     required: ['text'],
     risk: 'change',
-    build: args => [
+    // Keystrokes into Notes land in whichever note is selected; a new note is what "type this in Notes" means.
+    build: args => NOTES_APP.test(args.app?.trim() ?? '') ? newNote(need(args, 'text')) : [
       ...args.app === undefined || args.app.trim() === '' ? [] : [`tell application ${asText(args.app)} to activate`, 'delay 0.5'],
       `tell application "System Events" to keystroke ${asText(need(args, 'text'))}`,
     ].join('\n'),
@@ -184,6 +189,17 @@ export const MAC_ACTIONS = {
     required: [],
     risk: 'read',
     build: () => 'tell application "Safari" to get {URL, name} of current tab of front window',
+  },
+  browser_tabs: {
+    summary: 'titles and URLs of every tab in the front browser window (optional browser: "Google Chrome" by default, "Safari", or another Chromium browser)',
+    required: [],
+    risk: 'read',
+    build: (args) => {
+      const browser = args.browser?.trim() || 'Google Chrome'
+      return /^safari$/i.test(browser)
+        ? 'tell application "Safari" to get {name, URL} of every tab of front window'
+        : `tell application ${asText(browser)} to get {title, URL} of every tab of front window`
+    },
   },
   clipboard_get: { summary: 'read the clipboard text', required: [], risk: 'read', build: () => 'get the clipboard as text' },
   clipboard_set: { summary: 'put text on the clipboard (text)', required: ['text'], risk: 'change', build: args => `set the clipboard to ${asText(need(args, 'text'))}` },

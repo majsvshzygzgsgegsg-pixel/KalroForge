@@ -170,7 +170,9 @@ describe('agent selection', () => {
 })
 
 describe('quick commands', () => {
-  const apps: Record<string, string> = { notes: 'Notes', textedit: 'TextEdit', safari: 'Safari', music: 'Music', calculator: 'Calculator', cursor: 'Cursor' }
+  const apps: Record<string, string> = {
+    notes: 'Notes', textedit: 'TextEdit', safari: 'Safari', music: 'Music', calculator: 'Calculator', cursor: 'Cursor', messages: 'Messages',
+  }
   const resolve = (name: string): string | undefined => apps[name.toLowerCase()]
   const parse = (text: string) => parseQuickCommand(text, resolve)
 
@@ -188,6 +190,17 @@ describe('quick commands', () => {
     expect(parse('next song')).toMatchObject({ action: 'music', args: { command: 'next' } })
     expect(parse('remind me to buy milk')).toMatchObject({ action: 'new_reminder', args: { title: 'buy milk' } })
     expect(parse('make a note that says call mum')).toMatchObject({ action: 'new_note', args: { body: 'call mum' } })
+  })
+
+  it('understands everyday ways of saying "open it and type"', () => {
+    expect(parse('go on apple notes and say 67')).toMatchObject({ action: 'new_note', args: { body: '67' } })
+    expect(parse('hop on notes and write Buy eggs')).toMatchObject({ action: 'new_note', args: { body: 'Buy eggs' } })
+    expect(parse('in notes say hello')).toMatchObject({ action: 'new_note', args: { body: 'hello' } })
+    expect(parse('put hi into textedit')).toMatchObject({ action: 'type_text', args: { app: 'TextEdit', text: 'hi' } })
+    expect(parse('go on safari')).toMatchObject({ action: 'open_app', args: { app: 'Safari' } })
+    expect(parse('switch to music')).toMatchObject({ action: 'open_app', args: { app: 'Music' } })
+    // Who a message is for needs judgement.
+    expect(parse('go on messages and say hi to mom')).toBeUndefined()
   })
 
   it('leaves anything that needs judgement, timing, Cursor, or an unknown app to the model', () => {

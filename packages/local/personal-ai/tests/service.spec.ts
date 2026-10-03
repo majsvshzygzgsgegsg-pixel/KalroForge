@@ -480,6 +480,15 @@ describe('personal ai', () => {
     await say('open cursor', 'ok')
     expect(calls).toHaveLength(2)
     expect(adapter.requests.length).toBe(modelCalls + 2)
+
+    // Fast Mode Sessions (not the coordinator) get the instant path too.
+    fail = false
+    const fast = await ctx.agentLoop.create(SessionId('fast-quick'), { provider: 'mock', model: 'lead' })
+    await vi.waitFor(async () => { expect(await toolNames(ctx, fast)).toContain('mac_action') })
+    fast.followup(createUserMessage({ content: [{ type: 'text', text: 'go on apple notes and say 67' }], source: { kind: 'user' } }))
+    await vi.waitFor(() => { expect(calls.at(-1)).toEqual({ action: 'new_note', body: '67' }) }, { timeout: 10_000 })
+    await fast.whenIdle()
+    expect(adapter.requests.length).toBe(modelCalls + 2)
   }, 30_000)
 
   it('auto-approves a sensitive call with approval prompts off when autoApprove is on, without asking', async () => {

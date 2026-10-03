@@ -242,6 +242,26 @@ describe('mac actions', () => {
     expect(macActionScript('volume', { level: 140 })).toBe('set volume output volume 100')
   })
 
+  it('makes a new note for typing into Notes instead of typing into whichever note is selected', () => {
+    expect(macActionScript('type_text', { app: 'Notes', text: '67' })).toContain('make new note with properties {name:"67", body:"67"}')
+    expect(macActionScript('type_text', { app: 'Apple Notes', text: '67' })).not.toContain('keystroke')
+    expect(macActionScript('type_text', { app: 'TextEdit', text: '67' })).toContain('keystroke "67"')
+  })
+
+  it('lists browser tabs with each browser\'s own terms', async () => {
+    expect(macActionScript('browser_tabs', {})).toBe('tell application "Google Chrome" to get {title, URL} of every tab of front window')
+    const safari = macActionScript('browser_tabs', { browser: 'Safari' })
+    expect(safari).toBe('tell application "Safari" to get {name, URL} of every tab of front window')
+    if (process.platform !== 'darwin') return
+    const { execFile } = await import('node:child_process')
+    const dir = await mkdtemp(join(tmpdir(), 'kf-mac-'))
+    const error = await new Promise<string | undefined>((done) => {
+      execFile('/usr/bin/osacompile', ['-o', join(dir, 'x.scpt'), '-e', safari], (failure, _out, stderr) => { done(failure === null ? undefined : stderr) })
+    })
+    await rm(dir, { recursive: true, force: true })
+    expect(error).toBeUndefined()
+  }, 30_000)
+
   it('names what is missing and rejects unknown actions', () => {
     expect(() => macActionScript('mail_send', { to: 'a@b.co' })).toThrow('mail_send needs subject, body.')
     expect(() => macActionScript('teleport', {})).toThrow(/Unknown action "teleport"/)

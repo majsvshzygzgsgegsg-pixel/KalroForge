@@ -55,6 +55,9 @@ const MUSIC: Readonly<Record<string, { readonly command: string; readonly done: 
 }
 
 const NAME = String.raw`([a-z0-9][\w .'&+-]{0,40}?)`
+const GO = String.raw`(?:open|launch|start|pull up|bring up|go to|go on|go into|get on|hop on|jump on|switch to)`
+const TYPE = String.raw`(?:type|write|say|put|enter)`
+const MESSAGING = /^(?:Messages|Mail|WhatsApp|Slack|Discord|Telegram|Signal|Microsoft Teams|Microsoft Outlook|Messenger)$/i
 const BROWSER = String.raw`(?:\s+(?:on|in|with|using)\s+(google chrome|chrome|safari|firefox|arc|brave|edge))?`
 const LEAD = /^(?:(?:hey|ok|okay)\s+)?(?:kairo ?forge[,\s]+)?(?:(?:please|can you|could you|would you|will you|go ahead and|just)\s+)*/i
 const TAIL = /(?:[,\s]+(?:please|thanks|thank you|for me|now|right now))*[\s.!?]*$/i
@@ -98,8 +101,9 @@ function inBrowser(browser: string | undefined): string {
 function typeInto(app: string, text: string, resolve: AppResolver): QuickCommand | undefined {
   const name = stripApp(app)
   if (/^(?:apple\s+)?notes?$/i.test(name)) return { action: 'new_note', args: { body: text }, done: `Made a new note in Notes that says "${text}".` }
-  const resolved = resolve(name)
-  if (resolved === undefined || text === '') return undefined
+  const resolved = resolve(name.replace(/^apple\s+/i, '')) ?? resolve(name)
+  // Who a message goes to needs judgement, so messaging apps stay with the model.
+  if (resolved === undefined || text === '' || MESSAGING.test(resolved)) return undefined
   return { action: 'type_text', args: { app: resolved, text }, done: `Typed "${text}" into ${resolved}.` }
 }
 
@@ -119,11 +123,14 @@ export function parseQuickCommand(input: string, resolve: AppResolver): QuickCom
   let match: RegExpExecArray | null
 
   // Typing keeps the user's own capitalisation, so it reads the original text.
-  if ((match = new RegExp(String.raw`^open\s+(?:up\s+)?${NAME}\s+and\s+(?:type|write)\s+(.+)$`, 'i').exec(original)) !== null) {
+  if ((match = new RegExp(String.raw`^${GO}\s+(?:up\s+)?${NAME}\s+and\s+${TYPE}\s+(.+)$`, 'i').exec(original)) !== null) {
     return typeInto(match[1] ?? '', unquote(match[2] ?? ''), resolve)
   }
-  if ((match = new RegExp(String.raw`^(?:type|write)\s+(.+?)\s+(?:in|into|on)\s+${NAME}$`, 'i').exec(original)) !== null) {
+  if ((match = new RegExp(String.raw`^${TYPE}\s+(.+?)\s+(?:in|into|on)\s+${NAME}$`, 'i').exec(original)) !== null) {
     return typeInto(match[2] ?? '', unquote(match[1] ?? ''), resolve)
+  }
+  if ((match = new RegExp(String.raw`^(?:in|on|into)\s+${NAME}[,\s]+${TYPE}\s+(.+)$`, 'i').exec(original)) !== null) {
+    return typeInto(match[1] ?? '', unquote(match[2] ?? ''), resolve)
   }
   const NOTE = /^(?:make|create|take|add|write|start)\s+(?:a\s+)?(?:new\s+)?note\s*(?:that says|saying|with|:|-)?\s+(.+)$/i
   if ((match = NOTE.exec(original)) !== null) {
@@ -159,7 +166,7 @@ export function parseQuickCommand(input: string, resolve: AppResolver): QuickCom
     return { action: 'maps_search', args: { query }, done: `Searched Google Maps for "${query}".` }
   }
 
-  if ((match = new RegExp(String.raw`^(?:open|launch|start|pull up|bring up|go to)\s+(?:up\s+)?${NAME}${BROWSER}$`).exec(text)) !== null) {
+  if ((match = new RegExp(String.raw`^${GO}\s+(?:up\s+)?${NAME}${BROWSER}$`).exec(text)) !== null) {
     const target = stripApp(match[1] ?? '')
     const browser = BROWSERS[match[2] ?? '']
     const page = site(target)

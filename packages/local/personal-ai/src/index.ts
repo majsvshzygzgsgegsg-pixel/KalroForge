@@ -113,7 +113,7 @@ export function apply(ctx: Context, config: Config): void {
     installPersonalAiHooks(scoped, scoped.personalAi, config)
     installPersonalAiTools(scoped, scoped.personalAi, config)
   })
-  if (config.quickCommands) ctx.inject(['personalAi', 'llm', 'agents', 'tools'], (scoped) => { installQuickCommands(scoped, scoped.personalAi) })
+  if (config.quickCommands) ctx.inject(['llm', 'agents', 'tools'], (scoped) => { installQuickCommands(scoped) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'webServer', 'connection'], (scoped) => {
     installPersonalAiRoutes(scoped, scoped.personalAi)
   })
