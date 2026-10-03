@@ -40,13 +40,16 @@ export const AGENT_TOOLS = ['recommend_agent', 'propose_agent', 'list_capabiliti
 /** Modes that build and ship code: they get the `github` tool. */
 export const BUILD_MODES = ['self-edit', 'cordis', 'builder'] as const
 
-/** Guidance for every mode with tools while an editor is connected. */
+/** Guidance for every mode that uses the editor: Cursor is always the editor. */
 export const EDITOR_BUILD_GUIDANCE = [
-  'Editor-first: the user is coding in Cursor right now; Cursor is their editor for this work.',
-  '- Start from what the editor shows: the active file, cursor, selection, and Problems above are the most likely target.',
+  'Cursor is the user\'s editor in this mode. Files you edit open in Cursor automatically, inside their project window.',
+  '- When Cursor\'s live context is shown above, start from it: the active file, cursor, selection, and Problems are the most likely target.',
   '- After editing, call editor_context and fix any new errors or warnings it reports in the files you touched.',
-  '- When you finish, use open_in_editor on the most important changed file and line so the user sees the change.',
+  '- When you finish, use open_in_editor on the most important changed file and line so the user sees the change in Cursor.',
 ].join('\n')
+
+/** Shown instead of live context when the Cursor extension is not reporting. */
+const EDITOR_OFFLINE_NOTE = 'Cursor\'s live context is not available right now (the KairoForge extension is installed but Cursor has not reloaded it yet); rely on repo_map and file reads.'
 
 const JSON_OUTPUT = {
   schema: { type: 'json' },
@@ -239,8 +242,8 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     const kit = dev()
     if (kit === undefined || config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent))) return ''
     const text = kit.contextFor(agent.session.id, agent.session.header.cwd, requestOf(agent.session.id))
-    if (kit.editor() === undefined) return text
-    return text === '' ? EDITOR_BUILD_GUIDANCE : `${text}\n\n${EDITOR_BUILD_GUIDANCE}`
+    const guidance = kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE
+    return text === '' ? guidance : `${text}\n\n${guidance}`
   }
   /** Editor tools (every mode except the answer-only ones) plus `github` in the build modes. */
   const editorToolsFor = (agent: Agent): unknown[] => {

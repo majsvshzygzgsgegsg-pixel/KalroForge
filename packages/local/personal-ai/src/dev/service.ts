@@ -15,7 +15,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller'
@@ -53,6 +53,20 @@ const EDITOR_CLI: Readonly<Record<EditorKind, readonly string[]>> = {
   cursor: [...APP_DIRS.map(dir => join(dir, 'Cursor.app/Contents/Resources/app/bin/cursor')), '/usr/local/bin/cursor', '/opt/homebrew/bin/cursor'],
   vscode: [...APP_DIRS.map(dir => join(dir, 'Visual Studio Code.app/Contents/Resources/app/bin/code')), '/usr/local/bin/code', '/opt/homebrew/bin/code'],
 }
+/**
+ * The Git repository a file belongs to.
+ * @param path - absolute file path.
+ * @returns the repository root, when the file is in one.
+ */
+function projectRootOf(path: string): Promise<string | undefined> {
+  return new Promise((done) => {
+    execFile('git', ['-C', dirname(path), 'rev-parse', '--show-toplevel'], { timeout: 5000 }, (error, stdout) => {
+      const root = stdout.trim()
+      done(error === null && root !== '' ? root : undefined)
+    })
+  })
+}
+
 /** Minimum gap between files KairoForge opens by itself, so parallel workers do not flood the editor. */
 const FOLLOW_GAP_MS = 1500
 /** How often KairoForge re-checks for editors that need the extension (a newly installed VS Code, an old version). */
@@ -519,8 +533,12 @@ export class DevKit extends Service {
     this.followed.set(sessionId, seen)
     this.lastFollowAt = now
     this.counters.followedEdits = (this.counters.followedEdits ?? 0) + 1
-    execFile(cli, ['-g', path], { timeout: 20_000 }, (error) => {
-      if (error !== null) this.ctx.logger.warn(`devkit: could not open ${path} in Cursor: ${error.message}`)
+    void projectRootOf(path).then((root) => {
+      // Opening the project folder too puts the file in that project's Cursor window (reused when already open).
+      const args = root === undefined || root === homedir() ? ['-g', path] : [root, '-g', path]
+      execFile(cli, args, { timeout: 20_000 }, (error) => {
+        if (error !== null) this.ctx.logger.warn(`devkit: could not open ${path} in Cursor: ${error.message}`)
+      })
     })
     return true
   }
