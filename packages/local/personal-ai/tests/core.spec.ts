@@ -193,7 +193,9 @@ describe('quick commands', () => {
   })
 
   it('understands everyday ways of saying "open it and type"', () => {
-    expect(parse('go on apple notes and say 67')).toMatchObject({ action: 'new_note', args: { body: '67' } })
+    expect(parse('go on apple notes and say 67')).toMatchObject({ action: 'new_note', args: { body: '67', show: true } })
+    // Without "open" / "go on", the note is made in the background.
+    expect(parse('type hi in notes')?.args).toEqual({ body: 'hi' })
     expect(parse('hop on notes and write Buy eggs')).toMatchObject({ action: 'new_note', args: { body: 'Buy eggs' } })
     expect(parse('in notes say hello')).toMatchObject({ action: 'new_note', args: { body: 'hello' } })
     expect(parse('put hi into textedit')).toMatchObject({ action: 'type_text', args: { app: 'TextEdit', text: 'hi' } })
@@ -310,6 +312,11 @@ describe('risk classes', () => {
     expect(classifyRisk('mac_action', { action: 'volume', level: 30 }).risk).toBe('MODIFYING')
     expect(classifyRisk('mac_action', { action: 'mail_send', to: 'a@b.co', subject: 's', body: 'b' }).risk).toBe('SENSITIVE')
     expect(classifyRisk('mac_action', { action: 'type_text', text: 'my password is hunter2' }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('mac_action', { action: 'ui_list', app: 'Notes' }).risk).toBe('LOW_RISK')
+    expect(classifyRisk('mac_action', { action: 'ui_click', app: 'Notes', item: 'Checklist' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('mac_action', { action: 'ui_click', app: 'Mail', item: 'Send' }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('mac_action', { action: 'ui_click', app: 'Finder', item: 'Move to Trash' }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('mac_action', { action: 'ui_type', app: 'Safari', text: 'api_key=sk-live-abcdefghijklmnop1234' }).risk).toBe('SENSITIVE')
   })
 
   it('always offers the AppleScript tools to working requests without opening screen control', () => {

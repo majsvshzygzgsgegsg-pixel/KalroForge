@@ -98,9 +98,12 @@ function inBrowser(browser: string | undefined): string {
   return browser === undefined ? '' : ` in ${browser}`
 }
 
-function typeInto(app: string, text: string, resolve: AppResolver): QuickCommand | undefined {
+/** "Open X and type" shows the result; plain "type this in X" works in the background. */
+function typeInto(app: string, text: string, resolve: AppResolver, show = false): QuickCommand | undefined {
   const name = stripApp(app)
-  if (/^(?:apple\s+)?notes?$/i.test(name)) return { action: 'new_note', args: { body: text }, done: `Made a new note in Notes that says "${text}".` }
+  if (/^(?:apple\s+)?notes?$/i.test(name)) {
+    return { action: 'new_note', args: { body: text, ...show ? { show } : {} }, done: `Made a new note in Notes that says "${text}".` }
+  }
   const resolved = resolve(name.replace(/^apple\s+/i, '')) ?? resolve(name)
   // Who a message goes to needs judgement, so messaging apps stay with the model.
   if (resolved === undefined || text === '' || MESSAGING.test(resolved)) return undefined
@@ -124,7 +127,7 @@ export function parseQuickCommand(input: string, resolve: AppResolver): QuickCom
 
   // Typing keeps the user's own capitalisation, so it reads the original text.
   if ((match = new RegExp(String.raw`^${GO}\s+(?:up\s+)?${NAME}\s+and\s+${TYPE}\s+(.+)$`, 'i').exec(original)) !== null) {
-    return typeInto(match[1] ?? '', unquote(match[2] ?? ''), resolve)
+    return typeInto(match[1] ?? '', unquote(match[2] ?? ''), resolve, true)
   }
   if ((match = new RegExp(String.raw`^${TYPE}\s+(.+?)\s+(?:in|into|on)\s+${NAME}$`, 'i').exec(original)) !== null) {
     return typeInto(match[2] ?? '', unquote(match[1] ?? ''), resolve)

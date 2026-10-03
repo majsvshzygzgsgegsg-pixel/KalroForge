@@ -286,9 +286,10 @@ function macActionTool(): unknown {
       path: { ...text, description: 'Absolute path.' },
       browser: { ...text, description: 'Browser app name; default browser when omitted.' },
       menu: text,
-      item: text,
+      item: { ...text, description: 'Menu item (click_menu), or the control or field name from ui_list (ui_click, ui_type).' },
       command: text,
       level: { type: 'number', description: 'Volume 0-100.' },
+      show: { type: 'boolean', description: 'new_note: bring Notes forward on the new note (only when the user asked to open or see it).' },
     },
     output: TEXT_OUTPUT,
     execute: async (args, { signal }) => {

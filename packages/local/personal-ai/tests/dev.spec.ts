@@ -245,7 +245,21 @@ describe('mac actions', () => {
   it('makes a new note for typing into Notes instead of typing into whichever note is selected', () => {
     expect(macActionScript('type_text', { app: 'Notes', text: '67' })).toContain('make new note with properties {name:"67", body:"67"}')
     expect(macActionScript('type_text', { app: 'Apple Notes', text: '67' })).not.toContain('keystroke')
-    expect(macActionScript('type_text', { app: 'TextEdit', text: '67' })).toContain('keystroke "67"')
+  })
+
+  it('works in the background: notes, typing, menus, and UI controls do not bring the app forward first', () => {
+    expect(macActionScript('new_note', { body: 'hi' })).toBe('tell application "Notes" to make new note with properties {name:"hi", body:"hi"}')
+    expect(macActionScript('new_note', { body: 'hi', show: true })).toContain('activate')
+    const typed = macActionScript('type_text', { app: 'TextEdit', text: '67' })
+    // Accessibility first; the app is only activated and typed into when that fails.
+    expect(typed.indexOf('set value of target')).toBeLessThan(typed.indexOf('activate'))
+    expect(typed.indexOf('on error')).toBeLessThan(typed.indexOf('keystroke "67"'))
+    const menu = macActionScript('click_menu', { app: 'Safari', menu: 'File', item: 'New Window' })
+    expect(menu.indexOf('click menu item')).toBeLessThan(menu.indexOf('activate'))
+    for (const action of ['ui_list', 'ui_click', 'ui_type']) {
+      expect(macActionScript(action, { app: 'TextEdit', item: 'bold', text: 'x' }), action).not.toContain('activate')
+    }
+    expect(() => macActionScript('ui_click', { app: 'TextEdit' })).toThrow('ui_click needs item.')
   })
 
   it('lists browser tabs with each browser\'s own terms', async () => {

@@ -469,7 +469,7 @@ describe('personal ai', () => {
     }
     const modelCalls = adapter.requests.length
     await say('open my apple notes app and type hi there', 'Made a new note in Notes that says "hi there".')
-    expect(calls).toEqual([{ action: 'new_note', body: 'hi there' }])
+    expect(calls).toEqual([{ action: 'new_note', body: 'hi there', show: true }])
     expect(adapter.requests.length).toBe(modelCalls)
 
     fail = true
@@ -486,7 +486,7 @@ describe('personal ai', () => {
     const fast = await ctx.agentLoop.create(SessionId('fast-quick'), { provider: 'mock', model: 'lead' })
     await vi.waitFor(async () => { expect(await toolNames(ctx, fast)).toContain('mac_action') })
     fast.followup(createUserMessage({ content: [{ type: 'text', text: 'go on apple notes and say 67' }], source: { kind: 'user' } }))
-    await vi.waitFor(() => { expect(calls.at(-1)).toEqual({ action: 'new_note', body: '67' }) }, { timeout: 10_000 })
+    await vi.waitFor(() => { expect(calls.at(-1)).toEqual({ action: 'new_note', body: '67', show: true }) }, { timeout: 10_000 })
     await fast.whenIdle()
     expect(adapter.requests.length).toBe(modelCalls + 2)
   }, 30_000)
