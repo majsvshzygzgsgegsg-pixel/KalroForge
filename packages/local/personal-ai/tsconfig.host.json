@@ -8,7 +8,8 @@
   "include": [
     "src/*.ts",
     "src/core/*.ts",
-    "src/life/*.ts"
+    "src/life/*.ts",
+    "src/dev/*.ts"
   ],
   "references": [
     { "path": "../../../vendor/cordis" },

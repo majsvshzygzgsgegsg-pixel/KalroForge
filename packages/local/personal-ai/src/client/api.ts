@@ -345,6 +345,43 @@ export interface Routine {
   readonly days: number
 }
 
+/** An editor KairoForge can install its extension into. */
+export type EditorKind = 'cursor' | 'vscode'
+
+/** Whether one editor has the extension. */
+export interface ExtensionState {
+  readonly editor: EditorKind
+  readonly available: boolean
+  readonly installed: boolean
+  readonly version?: string
+}
+
+/** `GET /personal-ai/dev`. */
+export interface DevStatus {
+  readonly editor: {
+    readonly connected: boolean
+    readonly name?: string
+    readonly lastSeen?: string
+    readonly activeFile?: string
+    readonly workspace?: readonly string[]
+    readonly problems: number
+  }
+  readonly extensions: readonly ExtensionState[]
+  readonly index?: { readonly root: string; readonly files: number; readonly ready: boolean }
+  readonly counters: {
+    readonly pathHints: number
+    readonly syntaxChecks: number
+    readonly syntaxFailures: number
+    readonly loopStops: number
+    readonly jsonHints: number
+    readonly repoMaps: number
+    readonly warmups: number
+    readonly lastWarmMs?: number
+  }
+  readonly warm: { readonly origins: readonly string[] }
+  readonly context: { readonly compactAt: string; readonly spillAbove: string; readonly prunedAbove: string }
+}
+
 /** `GET /personal-ai/life`. */
 export interface LifeStatus {
   readonly settings: LifeSettings
@@ -502,4 +539,17 @@ export const api = {
   lifeReindex: () => request<{ reindexing: boolean }>('life/reindex', {}),
   lifeRoutine: (routineId: string, approved: boolean) => request<LifeSettings>('life/routine', { id: routineId, approved }),
   lifeDeleteTool: (name: string) => request<{ removed: boolean }>(`life/tool/${id(name)}/delete`, {}),
+  dev: () => request<DevStatus>('dev'),
+  devInstall: (editor: EditorKind) => request<{ installed: boolean; version: string; detail: string }>(`dev/install/${editor}`, {}),
+  devWarm: () => request<{ origins: string[]; ms?: number }>('dev/warm', {}),
+}
+
+let lastWarm = 0
+
+/** Open the model connection while the user is still composing (throttled; failures do not matter). */
+export function warmModel(): void {
+  const now = Date.now()
+  if (now - lastWarm < 2500) return
+  lastWarm = now
+  void api.devWarm().catch(() => {})
 }

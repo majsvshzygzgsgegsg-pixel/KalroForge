@@ -10,6 +10,7 @@ import { api, type Overview } from './api.ts'
 import { AgentsSection } from './AgentsSection.tsx'
 import { errorText } from './format.ts'
 import { GalaxyHud } from './GalaxyHud.tsx'
+import { DevSection } from './DevSection.tsx'
 import { LifeSection } from './LifeSection.tsx'
 import { MemorySection } from './MemorySection.tsx'
 import { ProjectsSection } from './ProjectsSection.tsx'
@@ -20,7 +21,7 @@ import type { NS } from './locales.ts'
 import css from './CommandCenter.module.css'
 
 /** Sections in display order. */
-export const SECTIONS = ['overview', 'tasks', 'agents', 'projects', 'workflows', 'background', 'memory', 'life', 'activity', 'tools', 'settings'] as const
+export const SECTIONS = ['overview', 'tasks', 'agents', 'projects', 'workflows', 'background', 'memory', 'life', 'dev', 'activity', 'tools', 'settings'] as const
 
 /** One section. */
 export type Section = typeof SECTIONS[number]
@@ -97,7 +98,7 @@ export function CommandCenter({ useLive, store, openAgents, openSession, t }: Co
             </nav>
             <section className={css.panel} id={`personal-ai-panel-${section}`} role="tabpanel" aria-labelledby={`personal-ai-tab-${section}`}>
               <h2 className={css.panelTitle}>{t(`nav.${section}`)}</h2>
-              {props === undefined && section !== 'memory' && section !== 'projects' && section !== 'agents' && section !== 'settings' && section !== 'life'
+              {props === undefined && section !== 'memory' && section !== 'projects' && section !== 'agents' && section !== 'settings' && section !== 'life' && section !== 'dev'
                 ? <p className={css.muted}>{t('page.loading')}</p>
                 : (
                   <>
@@ -111,6 +112,7 @@ export function CommandCenter({ useLive, store, openAgents, openSession, t }: Co
                     {section === 'projects' && <ProjectsSection t={t} />}
                     {section === 'memory' && <MemorySection t={t} />}
                     {section === 'life' && <LifeSection t={t} />}
+                    {section === 'dev' && <DevSection t={t} />}
                     {section === 'settings' && <SettingsSection t={t} store={store} openAgents={openAgents} />}
                   </>
                 )}

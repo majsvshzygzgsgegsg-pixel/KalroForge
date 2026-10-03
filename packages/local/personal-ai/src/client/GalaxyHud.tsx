@@ -8,6 +8,7 @@
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { OrbState } from '@local/galaxy'
+import { warmModel } from './api.ts'
 import type { LiveSnapshot, LiveStore } from './store.ts'
 import { GalaxyView } from './GalaxyView.tsx'
 import { readHudPrefs } from './prefs.ts'
@@ -57,7 +58,10 @@ export function AskForm({ store, t, busy, assistantName }: {
         maxLength={4000}
         placeholder={t('ask.placeholder', { name: assistantName })}
         aria-label={t('ask.label')}
-        onChange={(event) => { setText(event.target.value) }}
+        onChange={(event) => {
+          setText(event.target.value)
+          if (event.target.value.trim() !== '') warmModel()
+        }}
         // App-wide key handling swallows the form's implicit Enter submission.
         onKeyDown={(event) => {
           if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
@@ -286,7 +290,10 @@ export function GalaxyHud({ live, store, t, openSession, assistantName }: Galaxy
                   variant={live.voice?.live === true ? 'outline' : 'primary'}
                   onClick={() => {
                     if (live.voice?.live === true) voice.stt.stop()
-                    else if (!store.talk(progress => describeProgress(progress, t))) voice.stt.start()
+                    else {
+                      warmModel()
+                      if (!store.talk(progress => describeProgress(progress, t))) voice.stt.start()
+                    }
                   }}
                 >
                   {live.voice?.live === true ? t('voice.endCall') : t('voice.talk')}

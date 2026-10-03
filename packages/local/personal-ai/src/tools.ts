@@ -18,6 +18,8 @@ import { classifyDepth, DEPTH_GUIDANCE } from './core/classifier.ts'
 import { parseCategories, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
+import { devTools } from './dev/install.ts'
+import type { DevKit } from './dev/service.ts'
 import { lifeTools } from './life/install.ts'
 import type { LifeOs } from './life/service.ts'
 import { MEMORY_SCOPES, relevantMemories, type MemoryScope } from './core/memory.ts'
@@ -85,6 +87,7 @@ export function coordinatorPrompt(personality: Personality): string {
     'Agents: recommend_agent ranks main agents for a task; if the user names a different agent, theirs wins. propose_agent drafts a new agent — show the proposal and create it with create_main_agent only after the user agrees.',
     'Computer control and sensitive actions go through KairoForge\'s normal approval prompts. If something is denied, do not look for a way around it.',
     'Life OS: search_brain searches the user\'s own indexed files (notes, PDFs, code) — use it for questions about their work or life before guessing. When the user tells you how people, projects, or problems relate ("Michael is my boss"), record it with link_entities; graph_query recalls it. When you notice you keep doing the same job by hand, write yourself a tool with create_tool.',
+    'Coding: when the user\'s editor is connected you are told its active file, cursor, selection, and problems — "this", "here", and "this error" mean them. Never guess a path: use the repo map you are given, or repo_map / glob, and read before editing. After an edit, a syntax check result may follow; fix a reported failure first. Use open_in_editor to show the user what you changed.',
     'Holo Hands: when the user says "open holo", "open holo hands", or similar, call open_holo and report what it returned. While it is open, build what they ask for on the deck with holo_add and wire things together with holo_connect; a widget can be anything you can write in HTML/CSS/JS.',
   )
   return lines.join('\n')
@@ -214,6 +217,12 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   } as never)
 
   const life = (): LifeOs | undefined => ctx.get('lifeOs')
+  const dev = (): DevKit | undefined => ctx.get('devKit')
+  const devToolsFor = (agent: Agent): unknown[] => {
+    const kit = dev()
+    return kit === undefined ? [] : devTools(kit, agent)
+  }
+  const devContext = (agent: Agent): string => dev()?.contextFor(agent.session.id, agent.session.header.cwd, requestOf(agent.session.id)) ?? ''
 
   const coordinatorTools = (agent: Agent): unknown[] => [
     ...memoryTools('user', self => ({ ...projectId(), session: self.session.id })),
@@ -222,6 +231,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       const service = life()
       return service === undefined ? [] : lifeTools(service, agent)
     })(),
+    ...devToolsFor(agent),
     defineTool({
       name: 'list_projects',
       description: 'List registered projects (most recently used first) and which one is active.',
@@ -465,6 +475,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
         order: 134,
         text: () => life()?.contextFor(requestOf(agent.session.id)) ?? '',
       }))
+      disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:dev', order: 135, text: () => devContext(agent) }))
       // Only the loop's own step assembly is trimmed; list_capabilities assembles without an Agent and still sees everything.
       disposers.push(scoped.on('system-prompt/assemble', async (_assembly, context, next) => {
         const assembled = await next()
@@ -475,9 +486,10 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))
       disposers.push(() => { service.drop(agent.session.id) })
     } else if (agentId !== undefined) {
-      const tools = memoryTools('agent', () => ({ ...projectId(), agent: agentId, session: agent.session.id }))
+      const tools = [...memoryTools('agent', () => ({ ...projectId(), agent: agentId, session: agent.session.id })), ...devToolsFor(agent)]
       for (const tool of tools) disposers.push(scoped.tools.register(tool as Parameters<typeof scoped.tools.register>[0]))
       disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:agent-memory', order: 131, text: () => agentContextText(agent, agentId) }))
+      disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:dev', order: 135, text: () => devContext(agent) }))
     }
     return () => { for (const dispose of disposers.toReversed()) dispose() }
   }
@@ -500,7 +512,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   const sync = (agent: Agent): void => {
     if (ctx.agents.get(agent.id) !== agent) return
     const wanted = roleOf(agent)
-    const own = wanted?.role === 'coordinator' ? `:${life()?.userTools.revision ?? 'none'}` : ''
+    const own = `${wanted?.role === 'coordinator' ? `:${life()?.userTools.revision ?? 'none'}` : ''}${dev() === undefined ? '' : ':dev'}`
     const key = wanted === undefined ? '' : `${wanted.role}:${wanted.agentId ?? ''}:${ctx.mainAgents.modeOf(agent)}${own}`
     const current = installed.get(agent)
     if (current?.key === key) return
@@ -532,6 +544,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   ctx.on('personal-ai/personality', scheduleSyncAll)
   ctx.on('personal-ai/user-tools', scheduleSyncAll)
   ctx.inject(['lifeOs'], () => { scheduleSyncAll() })
+  ctx.inject(['devKit'], () => { scheduleSyncAll() })
   ctx.effect(() => () => {
     active = false
     for (const agent of [...installed.keys()]) release(agent)

@@ -6,6 +6,8 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { installDevHooks, installEditorBridge } from './dev/install.ts'
+import { DevKit } from './dev/service.ts'
 import { HoloDeck, DEFAULT_HOLO_CONFIG } from './holo.ts'
 import { installPersonalAiHooks } from './hooks.ts'
 import { installLifeHooks } from './life/install.ts'
@@ -19,6 +21,12 @@ export { HoloDeck, holoDomain, DEFAULT_HOLO_CONFIG } from './holo.ts'
 export type { HoloConfig, HoloOpenResult, HoloView } from './holo.ts'
 export { LifeOs, lifeDomain, DEFAULT_LIFE_SETTINGS } from './life/service.ts'
 export type { LifeSettings, LifeStatus, AirGapStatus, ModelRef } from './life/service.ts'
+export { DevKit, EDITORS } from './dev/service.ts'
+export type { DevStatus, DevCounters, EditorKind, EditorTurn } from './dev/service.ts'
+export { checkSyntax } from './dev/syntax.ts'
+export * from './core/editor.ts'
+export * from './core/reliability.ts'
+export * from './core/repomap.ts'
 export * from './core/autonomy.ts'
 export * from './core/graph.ts'
 export * from './core/senses.ts'
@@ -73,6 +81,9 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(HoloDeck, config.holo)
   ctx.plugin(LifeOs)
   ctx.inject(['lifeOs'], (scoped) => { installLifeHooks(scoped, scoped.lifeOs) })
+  ctx.plugin(DevKit)
+  ctx.inject(['devKit'], (scoped) => { installDevHooks(scoped, scoped.devKit) })
+  ctx.inject(['devKit', 'webServer'], (scoped) => { installEditorBridge(scoped, scoped.devKit) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'agents', 'tools', 'systemPrompt'], (scoped) => {
     installPersonalAiHooks(scoped, scoped.personalAi, config)
     installPersonalAiTools(scoped, scoped.personalAi, config)

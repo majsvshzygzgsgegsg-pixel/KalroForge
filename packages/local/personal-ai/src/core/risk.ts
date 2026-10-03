@@ -21,7 +21,7 @@ export interface RiskDecision {
   readonly reason: string
 }
 
-const READ_TOOLS = new RegExp(String.raw`^(?:read|read_image|glob|grep|lsp|web_search|web_fetch|recall|project_status|list_[a-z_]+|get_[a-z_]+|[a-z_]+_status|compare_checkpoint|session_[a-z_]+|job_list|job_output|terminal_list|terminal_read|recommend_agent|propose_agent|list_capabilities|use_tools|wait_agent|search_brain|graph_query)$`)
+const READ_TOOLS = new RegExp(String.raw`^(?:read|read_image|glob|grep|lsp|web_search|web_fetch|recall|project_status|list_[a-z_]+|get_[a-z_]+|[a-z_]+_status|compare_checkpoint|session_[a-z_]+|job_list|job_output|terminal_list|terminal_read|recommend_agent|propose_agent|list_capabilities|use_tools|wait_agent|search_brain|graph_query|editor_context|repo_map|open_in_editor)$`)
 const SENSITIVE_TOOLS: Readonly<Record<string, string>> = {
   create_tool: 'Write a new tool KairoForge can run later',
   archive_project: 'Archive a project',

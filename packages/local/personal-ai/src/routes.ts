@@ -16,6 +16,8 @@ import { classifyDepth } from './core/classifier.ts'
 import { HOLO_SIGNALS, HoloSceneError, type HoloPerception } from './core/holo-scene.ts'
 import { MEMORY_SCOPES, type MemoryScope } from './core/memory.ts'
 import type { HoloDeck } from './holo.ts'
+import { handleDevRoute } from './dev/install.ts'
+import type { DevKit } from './dev/service.ts'
 import { handleLifeRoute } from './life/install.ts'
 import type { LifeOs } from './life/service.ts'
 import type { PersonalAi } from './service.ts'
@@ -220,6 +222,12 @@ function stateView(service: PersonalAi, ctx: Context, sessionId?: string): Recor
   return { ...service.assistantState(sessionId), ...holo === undefined ? {} : { holo: holo.view() } }
 }
 
+function devOf(ctx: Context): DevKit {
+  const dev = ctx.get('devKit')
+  if (dev === undefined) throw new PersonalAiError('not-found', 'DevKit is not available')
+  return dev
+}
+
 function lifeOf(ctx: Context): LifeOs {
   const life = ctx.get('lifeOs')
   if (life === undefined) throw new PersonalAiError('not-found', 'Life OS is not available')
@@ -326,6 +334,7 @@ export async function handlePersonalAiRoute(
         if (id !== undefined) return ok(service.converseTurn(id))
         return ok({ sessionId: service.conversationSessionId() ?? null })
       case 'life': return handleLifeRoute(lifeOf(ctx), method, parts.slice(1), query, body)
+      case 'dev': return handleDevRoute(devOf(ctx), method, parts.slice(1))
       default:
     }
     return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }
@@ -385,6 +394,7 @@ export async function handlePersonalAiRoute(
       return ok(await service.converse(parse(converseBody, body).text))
     case 'holo': return ok(await holoAction(deckOf(ctx), id, body))
     case 'life': return handleLifeRoute(lifeOf(ctx), method, parts.slice(1), query, body)
+    case 'dev': return handleDevRoute(devOf(ctx), method, parts.slice(1))
     default:
   }
   return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }
