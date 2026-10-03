@@ -80,7 +80,7 @@ describe('CursorHands', () => {
   })
 
   it('runs a request from its own workspace with narrow permissions and returns Cursor\'s reply', async () => {
-    const hands = new CursorHands(binary, join(root, 'hands'))
+    const hands = new CursorHands(binary, join(root, 'hands'), 'fast-model')
     expect(hands.ready()).toBe(false)
     expect(await hands.refresh()).toBe(true)
     expect(hands.ready()).toBe(true)
@@ -88,10 +88,29 @@ describe('CursorHands', () => {
     expect(summary).toEqual({ ok: true, reply: 'Opened Notes and typed hi.', actions: ['native-app-control/execute_applescript'], durationMs: 1200 })
     const [run] = (await readFile(join(root, 'runs.ndjson'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { args: string[]; instructions: boolean })
     expect(run?.instructions).toBe(true)
-    expect(run?.args).toEqual(['-p', '--output-format', 'stream-json', '--approve-mcps', '--trust', '--workspace', join(root, 'hands'), 'open Notes and type hi'])
+    expect(run?.args).toEqual([
+      '-p', '--output-format', 'stream-json', '--approve-mcps', '--trust', '--workspace', join(root, 'hands'), '--model', 'fast-model', 'open Notes and type hi',
+    ])
     expect(run?.args).not.toContain('--force')
     const permissions = JSON.parse(await readFile(join(root, 'hands', '.cursor', 'cli.json'), 'utf8')) as { permissions: { allow: string[] } }
     expect(permissions.permissions.allow).toEqual(['Shell(osascript)', 'Shell(open)', 'Mcp(native-app-control:*)', 'Mcp(cua-driver:*)'])
+  })
+
+  it('falls back to Cursor\'s default model once when its model is refused', async () => {
+    const hands = new CursorHands(binary, join(root, 'hands'), 'retired-model')
+    expect((await hands.run('open Notes')).reply).toBe('Opened Notes and typed hi.')
+    expect(await hands.run('open Notes')).toMatchObject({ ok: true })
+    const runs = (await readFile(join(root, 'runs.ndjson'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { args: string[] })
+    expect(runs.map(run => run.args.includes('--model'))).toEqual([false, false])
+  })
+
+  it('tells Cursor the execution protocol', async () => {
+    await new CursorHands(binary, join(root, 'hands'), '').prepare()
+    const rules = await readFile(join(root, 'hands', 'AGENTS.md'), 'utf8')
+    expect(rules).toContain('Native apps = AppleScript only')
+    expect(rules).toContain('https://www.youtube.com/results?search_query=')
+    expect(rules).toContain('Parallel execution')
+    expect(rules).toContain('Never run the same failing command more than once more')
   })
 
   it('reports a failed run instead of claiming success', async () => {

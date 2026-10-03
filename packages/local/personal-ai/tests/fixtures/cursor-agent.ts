@@ -10,6 +10,7 @@ export function fakeCursorAgent(root: string): string {
     `const root = ${JSON.stringify(root)}`,
     'if (args[0] === "status") { console.log("✓ Logged in as someone@example.com"); process.exit(0) }',
     'const workspace = args[args.indexOf("--workspace") + 1]',
+    'if (args.includes("retired-model")) { console.error("Cannot use this model: retired-model"); process.exit(1) }',
     'appendFileSync(join(root, "runs.ndjson"), JSON.stringify({ args, instructions: existsSync(join(workspace, "AGENTS.md")) }) + "\\n")',
     'const task = args.at(-1)',
     'const out = (event) => console.log(JSON.stringify(event))',

@@ -161,7 +161,7 @@ async function setup(
   autoApprove = false,
   quickCommands = false,
   // Tests never drive the real Cursor CLI: computer control stays with KairoForge unless a test passes a fake one.
-  cursor?: { binary: string; workspace: string },
+  cursor?: { binary: string; workspace: string; model: string },
 ): Promise<Setup> {
   const ctx = new Context()
   contexts.add(ctx)
@@ -199,7 +199,7 @@ async function setup(
   await ctx.plugin(personalAi, {
     coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, bringUpEditor, confirmSensitive: true, autoApprove, quickCommands, holo,
     computerControl: cursor === undefined ? 'kairoforge' : 'cursor',
-    cursorAgent: cursor ?? { binary: join(tmpdir(), 'no-cursor-agent'), workspace: join(tmpdir(), 'no-cursor-hands') },
+    cursorAgent: cursor ?? { binary: join(tmpdir(), 'no-cursor-agent'), workspace: join(tmpdir(), 'no-cursor-hands'), model: '' },
   })
   await vi.waitFor(() => { expect(ctx.get('personalAi')).toBeDefined() })
   await ctx.personalAi.whenReady()
@@ -502,7 +502,7 @@ describe('personal ai', () => {
     const binary = join(root, 'cursor-agent')
     writeFileSync(binary, fakeCursorAgent(root))
     chmodSync(binary, 0o755)
-    const { ctx, adapter } = await setup(undefined, undefined, false, true, true, { binary, workspace: join(root, 'hands') })
+    const { ctx, adapter } = await setup(undefined, undefined, false, true, true, { binary, workspace: join(root, 'hands'), model: 'fast-model' })
     const agent = await lead(ctx, 'lead-cursor')
     const scope = scopeOf(agent.ctx)
     if (scope === undefined) throw new Error('expected Agent scope')

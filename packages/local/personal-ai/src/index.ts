@@ -79,8 +79,8 @@ export interface Config {
    * and signed in, and KairoForge's own computer tools are hidden; otherwise, and with `kairoforge`, KairoForge acts itself.
    */
   readonly computerControl: 'cursor' | 'kairoforge'
-  /** The Cursor agent CLI and the folder it acts from (its instructions and permissions live there). */
-  readonly cursorAgent: { readonly binary: string; readonly workspace: string }
+  /** The Cursor agent CLI, the folder it acts from (its instructions and permissions live there), and its model ('' = Cursor's default). */
+  readonly cursorAgent: { readonly binary: string; readonly workspace: string; readonly model: string }
   /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
   readonly holo: { readonly dir: string; readonly port: number; readonly autoStart: boolean }
 }
@@ -99,6 +99,7 @@ export const Config: z<Config> = z.object({
   cursorAgent: z.object({
     binary: z.string().default(DEFAULT_CURSOR_AGENT.binary),
     workspace: z.string().default(DEFAULT_CURSOR_AGENT.workspace),
+    model: z.string().default(DEFAULT_CURSOR_AGENT.model),
   }).default(DEFAULT_CURSOR_AGENT),
   holo: z.object({
     dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),
@@ -113,7 +114,7 @@ export const Config: z<Config> = z.object({
  * @param config - validated configuration.
  */
 export function apply(ctx: Context, config: Config): void {
-  const hands = new CursorHands(config.cursorAgent.binary, config.cursorAgent.workspace)
+  const hands = new CursorHands(config.cursorAgent.binary, config.cursorAgent.workspace, config.cursorAgent.model)
   const cursorHands = (): boolean => config.computerControl === 'cursor' && hands.ready()
   ctx.plugin(PersonalAi)
   ctx.plugin(HoloDeck, config.holo)

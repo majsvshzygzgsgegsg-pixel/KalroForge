@@ -20,6 +20,8 @@ import { KAIROFORGE_HOME } from './native.ts'
 export const DEFAULT_CURSOR_AGENT = {
   binary: join(homedir(), '.local', 'bin', 'cursor-agent'),
   workspace: join(KAIROFORGE_HOME, 'cursor-hands'),
+  /** The quickest Cursor model at short computer tasks; '' uses Cursor's own default. */
+  model: 'gpt-5.3-codex-low-fast',
 } as const
 
 const STATUS_TTL_MS = 5 * 60_000
@@ -35,10 +37,12 @@ export class CursorHands {
   /**
    * @param binary - the Cursor agent CLI.
    * @param workspace - the folder Cursor acts from; holds its instructions and permissions.
+   * @param model - Cursor model for these runs; '' uses Cursor's default.
    */
   constructor(
     readonly binary: string = DEFAULT_CURSOR_AGENT.binary,
     readonly workspace: string = DEFAULT_CURSOR_AGENT.workspace,
+    private model: string = DEFAULT_CURSOR_AGENT.model,
   ) {}
 
   /** Whether the Cursor agent CLI is installed. */
@@ -84,7 +88,8 @@ export class CursorHands {
   async run(task: string, signal?: AbortSignal, timeoutMs = RUN_TIMEOUT_MS): Promise<CursorRunSummary> {
     if (!this.installed()) return { ok: false, reply: 'The Cursor agent CLI is not installed (run `cursor agent` once to install it).', actions: [] }
     await this.prepare()
-    const args = ['-p', '--output-format', 'stream-json', '--approve-mcps', '--trust', '--workspace', this.workspace, task]
+    const model = this.model === '' ? [] : ['--model', this.model]
+    const args = ['-p', '--output-format', 'stream-json', '--approve-mcps', '--trust', '--workspace', this.workspace, ...model, task]
     const child = spawn(this.binary, args, { cwd: this.workspace, stdio: ['ignore', 'pipe', 'pipe'] })
     const lines: string[] = []
     let stderr = ''
@@ -107,6 +112,11 @@ export class CursorHands {
       return { ...summary, reply: 'Cursor is not signed in. Run `cursor-agent login` and approve it in the browser.' }
     }
     if (signal?.aborted === true) return { ...summary, reply: 'Stopped before Cursor finished.' }
+    // A model Cursor no longer offers: drop it for good and run once more on Cursor's default.
+    if (this.model !== '' && summary.actions.length === 0 && /model/i.test(stderr)) {
+      this.model = ''
+      return this.run(task, signal, timeoutMs)
+    }
     const why = stderr.trim().split('\n').at(-1)?.slice(0, 300) ?? ''
     return code === 0 || why === '' ? summary : { ...summary, reply: `${summary.reply} (Cursor exited with ${String(code)}: ${why})` }
   }

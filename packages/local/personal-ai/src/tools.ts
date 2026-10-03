@@ -54,7 +54,8 @@ export const CURSOR_HANDS_GUIDANCE = [
   'Mac control goes through Cursor, which is your hands: for anything on the user\'s computer — apps, windows, clicking, typing, menus,',
   'Finder, Safari, Music, Mail, Notes, Reminders, Calendar, settings, volume, the clipboard — call cursor_computer once with the whole',
   'request (the user\'s words plus any detail you know). Your own Mac tools are off while Cursor is the hands. Cursor works with a visible',
-  'agent cursor the user can watch. Report its reply as it is; if the call fails, say what Cursor reported and do not claim it was done.',
+  'agent cursor the user can watch. Several independent things in one message go in that one call; Cursor runs them in parallel.',
+  'Then answer in one short sentence with what Cursor reported — no preamble. If the call fails, say what failed; never claim it was done.',
 ].join(' ')
 
 /** How to control the Mac: AppleScript first, never simulated input scripts. */
