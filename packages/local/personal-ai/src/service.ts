@@ -55,7 +55,7 @@ const CONVERSE_LIMIT = 50
 const CONVERSE_MAX_CHARS = 4000
 const CONVERSE_REPLY_CHARS = 8000
 /** A conversation whose last model call sent more than this many tokens continues in a fresh Session: every turn resends the history. */
-const CONVERSE_FRESH_TOKENS = 90_000
+const CONVERSE_FRESH_TOKENS = 40_000
 
 /** A Command Center turn still running in its conversation Session. */
 interface PendingConverse {

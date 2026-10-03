@@ -6,6 +6,7 @@ import { relevantMemories, searchMemories, type RankableMemory } from '../src/co
 import { summarizeTurns, type TurnRecord } from '../src/core/metrics.ts'
 import { classifyRisk } from '../src/core/risk.ts'
 import { findSensitive } from '../src/core/sensitive.ts'
+import { parseCategories, voiceToolbelt, voiceTools } from '../src/core/voice-tools.ts'
 import { coordinatorPrompt } from '../src/tools.ts'
 import { DEFAULT_PERSONALITY } from '../src/types.ts'
 
@@ -273,5 +274,33 @@ describe('coordinator prompt', () => {
     expect(text).toMatch(/never say something is done unless a tool result shows it/i)
     expect(text).toMatch(/Never store passwords, API keys/)
     expect(text).not.toMatch(/J\.?A\.?R\.?V\.?I\.?S/i)
+  })
+})
+
+describe('voice toolbelt', () => {
+  const all = ['read', 'bash', 'grep', 'remember', 'use_tools', 'open_holo', 'delegate_to_main_agent', 'cua_driver_native__click',
+    'create_checkpoint', 'spawn_teammate', 'create_workflow', 'schedule_create', 'create_goal'].map(name => ({ name }))
+  const visible = (request: string, opened: string[] = []) =>
+    voiceTools(all, voiceToolbelt(request, classifyDepth(request).depth, parseCategories(opened))).map(tool => tool.name)
+
+  it('answers a plain question with no tools but use_tools', () => {
+    expect(visible('what is 2+2')).toEqual(['use_tools'])
+    expect(visible('hi')).toEqual(['use_tools'])
+  })
+
+  it('starts a working request from the core and hides heavy groups', () => {
+    expect(visible('run the tests in this repo')).toEqual(['read', 'bash', 'grep', 'remember', 'use_tools', 'open_holo', 'delegate_to_main_agent'])
+  })
+
+  it('opens the groups a request names, its depth needs, or the model asks for', () => {
+    expect(visible('take a screenshot and click the blue button')).toContain('cua_driver_native__click')
+    expect(visible('undo that with a checkpoint')).toContain('create_checkpoint')
+    expect(visible('build a complete dashboard app with auth')).toEqual(expect.arrayContaining(['create_workflow', 'spawn_teammate']))
+    expect(visible('build me an app')).not.toContain('cua_driver_native__click')
+    expect(visible('what is 2+2', ['SEARCH'])).toEqual(expect.arrayContaining(['grep', 'read']))
+  })
+
+  it('accepts only known categories', () => {
+    expect(parseCategories(['computer', ' GIT ', 'nonsense'])).toEqual(['GIT', 'COMPUTER'])
   })
 })

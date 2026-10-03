@@ -13,8 +13,9 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { isTopLevelSession } from '@local/main-agents'
-import { AGENT_TAGS, groupTools, proposeAgent, type AgentTag } from './core/capabilities.ts'
-import { DEPTH_GUIDANCE } from './core/classifier.ts'
+import { AGENT_TAGS, CAPABILITY_CATEGORIES, groupTools, proposeAgent, type AgentTag, type CapabilityCategory } from './core/capabilities.ts'
+import { classifyDepth, DEPTH_GUIDANCE } from './core/classifier.ts'
+import { parseCategories, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
 import { MEMORY_SCOPES, relevantMemories, type MemoryScope } from './core/memory.ts'
@@ -50,6 +51,7 @@ const VERBOSITY: Readonly<Record<Personality['verbosity'], string>> = {
 export const VOICE_NARRATION = [
   'This is the Command Center conversation: the user hears what you write, read aloud, usually without a screen.',
   'Speak like an attentive, upbeat personal assistant who addresses the user as "sir".',
+  `To stay fast you see only the tools this request seems to need. Use the tools you have directly. Only when a tool you need is missing from your list, call ${USE_TOOLS} with its category first; it appears on your next step.`,
   'When a request needs tools, put one short spoken update (under 15 words) in the same message as every tool step, saying what you are doing right now, e.g. "Checking your project files now, sir." or "Running the tests now, sir, this takes a moment." Vary the wording; never repeat the same update twice in a turn. The user already heard an acknowledgement like "On it, sir", so do not open with one.',
   'When the step you are starting is the last one before your answer, say so, e.g. "Almost done, sir — pulling it together."',
   'Updates must be true: never say something is finished before a tool result shows it. A greeting or a simple question needs no update; just answer.',
@@ -93,6 +95,14 @@ export function coordinatorPrompt(personality: Personality): string {
 export function installPersonalAiTools(ctx: Context, service: PersonalAi, config: Config): void {
   type Role = 'coordinator' | 'observed' | 'agent'
   const installed = new Map<Agent, { readonly key: string; readonly dispose: () => void }>()
+  /** Groups the voice conversation opened with `use_tools`, for the request they were opened in. */
+  const opened = new Map<string, { readonly request: string; readonly categories: Set<CapabilityCategory> }>()
+  const requestOf = (sessionId: string): string => ctx.orchestration.peekTelemetry(sessionId)?.lastUserText ?? ''
+  const toolbeltOf = (sessionId: string): VoiceToolbelt => {
+    const request = requestOf(sessionId)
+    const extra = opened.get(sessionId)
+    return voiceToolbelt(request, request === '' ? undefined : classifyDepth(request).depth, extra?.request === request ? extra.categories : [])
+  }
 
   const caller = (agent: Agent | undefined, tool: string): Agent => {
     /* v8 ignore next -- scoped tools are discovered only with their calling Agent. */
@@ -342,6 +352,25 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       },
     }),
     defineTool({
+      name: USE_TOOLS,
+      description: 'Open more tool groups for the rest of this request (the spoken conversation starts with a small toolset). They appear on your next step.',
+      parameters: {
+        categories: { type: 'array', required: true, items: { type: 'string', enum: [...CAPABILITY_CATEGORIES] } },
+      },
+      output: JSON_OUTPUT,
+      execute(args, exec) {
+        const sessionId = caller(exec.agent, USE_TOOLS).session.id
+        const categories = parseCategories(args.categories)
+        if (categories.length === 0) return Promise.resolve(toJson({ error: `No known category. Use: ${CAPABILITY_CATEGORIES.join(', ')}.` }))
+        const request = requestOf(sessionId)
+        const current = opened.get(sessionId)
+        const open = current?.request === request ? current.categories : new Set<CapabilityCategory>()
+        for (const category of categories) open.add(category)
+        opened.set(sessionId, { request, categories: open })
+        return Promise.resolve(toJson({ opened: [...open], next: 'These tools are available from your next step.' }))
+      },
+    }),
+    defineTool({
       name: 'list_capabilities',
       description: 'Your tools grouped by capability (FILES, TERMINAL, BROWSER, GIT, GITHUB, COMPUTER, SEARCH, PROJECT, AGENTS, WORKFLOWS, BACKGROUND_TASKS). Use it to see what you can do before planning.',
       parameters: {},
@@ -421,6 +450,13 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
         text: () => service.conversationSessionId() === agent.session.id ? VOICE_NARRATION : '',
       }))
       disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:holo', order: 133, text: () => ctx.holoDeck.contextLine() }))
+      // Only the loop's own step assembly is trimmed; list_capabilities assembles without an Agent and still sees everything.
+      disposers.push(scoped.on('system-prompt/assemble', async (_assembly, context, next) => {
+        const assembled = await next()
+        if (context.agent !== agent || service.conversationSessionId() !== agent.session.id) return assembled
+        return { ...assembled, tools: voiceTools(assembled.tools, toolbeltOf(agent.session.id)) }
+      }))
+      disposers.push(() => { opened.delete(agent.session.id) })
       service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))
       disposers.push(() => { service.drop(agent.session.id) })
     } else if (agentId !== undefined) {

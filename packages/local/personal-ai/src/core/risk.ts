@@ -21,7 +21,7 @@ export interface RiskDecision {
   readonly reason: string
 }
 
-const READ_TOOLS = new RegExp(String.raw`^(?:read|read_image|glob|grep|lsp|web_search|web_fetch|recall|project_status|list_[a-z_]+|get_[a-z_]+|[a-z_]+_status|compare_checkpoint|session_[a-z_]+|job_list|job_output|terminal_list|terminal_read|recommend_agent|propose_agent|list_capabilities|wait_agent)$`)
+const READ_TOOLS = new RegExp(String.raw`^(?:read|read_image|glob|grep|lsp|web_search|web_fetch|recall|project_status|list_[a-z_]+|get_[a-z_]+|[a-z_]+_status|compare_checkpoint|session_[a-z_]+|job_list|job_output|terminal_list|terminal_read|recommend_agent|propose_agent|list_capabilities|use_tools|wait_agent)$`)
 const SENSITIVE_TOOLS: Readonly<Record<string, string>> = {
   archive_project: 'Archive a project',
   forget: 'Delete a memory',

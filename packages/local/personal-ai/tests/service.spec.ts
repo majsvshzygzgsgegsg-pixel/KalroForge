@@ -426,6 +426,31 @@ describe('personal ai', () => {
     await vi.waitFor(() => { expect(ctx.personalAi.converseTurn(third.id).status).toBe('done') })
   }, 30_000)
 
+  it('gives the spoken conversation a small toolset that grows on request and leaves Lead whole', async () => {
+    const { ctx } = await setup()
+    const leadAgent = await lead(ctx)
+    const turn = await ctx.personalAi.converse('Hi')
+    await vi.waitFor(() => { expect(ctx.personalAi.converseTurn(turn.id).status).toBe('done') })
+    const voice = liveAgent(ctx, turn.sessionId)
+    const stepTools = async (agent: Agent): Promise<string[]> => {
+      const scope = scopeOf(agent.ctx)
+      if (scope === undefined) throw new Error('expected Agent scope')
+      return (await ctx.systemPrompt.assemble({ scope, agent })).tools.map(tool => tool.name)
+    }
+
+    // Small talk is answered directly: nothing but the switch that opens more.
+    expect(await stepTools(voice)).toEqual(['use_tools'])
+    // list_capabilities and the tools view still see everything the Session has.
+    expect(await toolNames(ctx, voice)).toContain('create_workflow')
+    expect(await stepTools(leadAgent)).toContain('create_workflow')
+
+    const opened = await run<{ opened: string[] }>(ctx, voice, 'use_tools', { categories: ['WORKFLOWS'] })
+    expect(opened.opened).toEqual(['WORKFLOWS'])
+    const working = await stepTools(voice)
+    expect(working).toEqual(expect.arrayContaining(['use_tools', 'remember', 'pause_task', 'create_workflow']))
+    expect(working).not.toContain('schedule_create')
+  }, 30_000)
+
   it('narrates a Command Center turn while it works and keeps narration out of the answer', async () => {
     const { ctx, adapter } = await setup()
     adapter.turnScript = { id: 'call-narrated', name: 'recall', args: { query: 'meeting' }, issued: false, text: 'On it — checking my notes now.' }
