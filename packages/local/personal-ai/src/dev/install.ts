@@ -25,6 +25,7 @@ import { malformedArgsHint, missingPathOf } from '../core/reliability.ts'
 import { PersonalAiError } from '../types.ts'
 import { EDITORS, PREFERRED_EDITOR, type DevKit, type EditorKind } from './service.ts'
 import { forgetGithubToken, GITHUB_METHODS, githubGate, githubToken, githubUrl, parseSlug, renderGithubResponse, repoSlugOf, type GithubMethod } from './github.ts'
+import { APPLESCRIPT_COOKBOOK, appleScriptDictionary } from './applescript.ts'
 import { checkSyntax, syntaxWarning } from './syntax.ts'
 
 /** Editor bridge route prefix (used by the extension). */
@@ -33,6 +34,8 @@ export const EDITOR_BRIDGE_PATH = '/kairoforge-editor'
 const EDIT_TOOLS = new Set(['edit', 'write', 'str_replace_editor', 'apply_patch'])
 /** Name of the AppleScript / JXA tool. */
 export const APPLESCRIPT_TOOL = 'applescript'
+/** Name of the read-only scripting dictionary tool. */
+export const APPLESCRIPT_DICTIONARY_TOOL = 'applescript_dictionary'
 const OSASCRIPT = '/usr/bin/osascript'
 const SIMULATED_INPUT_COMMAND = /\b(?:pyautogui|pynput|cliclick|autopy|pyobjc-framework-Quartz)\b/i
 const SIMULATED_INPUT_IMPORT = /^\s*(?:import|from)\s+(?:pyautogui|pynput|autopy)\b/m
@@ -245,8 +248,9 @@ function applescriptTool(): unknown {
       'Run an AppleScript (or JavaScript for Automation) on this Mac with osascript and return its result.',
       'The first choice for controlling the Mac: Finder, Music, Safari, Mail, Calendar, Reminders, Notes, app windows, notifications,',
       'and clicking buttons or menus by name through System Events. Use it instead of pyautogui-style mouse/keyboard scripts.',
-      'Prefer the file and terminal tools for files and shell commands. Scripts that run shell commands, delete, send messages,',
-      'press keys, shut down, or touch passwords ask the user first.',
+      'Never guess an app\'s terms: use these scripts, which compile as written, or call applescript_dictionary first.',
+      'Scripts that run shell commands, delete, send messages, press keys, shut down, or touch passwords ask the user first.',
+      `\n${APPLESCRIPT_COOKBOOK.map(line => `- ${line}`).join('\n')}`,
     ].join(' '),
     parameters: {
       script: { type: 'string', required: true, description: 'Script source, e.g. tell application "Music" to play' },
@@ -254,6 +258,20 @@ function applescriptTool(): unknown {
     },
     output: TEXT_OUTPUT,
     execute: (args, { signal }) => runOsascript(args.script, args.language === 'JavaScript' ? 'JavaScript' : 'AppleScript', signal),
+  })
+}
+
+function applescriptDictionaryTool(): unknown {
+  return defineTool({
+    name: APPLESCRIPT_DICTIONARY_TOOL,
+    description: 'List the AppleScript commands and classes (with properties) a Mac app really supports, read from its scripting dictionary. '
+      + 'Call it before scripting an app whose terms are not in the applescript cookbook. Reads only.',
+    parameters: {
+      app: { type: 'string', required: true, description: 'App name, e.g. "Music", "Safari", "Finder", "System Events".' },
+      filter: { type: 'string', description: 'Optional word to keep only matching entries, e.g. "tab" or "play".' },
+    },
+    output: TEXT_OUTPUT,
+    execute: args => appleScriptDictionary(args.app, args.filter ?? ''),
   })
 }
 
@@ -376,7 +394,7 @@ export function devTools(dev: DevKit, agent: Agent): unknown[] {
         return openInEditor(dev, path, args.line === undefined ? undefined : Math.max(1, Math.round(args.line)))
       },
     }),
-    ...process.platform === 'darwin' ? [applescriptTool()] : [],
+    ...process.platform === 'darwin' ? [applescriptTool(), applescriptDictionaryTool()] : [],
   ]
 }
 

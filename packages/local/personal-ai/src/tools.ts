@@ -52,7 +52,8 @@ export const EDITOR_BUILD_GUIDANCE = [
 export const MAC_CONTROL_GUIDANCE = [
   'Mac control: use the applescript tool first for anything on the Mac — opening, quitting, and switching apps, Finder, Music, Safari tabs, Mail, Notes,',
   'Reminders, Calendar, volume, notifications, and clicking buttons or menus by name through System Events. Never write or run pyautogui, pynput,',
-  'cliclick, or other simulated mouse/keyboard scripts. Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen.',
+  'cliclick, or other simulated mouse/keyboard scripts. Never guess an app\'s terms: use the applescript cookbook or call applescript_dictionary first.',
+  'Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen.',
 ].join(' ')
 
 /** Shown instead of live context when the Cursor extension is not reporting. */

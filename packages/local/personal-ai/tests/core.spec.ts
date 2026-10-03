@@ -222,6 +222,7 @@ describe('risk classes', () => {
       'set p to "my password is hunter2"',
     ]) expect(classifyRisk('applescript', { script }).risk, script).toBe('SENSITIVE')
     expect(classifyRisk('bash', { command: 'osascript -e "beep"' }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('applescript_dictionary', { app: 'Music' }).risk).toBe('LOW_RISK')
   })
 
   it('opens Mac control for AppleScript requests only when they name it', () => {

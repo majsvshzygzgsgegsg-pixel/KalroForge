@@ -9,6 +9,7 @@ import { classifyRisk, withoutPlainPushes } from '../src/core/risk.ts'
 import { EXTENSION_MANIFEST, EXTENSION_SOURCE } from '../src/dev/extension-source.ts'
 import { githubGate, githubUrl, parseRemote, parseSlug, renderGithubResponse, slimGithub } from '../src/dev/github.ts'
 import { RepoIndex } from '../src/dev/repo-index.ts'
+import { APPLESCRIPT_COOKBOOK, appleScriptDictionary, summariseSdef } from '../src/dev/applescript.ts'
 import { runOsascript, simulatedInputReason } from '../src/dev/install.ts'
 import { compareVersions } from '../src/dev/service.ts'
 import { checkSyntax } from '../src/dev/syntax.ts'
@@ -216,6 +217,46 @@ describe('simulated input refusal', () => {
     expect(simulatedInputReason('write', { file_path: 'notes.md', content: 'We stopped using pyautogui.' })).toBeUndefined()
     expect(simulatedInputReason('applescript', { script: 'tell application "Finder" to activate' })).toBeUndefined()
   })
+})
+
+describe('applescript dictionary summary', () => {
+  it('lists commands with parameters and classes with properties, keeping class-extensions separate', () => {
+    const xml = [
+      '<dictionary><suite name="S">',
+      '<command name="play" description="Start playing"><parameter name="once" code="x"/></command>',
+      '<class-extension extends="window" description="A window."><property name="current tab" type="tab"/></class-extension>',
+      '<class name="tab" description="A tab."><property name="URL" type="text"/><property name="URL" type="text"/><element type="item"/></class>',
+      '</suite></dictionary>',
+    ].join('')
+    expect(summariseSdef(xml)).toEqual([
+      'command play — Start playing (parameters: once)',
+      'class window — A window.\n    properties: current tab',
+      'class tab — A tab.\n    properties: URL\n    elements: item',
+    ])
+    expect(summariseSdef(xml, 'tab')).toHaveLength(2)
+  })
+})
+
+describe.runIf(process.platform === 'darwin')('applescript knowledge on this Mac', () => {
+  it('reads a real app dictionary without Xcode', async () => {
+    const text = await appleScriptDictionary('Finder', 'trash')
+    expect(text).toContain('command empty')
+    await expect(appleScriptDictionary('No Such App Xyz')).rejects.toThrow(/Could not find/)
+  }, 30_000)
+
+  it('ships only cookbook scripts that compile', async () => {
+    const { execFile } = await import('node:child_process')
+    const scripts = APPLESCRIPT_COOKBOOK.flatMap(line => line.replace(/^[^:"]+:\s*/, '').split(' | ')).map(part => part.trim()).filter(part => !part.startsWith('...'))
+    expect(scripts.length).toBeGreaterThan(15)
+    const dir = await mkdtemp(join(tmpdir(), 'kf-osa-'))
+    for (const script of scripts) {
+      const error = await new Promise<string | undefined>((done) => {
+        execFile('/usr/bin/osacompile', ['-o', join(dir, 'x.scpt'), '-e', script], (failure, _out, stderr) => { done(failure === null ? undefined : stderr) })
+      })
+      expect(error, script).toBeUndefined()
+    }
+    await rm(dir, { recursive: true, force: true })
+  }, 60_000)
 })
 
 describe.runIf(process.platform === 'darwin')('applescript tool', () => {

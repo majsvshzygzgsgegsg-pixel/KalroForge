@@ -106,6 +106,7 @@ export function classifyRisk(tool: string, args: unknown, options: { readonly di
     if (SECRET_PATH.test(command)) return { risk: 'SENSITIVE', reason: `Touch credentials or login items: ${command.slice(0, 80)}` }
     return isReadOnlyCommand(command) ? { risk: 'LOW_RISK', reason: 'read-only command' } : { risk: 'MODIFYING', reason: 'command may change files' }
   }
+  if (tool === 'applescript_dictionary') return { risk: 'LOW_RISK', reason: 'reads an app\'s scripting dictionary' }
   if (tool === 'applescript') {
     const script = stringField(args, 'script')
     if (SENSITIVE_SCRIPT.test(script)) return { risk: 'SENSITIVE', reason: `Run a sensitive AppleScript: ${script.replaceAll(/\s+/g, ' ').slice(0, 80)}` }

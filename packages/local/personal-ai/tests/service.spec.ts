@@ -292,7 +292,7 @@ describe('personal ai', () => {
     expect(await toolNames(ctx, leadAgent)).toEqual(expect.arrayContaining(['editor_context', 'repo_map', 'open_in_editor']))
     if (process.platform === 'darwin') {
       expect((await assembled(ctx, leadAgent)).contexts).toContain(MAC_CONTROL_GUIDANCE)
-      expect(await toolNames(ctx, leadAgent)).toContain('applescript')
+      expect(await toolNames(ctx, leadAgent)).toEqual(expect.arrayContaining(['applescript', 'applescript_dictionary']))
     }
 
     const fast = await ctx.agentLoop.create(SessionId('fast-editor'), { provider: 'mock', model: 'lead' })
