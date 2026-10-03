@@ -61,7 +61,7 @@ export const Config: z<Config> = z.object({
 /** Parsed tool args; execute validates value constraints absent from ParameterSchemaSpec. */
 interface BashToolArgs {
   command: string
-  description: string
+  description?: string
   timeoutMs?: number
   workdir?: string
   run_in_background?: boolean
@@ -73,9 +73,6 @@ interface BashToolArgs {
 function validateBashArgs(args: BashToolArgs, effectiveMode: SandboxMode | undefined): void {
   if (args.command.trim().length === 0) {
     throw new Error('invalid command: expected a non-empty string')
-  }
-  if (args.description.trim().length === 0) {
-    throw new Error('invalid description: expected a non-empty string')
   }
   if (args.timeoutMs !== undefined && (!Number.isFinite(args.timeoutMs) || args.timeoutMs <= 0)) {
     throw new Error(`invalid timeoutMs: expected a positive number, got ${JSON.stringify(args.timeoutMs)}`)
@@ -102,7 +99,20 @@ function bashDescription(): string {
  * The command remains the title on both paths; foreground cwd is passed through
  * for the bridge to resolve, while background descriptions remain card content.
  */
-type BashCallArgs = { command: string; description: string; workdir?: string; run_in_background?: boolean }
+type BashCallArgs = { command: string; description?: string; workdir?: string; run_in_background?: boolean }
+
+/**
+ * The UI label for a call: the model's description, or the command itself when it gave none
+ * (a missing label must never cost a failed call and a retry).
+ * @param args - call arguments.
+ * @returns a non-empty label.
+ */
+export function bashLabel(args: { command: string; description?: string }): string {
+  const given = args.description?.trim() ?? ''
+  if (given !== '') return given
+  const command = args.command.trim().replaceAll(/\s+/g, ' ')
+  return command.length > 80 ? `${command.slice(0, 79)}…` : command
+}
 
 function presentBashCall(args: BashCallArgs): GenericCallView | TerminalCallView {
   if (args.run_in_background === true) {
@@ -111,13 +121,13 @@ function presentBashCall(args: BashCallArgs): GenericCallView | TerminalCallView
       title: args.command,
       kind: 'execute',
       rawInput: args.command,
-      content: [{ type: 'text', text: args.description }],
+      content: [{ type: 'text', text: bashLabel(args) }],
     }
   }
   return {
     card: 'terminal',
     title: args.command,
-    description: args.description,
+    description: bashLabel(args),
     ...args.workdir !== undefined ? { cwd: args.workdir } : {},
   }
 }
@@ -377,8 +387,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         command: { type: 'string', required: true, description: 'The bash command to execute.' },
         description: {
           type: 'string',
-          required: true,
-          description: 'Clear, concise description of what this command does in active voice, '
+          description: 'Optional. Clear, concise description of what this command does in active voice, '
             + '5-10 words (shown in the UI). Examples: "ls" → "List files in current directory"; '
             + '"git status" → "Show working tree status"; "npm install" → "Install package dependencies".',
         },

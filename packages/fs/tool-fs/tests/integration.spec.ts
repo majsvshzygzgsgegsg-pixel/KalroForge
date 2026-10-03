@@ -183,18 +183,28 @@ describe('default deployment (with dsh-fs-observation-policy)', () => {
       expect(text(result)).toContain('re-read the file, then retry')
     })
 
+    it('an edit whose anchor survived an out-of-band change still applies, without a re-read', async () => {
+      await writeFile(join(dir, 'a.txt'), 'hello world')
+      await call('read', { file_path: 'a.txt' })
+      await writeFile(join(dir, 'a.txt'), 'hello brave world') // out-of-band change keeps "world" unique
+      const result = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
+      expect(result.isError).toBe(false)
+      expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello brave there')
+    })
+
     it('the stale remedy is actionable: re-reading the changed file unblocks the retried edit', async () => {
       await writeFile(join(dir, 'a.txt'), 'hello world')
       await call('read', { file_path: 'a.txt' })
-      await writeFile(join(dir, 'a.txt'), 'hello brave world') // out-of-band change
+      await writeFile(join(dir, 'a.txt'), 'hello planet') // out-of-band change removes the anchor
       const stale = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
       expect(stale.isError).toBe(true)
       expect(stale.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
-      // Follow the remedy: re-read (refreshes the observed version), then retry.
+      expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello planet')
+      // Follow the remedy: re-read (refreshes the observed version), then retry against the current text.
       expect((await call('read', { file_path: 'a.txt' })).isError).toBe(false)
-      const retried = await call('edit', { file_path: 'a.txt', old_string: 'world', new_string: 'there' })
+      const retried = await call('edit', { file_path: 'a.txt', old_string: 'planet', new_string: 'there' })
       expect(retried.isError).toBe(false)
-      expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello brave there')
+      expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello there')
     })
 
     it('rejects an ambiguous match without replace_all', async () => {
@@ -460,7 +470,7 @@ describe('signal, concurrency, and the fs/observed contract', () => {
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello') // unchanged
   })
 
-  it('two concurrent edits of the same file, same session: one wins, one FS_STALE_VERSION', async () => {
+  it('two concurrent edits of the same file, same session: both land when their anchors stay intact', async () => {
     await writeFile(join(dir, 'a.txt'), 'base value here')
     // One read establishes the observed version both edits guard against; then
     // race two edits so both carry the SAME observed version (the barrier).
@@ -469,12 +479,24 @@ describe('signal, concurrency, and the fs/observed contract', () => {
       callOwned('edit', { file_path: 'a.txt', old_string: 'base', new_string: 'ONE', replaceAll: false }),
       callOwned('edit', { file_path: 'a.txt', old_string: 'value', new_string: 'TWO', replaceAll: false }),
     ])
+    // The edits are serialized under the per-file lock; the second sees a newer version but
+    // its literal anchor is still intact, so it applies on top of the first: no lost update.
+    expect([one, two].filter(r => r.isError)).toHaveLength(0)
+    expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('ONE TWO here')
+  })
+
+  it('two concurrent edits of the same text: the second fails closed with FS_STALE_VERSION', async () => {
+    await writeFile(join(dir, 'a.txt'), 'base value here')
+    expect((await callOwned('read', { file_path: 'a.txt' })).isError).toBe(false)
+    const [one, two] = await Promise.all([
+      callOwned('edit', { file_path: 'a.txt', old_string: 'base', new_string: 'ONE', replaceAll: false }),
+      callOwned('edit', { file_path: 'a.txt', old_string: 'base', new_string: 'TWO', replaceAll: false }),
+    ])
     const errors = [one, two].filter(r => r.isError)
     expect(errors).toHaveLength(1)
     expect(errors[0]?.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
-    // The world is consistent: exactly one edit landed.
     const onDisk = await readFile(join(dir, 'a.txt'), 'utf8')
-    expect(onDisk === 'ONE value here' || onDisk === 'base TWO here').toBe(true)
+    expect(onDisk === 'ONE value here' || onDisk === 'TWO value here').toBe(true)
   })
 
   it('a stale observed version from an older read fails closed at edit CAS', async () => {
@@ -494,14 +516,19 @@ describe('signal, concurrency, and the fs/observed contract', () => {
     // Reproduce an older concurrent read winning the observation race.
     ctx.emit('fs/observed', target, { kind: 'present', version: firstInfo.version }, { agent: { session } })
 
+    // An anchor only the older read had is gone: fail closed, file untouched.
     const edit = await callOwned('edit', {
       file_path: 'a.txt',
-      old_string: 'newer',
+      old_string: 'older',
       new_string: 'edited',
     })
     expect(edit.isError).toBe(true)
     expect(edit.error).toMatchObject({ info: { code: 'FS_STALE_VERSION' } })
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('newer current content\n')
+    // An anchor present exactly once in the current text is safe to apply despite the older observation.
+    const current = await callOwned('edit', { file_path: 'a.txt', old_string: 'newer', new_string: 'edited' })
+    expect(current.isError).toBe(false)
+    expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('edited current content\n')
   })
 
   it('a throwing fs/observed listener surfaces as isError, but the mutation already hit disk', async () => {

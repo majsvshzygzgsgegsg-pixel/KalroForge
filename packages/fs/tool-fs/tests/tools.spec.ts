@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import SystemPrompt, { KAIROFORGE_IDENTITY_PROMPT, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { type ToolResult } from '@deepseek-ai/dsh-tools'
 import { FileSystem, FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import type {
@@ -1056,7 +1056,7 @@ describe('scope-aware filesystem guidance', () => {
 
 /** Preserve the default persona and exact section separators in the oracle. */
 function withPersona(...sections: string[]): string {
-  return ['You are an AI agent powered by KairoForge.', ...sections].join('\n\n')
+  return [KAIROFORGE_IDENTITY_PROMPT, ...sections].join('\n\n')
 }
 
 /** Schema assembly only: these cases never execute user code. */

@@ -270,11 +270,17 @@ export class LocalFileSystem extends FileSystem {
       // expected === undefined: unconditional edit of the current content — no
       // version guard. Still inside the per-target lock, so the read→match→write
       // window is serialized and atomic.
+      const original = await readForEdit(target.targetKey, target.displayPath, signal)
       if (expected && existing.version !== expected.version) {
-        throw new FsError(`cannot edit "${target.displayPath}": file changed since it was read`, 'FS_STALE_VERSION')
+        // The file moved on since it was read. The edit is still safe when its literal anchor is
+        // intact in the current text (exactly once unless replaceAll): it changes only that text.
+        const anchor = normalizeLineEndings(edit.oldString)
+        const hits = anchor === '' ? 0 : original.content.split(anchor).length - 1
+        if (hits === 0 || (!edit.replaceAll && hits > 1)) {
+          throw new FsError(`cannot edit "${target.displayPath}": file changed since it was read`, 'FS_STALE_VERSION')
+        }
       }
 
-      const original = await readForEdit(target.targetKey, target.displayPath, signal)
       const edited = applyLiteralEdit(original.content, edit.oldString, edit.newString, edit.replaceAll, target.displayPath)
       const content = restoreLineEndings(edited.content, original.lineEndings)
       await writeFileAtomic(target.targetKey, content, existing.mode, signal, this.internals)

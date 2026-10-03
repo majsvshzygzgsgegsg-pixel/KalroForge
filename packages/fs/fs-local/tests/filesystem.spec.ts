@@ -684,6 +684,26 @@ describe('editText', () => {
       .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
   })
 
+  it('applies a stale-version edit whose literal anchor is still unique in the current content', async () => {
+    await writeFile(join(dir, 'a.txt'), 'hello world')
+    const target = await fs.resolve('a.txt')
+    const stale = await versionOf(target)
+    await writeFile(join(dir, 'a.txt'), 'hello brave world')
+    const outcome = await fs.editText(target, { oldString: 'world', newString: 'there', replaceAll: false }, { version: stale })
+    expect(outcome.after).toBe('hello brave there')
+    expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello brave there')
+  })
+
+  it('keeps a stale-version edit stale when its anchor became ambiguous', async () => {
+    await writeFile(join(dir, 'a.txt'), 'hello world')
+    const target = await fs.resolve('a.txt')
+    const stale = await versionOf(target)
+    await writeFile(join(dir, 'a.txt'), 'world hello world')
+    await expect(fs.editText(target, { oldString: 'world', newString: 'there', replaceAll: false }, { version: stale }))
+      .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
+    expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('world hello world')
+  })
+
   it('unconditionally edits the current content with no expectation (bare provider)', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
     const target = await fs.resolve('a.txt')

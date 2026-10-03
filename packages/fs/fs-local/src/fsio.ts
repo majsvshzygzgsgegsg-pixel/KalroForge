@@ -800,6 +800,102 @@ export async function readTextForDiff(
   }
 }
 
+const leadingWhitespace = (line: string): string => /^[ \t]*/.exec(line)?.[0] ?? ''
+
+/**
+ * Whole-line windows of `content` that equal `oldText` once leading/trailing
+ * whitespace is ignored on every line. Only blocks made of complete lines can
+ * match, so a tolerant replacement never drops text outside the block.
+ * @param lines - content lines.
+ * @param wanted - old_string lines (blank edge lines removed).
+ * @returns start indexes of matching windows.
+ */
+function tolerantWindows(lines: readonly string[], wanted: readonly string[]): number[] {
+  const starts: number[] = []
+  const trimmed = wanted.map(line => line.trim())
+  for (let start = 0; start + trimmed.length <= lines.length; start++) {
+    let ok = true
+    for (let offset = 0; offset < trimmed.length; offset++) {
+      if ((lines[start + offset] ?? '').trim() !== trimmed[offset]) { ok = false; break }
+    }
+    if (ok) starts.push(start)
+  }
+  return starts
+}
+
+/**
+ * Retry a literal edit that missed only because of indentation or trailing
+ * whitespace (the most common reason a model's old_string does not match).
+ * The block must still match as complete lines, exactly once unless
+ * `replaceAll`; the replacement keeps the file's indentation.
+ * @param content - LF-normalized file content.
+ * @param oldText - LF-normalized old_string.
+ * @param newText - LF-normalized new_string.
+ * @param replaceAll - replace every tolerant match.
+ * @returns the edit, or undefined when there is no safe tolerant match.
+ */
+export function applyWhitespaceTolerantEdit(
+  content: string,
+  oldText: string,
+  newText: string,
+  replaceAll: boolean,
+): { content: string; replacements: number } | undefined {
+  const wanted = oldText.split('\n')
+  while (wanted.length > 0 && wanted[0]?.trim() === '') wanted.shift()
+  while (wanted.length > 0 && wanted.at(-1)?.trim() === '') wanted.pop()
+  if (wanted.length === 0 || wanted.join('').trim().length < 3) return undefined
+  const lines = content.split('\n')
+  const starts = tolerantWindows(lines, wanted)
+  if (starts.length === 0 || (!replaceAll && starts.length > 1)) return undefined
+  const firstWanted = wanted.find(line => line.trim() !== '') ?? ''
+  const replacementFor = (start: number): string[] => {
+    const actualIndent = leadingWhitespace(lines.slice(start, start + wanted.length).find(line => line.trim() !== '') ?? '')
+    const givenIndent = leadingWhitespace(firstWanted)
+    const newLines = newText === '' ? [] : newText.split('\n')
+    return newLines.map((line) => {
+      if (line.trim() === '') return line
+      if (line.startsWith(givenIndent)) return actualIndent + line.slice(givenIndent.length)
+      return line
+    })
+  }
+  const out: string[] = []
+  let cursor = 0
+  for (const start of starts) {
+    out.push(...lines.slice(cursor, start), ...replacementFor(start))
+    cursor = start + wanted.length
+  }
+  out.push(...lines.slice(cursor))
+  return { content: out.join('\n'), replacements: starts.length }
+}
+
+/**
+ * The lines of `content` that look most like `oldText`, quoted for a retry.
+ * @param content - LF-normalized file content.
+ * @param oldText - LF-normalized old_string that did not match.
+ * @returns the 1-based line range and its text, or undefined when nothing is similar.
+ */
+export function closestLines(content: string, oldText: string): { range: string; text: string } | undefined {
+  const wanted = oldText.split('\n').map(line => line.trim()).filter(line => line !== '')
+  if (wanted.length === 0) return undefined
+  const lines = content.split('\n')
+  const span = Math.min(Math.max(wanted.length, 1), 40)
+  const wantedSet = new Set(wanted)
+  let best = -1
+  let bestScore = 0
+  for (let start = 0; start < lines.length; start++) {
+    let score = 0
+    for (let offset = 0; offset < span && start + offset < lines.length; offset++) {
+      const line = (lines[start + offset] ?? '').trim()
+      if (wantedSet.has(line)) score += line === wanted[offset] ? 2 : 1
+    }
+    if (score > bestScore) { bestScore = score; best = start }
+  }
+  if (best < 0 || bestScore === 0) return undefined
+  const end = Math.min(lines.length, best + span)
+  const quoted = lines.slice(best, end).join('\n')
+  return { range: `${String(best + 1)}-${String(end)}`, text: quoted.length > 3000 ? `${quoted.slice(0, 3000)}…` : quoted }
+}
+
 /**
  * Apply a literal replacement to LF-normalized content. Empty or missing search text throws
  * `FS_EDIT_NOT_FOUND`; multiple matches throw `FS_AMBIGUOUS_EDIT` unless `replaceAll` is true.
@@ -825,7 +921,11 @@ export function applyLiteralEdit(
   const newNorm = normalizeLineEndings(newString)
   const replacements = countOccurrences(content, oldNorm)
   if (replacements === 0) {
-    throw new FsError(`old_string was not found in "${displayPath}"`, 'FS_EDIT_NOT_FOUND')
+    const tolerant = applyWhitespaceTolerantEdit(content, oldNorm, newNorm, replaceAll)
+    if (tolerant !== undefined) return tolerant
+    const near = closestLines(content, oldNorm)
+    const hint = near === undefined ? '' : `. Closest current text, lines ${near.range} (copy old_string from it exactly):\n${near.text}`
+    throw new FsError(`old_string was not found in "${displayPath}"${hint}`, 'FS_EDIT_NOT_FOUND')
   }
   if (!replaceAll && replacements > 1) {
     throw new FsError(`old_string matched ${replacements} times in "${displayPath}"; provide a more specific old_string or set replace_all to true`, 'FS_AMBIGUOUS_EDIT')

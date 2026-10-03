@@ -937,6 +937,24 @@ describe('writeFileAtomic — temp-file safety', () => {
 })
 
 describe('applyLiteralEdit', () => {
+  it('retries a whole-line block that differs only in indentation or trailing spaces, keeping the file indentation', () => {
+    const file = 'function f() {\n    if (x) {\n        run()  \n    }\n}\n'
+    const result = applyLiteralEdit(file, 'if (x) {\n    run()\n}', 'if (y) {\n    go()\n}', false, 'f')
+    expect(result).toEqual({ content: 'function f() {\n    if (y) {\n        go()\n    }\n}\n', replacements: 1 })
+  })
+
+  it('does not apply a tolerant match that is ambiguous or not whole lines', () => {
+    expect(() => applyLiteralEdit('  a()\n  a()\n', 'a()', 'b()', false, 'f').content).toThrow(expect.objectContaining({ code: 'FS_AMBIGUOUS_EDIT' }))
+    expect(() => applyLiteralEdit('  call(a)\n  call(a)\n', 'call(a) ', 'x', false, 'f')).toThrow(expect.objectContaining({ code: 'FS_EDIT_NOT_FOUND' }))
+    expect(() => applyLiteralEdit('let total = x + y\n', 'total = x+y', 'z', false, 'f')).toThrow(expect.objectContaining({ code: 'FS_EDIT_NOT_FOUND' }))
+  })
+
+  it('quotes the closest current lines when old_string is not found', () => {
+    const file = 'one\nconst a = 1\nconst b = 2\nthree\n'
+    expect(() => applyLiteralEdit(file, 'const a = 1\nconst b = 3', 'x', false, 'f'))
+      .toThrow(/Closest current text, lines 2-3[^]*const a = 1\nconst b = 2/)
+  })
+
   it('replaces a unique match', () => {
     expect(applyLiteralEdit('a b c', 'b', 'X', false, 'f')).toEqual({ content: 'a X c', replacements: 1 })
   })

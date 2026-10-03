@@ -6,7 +6,7 @@
  */
 
 /** Extension version; bump when the source changes. */
-export const EXTENSION_VERSION = '0.2.0'
+export const EXTENSION_VERSION = '0.3.0'
 /** Marketplace-style id (publisher.name). */
 export const EXTENSION_ID = 'kairoforge.kairoforge-editor'
 
@@ -74,14 +74,18 @@ let status
 let output
 let pushTimer
 let lastBody = ''
+let lastPush = 0
 let connected = false
+let updateOffered = false
+const RETRY_MS = 5000
+const HEARTBEAT_MS = 30000
 
 function readBridge() {
   try { bridge = JSON.parse(fs.readFileSync(BRIDGE_FILE, 'utf8')) } catch { bridge = undefined }
   return bridge
 }
 
-async function call(method, route, body) {
+async function call(method, route, body, retried) {
   const target = bridge || readBridge()
   if (!target) throw new Error('KairoForge is not running on this Mac.')
   let response
@@ -98,7 +102,8 @@ async function call(method, route, body) {
   }
   if (response.status === 401) {
     bridge = undefined
-    readBridge()
+    const fresh = readBridge()
+    if (!retried && fresh && fresh.token !== target.token) return call(method, route, body, true)
     throw new Error('KairoForge restarted; try again.')
   }
   const data = await response.json().catch(() => ({}))
@@ -116,7 +121,7 @@ function setConnected(value) {
   const mode = currentMode()
   const suffix = mode === 'standard' ? '' : ' · ' + mode
   status.text = (value ? '$(sparkle) KairoForge' : '$(debug-disconnect) KairoForge') + suffix
-  status.tooltip = value ? 'KairoForge sees this editor. Click to ask (Cmd+Alt+K).' : 'KairoForge is not running. Start it, then this reconnects by itself.'
+  status.tooltip = value ? 'KairoForge sees this editor. Click to ask (Cmd+Alt+K).' : 'KairoForge is not reachable. This retries every few seconds and reconnects by itself.'
 }
 
 function sharing() {
@@ -177,6 +182,7 @@ async function push(force) {
   try {
     await call('POST', '/context', snap)
     lastBody = body
+    lastPush = Date.now()
     setConnected(true)
   } catch {
     setConnected(false)
@@ -190,6 +196,38 @@ function schedule(delay) {
 
 function log(text) {
   output.appendLine(text)
+}
+
+function versionParts(value) {
+  return String(value).split('.').map(part => Number.parseInt(part, 10) || 0)
+}
+
+function newerInstalled(context) {
+  const running = versionParts(context.extension.packageJSON.version)
+  const prefix = context.extension.id.toLowerCase() + '-'
+  let entries = []
+  try { entries = fs.readdirSync(path.dirname(context.extensionPath)) } catch { return undefined }
+  for (const entry of entries) {
+    if (!entry.toLowerCase().startsWith(prefix)) continue
+    const version = entry.slice(prefix.length)
+    const parts = versionParts(version)
+    for (let index = 0; index < 3; index++) {
+      if ((parts[index] || 0) !== (running[index] || 0)) {
+        if ((parts[index] || 0) > (running[index] || 0)) return version
+        break
+      }
+    }
+  }
+  return undefined
+}
+
+async function offerUpdate(context) {
+  if (updateOffered) return
+  const version = newerInstalled(context)
+  if (!version) return
+  updateOffered = true
+  const choice = await vscode.window.showInformationMessage('KairoForge ' + version + ' is installed. Reload this window to use it.', 'Reload Window')
+  if (choice) void vscode.commands.executeCommand('workbench.action.reloadWindow')
 }
 
 async function pickMode() {
@@ -304,10 +342,25 @@ function activate(context) {
     vscode.window.onDidChangeWindowState((state) => { if (state.focused) void push(true) }),
   )
   const heartbeat = setInterval(() => {
-    if (vscode.window.state.focused || !connected) void push(true)
-  }, 60000)
-  context.subscriptions.push({ dispose: () => { clearInterval(heartbeat); clearTimeout(pushTimer) } })
+    if (!connected || Date.now() - lastPush >= HEARTBEAT_MS) void push(true)
+  }, RETRY_MS)
+  const onBridgeChange = () => {
+    readBridge()
+    void push(true)
+    void offerUpdate(context)
+  }
+  fs.watchFile(BRIDGE_FILE, { interval: 2000 }, onBridgeChange)
+  const updateCheck = setInterval(() => { void offerUpdate(context) }, 10 * 60000)
+  context.subscriptions.push({
+    dispose: () => {
+      clearInterval(heartbeat)
+      clearInterval(updateCheck)
+      clearTimeout(pushTimer)
+      fs.unwatchFile(BRIDGE_FILE, onBridgeChange)
+    },
+  })
   void push(true)
+  void offerUpdate(context)
 }
 
 function deactivate() {}
