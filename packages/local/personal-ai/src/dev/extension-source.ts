@@ -6,7 +6,7 @@
  */
 
 /** Extension version; bump when the source changes. */
-export const EXTENSION_VERSION = '0.1.0'
+export const EXTENSION_VERSION = '0.2.0'
 /** Marketplace-style id (publisher.name). */
 export const EXTENSION_ID = 'kairoforge.kairoforge-editor'
 
@@ -27,6 +27,8 @@ export const EXTENSION_MANIFEST = {
       { command: 'kairoforge.askSelection', title: 'Ask About Selection', category: 'KairoForge' },
       { command: 'kairoforge.explain', title: 'Explain Selection', category: 'KairoForge' },
       { command: 'kairoforge.fixProblems', title: 'Fix Problems in This File', category: 'KairoForge' },
+      { command: 'kairoforge.askInMode', title: 'Ask in Mode…', category: 'KairoForge' },
+      { command: 'kairoforge.chooseMode', title: 'Choose Mode…', category: 'KairoForge' },
       { command: 'kairoforge.open', title: 'Open Command Center', category: 'KairoForge' },
     ],
     keybindings: [{ command: 'kairoforge.ask', key: 'ctrl+alt+k', mac: 'cmd+alt+k' }],
@@ -44,6 +46,11 @@ export const EXTENSION_MANIFEST = {
           type: 'boolean',
           default: true,
           description: 'Send the active file path, cursor, selection, nearby code, open tabs, and problems to KairoForge on this Mac. Secret files (.env, keys) send only their path.',
+        },
+        'kairoforge.mode': {
+          type: 'string',
+          default: 'standard',
+          description: 'KairoForge mode questions from this editor run in, e.g. standard (Lead), self-edit (Self-Edit + GitHub), cordis (Creator), builder, fast, or chat.',
         },
       },
     },
@@ -99,10 +106,16 @@ async function call(method, route, body) {
   return data
 }
 
+function currentMode() {
+  return vscode.workspace.getConfiguration('kairoforge').get('mode', 'standard') || 'standard'
+}
+
 function setConnected(value) {
   connected = value
   if (!status) return
-  status.text = value ? '$(sparkle) KairoForge' : '$(debug-disconnect) KairoForge'
+  const mode = currentMode()
+  const suffix = mode === 'standard' ? '' : ' · ' + mode
+  status.text = (value ? '$(sparkle) KairoForge' : '$(debug-disconnect) KairoForge') + suffix
   status.tooltip = value ? 'KairoForge sees this editor. Click to ask (Cmd+Alt+K).' : 'KairoForge is not running. Start it, then this reconnects by itself.'
 }
 
@@ -179,20 +192,35 @@ function log(text) {
   output.appendLine(text)
 }
 
-async function ask(prompt, label) {
+async function pickMode() {
+  let modes
+  try {
+    modes = (await call('GET', '/modes')).modes || []
+  } catch (error) {
+    void vscode.window.showErrorMessage('KairoForge: ' + error.message)
+    return undefined
+  }
+  const current = currentMode()
+  const items = modes.map(mode => ({ label: mode.name, description: mode.id + (mode.id === current ? ' (current)' : ''), id: mode.id }))
+  const chosen = await vscode.window.showQuickPick(items, { placeHolder: 'KairoForge mode for this question', ignoreFocusOut: true })
+  return chosen ? chosen.id : undefined
+}
+
+async function ask(prompt, label, mode) {
   if (!prompt || !prompt.trim()) return
   await push(true)
   const folder = (vscode.workspace.workspaceFolders || [])[0]
+  const chosen = mode || currentMode()
   let turn
   try {
-    turn = await call('POST', '/ask', { prompt, ...(folder ? { workspace: folder.uri.fsPath } : {}) })
+    turn = await call('POST', '/ask', { prompt, mode: chosen, ...(folder ? { workspace: folder.uri.fsPath } : {}) })
   } catch (error) {
     void vscode.window.showErrorMessage('KairoForge: ' + error.message)
     return
   }
   output.show(true)
   log('')
-  log('▶ ' + (label || prompt))
+  log('▶ ' + (label || prompt) + (chosen === 'standard' ? '' : '  [' + chosen + ']'))
   await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'KairoForge', cancellable: false }, async (progress) => {
     const started = Date.now()
     let shown = 0
@@ -252,6 +280,17 @@ function activate(context) {
       const file = editor.document.uri.fsPath
       return ask('Fix the errors and warnings the editor reports in ' + file + ', then re-check that the file is clean. Keep unrelated code unchanged.', 'Fix problems in ' + path.basename(file))
     }),
+    vscode.commands.registerCommand('kairoforge.askInMode', async () => {
+      const mode = await pickMode()
+      if (!mode) return
+      const prompt = await vscode.window.showInputBox({ prompt: 'Ask KairoForge in ' + mode + ' mode', ignoreFocusOut: true })
+      if (prompt) await ask(prompt + selectionNote(), prompt, mode)
+    }),
+    vscode.commands.registerCommand('kairoforge.chooseMode', async () => {
+      const mode = await pickMode()
+      if (mode) await vscode.workspace.getConfiguration('kairoforge').update('mode', mode, vscode.ConfigurationTarget.Global)
+    }),
+    vscode.workspace.onDidChangeConfiguration((event) => { if (event.affectsConfiguration('kairoforge.mode')) setConnected(connected) }),
     vscode.commands.registerCommand('kairoforge.open', () => {
       const target = bridge || readBridge()
       if (target) void vscode.env.openExternal(vscode.Uri.parse(target.url + '/'))

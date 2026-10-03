@@ -4,7 +4,8 @@
  *   a hard loop stop, "did you mean" hints for missing paths, a syntax check
  *   after edits, and a clearer message for malformed tool arguments. They only
  *   refuse or add information; they never grant anything.
- * - Tools: editor_context, repo_map, open_in_editor.
+ * - Tools: editor_context, repo_map, open_in_editor, and `github` (REST API
+ *   access for the GitHub-capable modes; account-level changes still ask).
  * - The editor bridge route (`/kairoforge-editor/*`) for the VS Code / Cursor
  *   extension, and the Command Center routes (`/personal-ai/dev/*`).
  */
@@ -22,6 +23,7 @@ import { editorContextText, type EditorSnapshot } from '../core/editor.ts'
 import { malformedArgsHint, missingPathOf } from '../core/reliability.ts'
 import { PersonalAiError } from '../types.ts'
 import { EDITORS, type DevKit, type EditorKind } from './service.ts'
+import { forgetGithubToken, GITHUB_METHODS, githubGate, githubToken, githubUrl, parseSlug, renderGithubResponse, repoSlugOf, type GithubMethod } from './github.ts'
 import { checkSyntax, syntaxWarning } from './syntax.ts'
 
 /** Editor bridge route prefix (used by the extension). */
@@ -56,7 +58,11 @@ const snapshotSchema = z.object({
   diagnostics: z.array(diagnostic).max(300),
   at: z.string().min(1).max(64),
 })
-const askSchema = z.object({ prompt: z.string().min(1).max(8000), workspace: z.string().min(1).max(4096).optional() }).strict()
+const askSchema = z.object({
+  prompt: z.string().min(1).max(8000),
+  workspace: z.string().min(1).max(4096).optional(),
+  mode: z.string().regex(/^[\w-]{1,64}$/).optional(),
+}).strict()
 
 function text(value: string): ContentBlock {
   return { type: 'text', text: value }
@@ -132,6 +138,15 @@ export function installDevHooks(ctx: Context, dev: DevKit): void {
     return next()
   }, { prepend: true })
 
+  ctx.on('tools/pre-execute', async (exec: ToolExecution, next: () => Promise<PreToolDecision>): Promise<PreToolDecision> => {
+    if (exec.name !== GITHUB_TOOL) return next()
+    const gate = githubGateOf(exec.arguments, protectedBranchesOf(ctx))
+    if (gate?.kind === 'deny') return { kind: 'deny', reason: gate.reason }
+    const decision = await next()
+    if (gate === undefined || decision.kind !== 'allow') return decision
+    return { kind: 'ask', reason: `GitHub: ${gate.reason}`, displayReason: { en: `GitHub — ${gate.reason}. Confirm to continue.`, zh: `GitHub — ${gate.reason}。确认后继续。` } }
+  })
+
   ctx.on('tools/post-execute', async (exec: ToolExecution, result: Readonly<ToolExecutionResult>, next: () => Promise<PostToolDecision>): Promise<PostToolDecision> => {
     const decision = await next()
     const key = exec.agent?.session.id
@@ -168,6 +183,83 @@ function openInEditor(dev: DevKit, path: string, line: number | undefined): Prom
  * @param agent - the agent the tools are registered for.
  * @returns tool definitions.
  */
+/** Name of the GitHub REST tool. */
+export const GITHUB_TOOL = 'github'
+
+function protectedBranchesOf(ctx: Context): readonly string[] {
+  return ctx.get('orchestration')?.settings().checkpoints.protectedBranches ?? ['main', 'master']
+}
+
+function githubGateOf(args: unknown, protectedBranches: readonly string[]): ReturnType<typeof githubGate> {
+  const fields = typeof args === 'object' && args !== null ? args as Record<string, unknown> : {}
+  const method = typeof fields.method === 'string' ? fields.method.toUpperCase() : 'GET'
+  if (!(GITHUB_METHODS as readonly string[]).includes(method) || typeof fields.path !== 'string') return undefined
+  let body: unknown
+  try {
+    body = typeof fields.body === 'string' && fields.body.trim() !== '' ? JSON.parse(fields.body) : undefined
+  } catch {
+    return undefined
+  }
+  try {
+    return githubGate(method as GithubMethod, githubUrl(fields.path, { owner: 'owner', repo: 'repo' }).pathname, body, protectedBranches)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The `github` tool: the GitHub REST API with the account Git already pushes with.
+ * @param agent - the calling Agent (its working directory picks the default repository).
+ * @returns the tool.
+ */
+export function githubTool(agent: Agent): unknown {
+  return defineTool({
+    name: GITHUB_TOOL,
+    description: [
+      'Call the GitHub REST API (https://docs.github.com/rest) as the signed-in Git account: pull requests (create, review, merge),',
+      'issues and comments, releases and tags, branches and refs, workflow runs, repository details, and creating repositories.',
+      'Use {owner}/{repo} in the path for the current workspace repository, e.g. "/repos/{owner}/{repo}/pulls".',
+      'Account-level changes ask the user first; deleting or force-updating protected branches is refused.',
+    ].join(' '),
+    parameters: {
+      method: { type: 'string', enum: [...GITHUB_METHODS], required: true },
+      path: { type: 'string', required: true, description: 'API path, e.g. /repos/{owner}/{repo}/pulls?state=open.' },
+      body: { type: 'string', description: 'JSON request body for POST/PATCH/PUT.' },
+      repo: { type: 'string', description: 'Repository as "owner/name" when it is not the workspace repository.' },
+    },
+    output: TEXT_OUTPUT,
+    execute: async (args, { signal }) => {
+      let body: unknown
+      if (args.body !== undefined && args.body.trim() !== '') {
+        try {
+          body = JSON.parse(args.body)
+        } catch (error) {
+          return `body is not valid JSON: ${error instanceof Error ? error.message : String(error)}`
+        }
+      }
+      const slug = args.repo === undefined ? await repoSlugOf(agent.session.header.cwd) : parseSlug(args.repo)
+      if (args.repo !== undefined && slug === undefined) return 'repo must look like "owner/name".'
+      const url = githubUrl(args.path, slug)
+      const token = await githubToken()
+      if (token === undefined) return 'No GitHub credentials: sign in once with `git push` to github.com (or set GH_TOKEN), then retry.'
+      const response = await fetch(url, {
+        method: args.method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'KairoForge',
+          ...body === undefined ? {} : { 'Content-Type': 'application/json' },
+        },
+        ...body === undefined ? {} : { body: JSON.stringify(body) },
+        signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+      })
+      if (response.status === 401) forgetGithubToken()
+      return renderGithubResponse(response.status, await response.text(), token)
+    },
+  })
+}
+
 export function devTools(dev: DevKit, agent: Agent): unknown[] {
   const cwd = (): string | undefined => agent.session.header.cwd
   return [
@@ -245,13 +337,14 @@ async function bridgeRoute(dev: DevKit, req: IncomingMessage): Promise<DevRouteO
   const [action, id] = url.pathname.slice(EDITOR_BRIDGE_PATH.length).split('/').filter(part => part !== '').map(decodeURIComponent)
   if (req.method === 'GET' && action === 'ping') return { status: 200, payload: { ok: true } }
   if (req.method === 'GET' && action === 'turn' && id !== undefined) return { status: 200, payload: dev.turn(id) }
+  if (req.method === 'GET' && action === 'modes') return { status: 200, payload: { modes: await dev.modes() } }
   if (req.method === 'POST' && action === 'context') {
     dev.noteEditor(parse(snapshotSchema, await readJson(req)) as EditorSnapshot)
     return { status: 200, payload: { ok: true } }
   }
   if (req.method === 'POST' && action === 'ask') {
     const body = parse(askSchema, await readJson(req))
-    return { status: 200, payload: await dev.ask(body.prompt, body.workspace) }
+    return { status: 200, payload: await dev.ask(body.prompt, body.workspace, body.mode) }
   }
   return { status: 404, payload: { code: 'not-found', message: 'unknown editor route' } }
 }

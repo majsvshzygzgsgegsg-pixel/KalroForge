@@ -185,11 +185,14 @@ export function installOrchestrationHooks(ctx: Context, service: Orchestrator): 
 
     const command = SHELL_TOOLS.has(exec.name) ? stringArg(exec.arguments, 'command') ?? '' : ''
     let guard: ReturnType<typeof gitGuard>
-    if (managed && /\bgit\b/.test(command)) {
+    const directPush = settings.checkpoints.directPushModes.includes(service.registry.modeOf(agent))
+    if ((managed || directPush) && /\bgit\b/.test(command)) {
       const root = await repoRoot(cwd)
       const branch = root === undefined ? undefined : (await headState(root)).branch
-      guard = gitGuard(command, branch, settings.checkpoints.protectedBranches)
+      guard = gitGuard(command, branch, settings.checkpoints.protectedBranches, { directPush })
       if (guard?.kind === 'deny') return { kind: 'deny', reason: guard.reason }
+      // Direct-push sessions outside Main Agents keep their own approval rules; only the hard denials apply.
+      if (!managed) guard = undefined
     }
 
     const decision = await next()

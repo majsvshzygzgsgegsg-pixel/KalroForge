@@ -112,7 +112,9 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
       service.noteConversationTool(sessionId, exec.name, exec.arguments)
       return decision
     }
-    const risk = classifyRisk(exec.name, exec.arguments)
+    const mode = exec.agent === undefined ? undefined : ctx.get('mainAgents')?.modeOf(exec.agent)
+    const directPush = mode !== undefined && (ctx.get('orchestration')?.settings().checkpoints.directPushModes ?? []).includes(mode)
+    const risk = classifyRisk(exec.name, exec.arguments, { directPush })
     const gated = risk.risk === 'SENSITIVE' && (OWN_GATED.has(exec.name) || config.confirmSensitive)
     if (gated) {
       return {

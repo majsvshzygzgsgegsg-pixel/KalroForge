@@ -70,19 +70,33 @@ function stringField(args: unknown, ...names: string[]): string {
   return ''
 }
 
+const PUSH = /\bgit\s+push\b[^;&|\n]*/g
+const DESTRUCTIVE_PUSH = /\s(?:-f|-d|--force\S*|--delete|--mirror|--prune)(?=\s|$)|\s[+:]\S/
+
+/**
+ * A command with its ordinary `git push`es neutralised, so what is left can be
+ * classified on its own. Force, delete, mirror, and prune pushes are kept.
+ * @param command - shell text.
+ * @returns the command without plain pushes.
+ */
+export function withoutPlainPushes(command: string): string {
+  return command.replace(PUSH, push => DESTRUCTIVE_PUSH.test(push) ? push : `git status${/\s*$/.exec(push)?.[0] ?? ''}`)
+}
+
 /**
  * Classify one tool call.
  * @param tool - tool name.
  * @param args - tool arguments.
+ * @param options - `directPush` (Self-Edit + GitHub and other direct-push modes): plain pushes are not sensitive.
  * @returns class and reason.
  */
-export function classifyRisk(tool: string, args: unknown): RiskDecision {
+export function classifyRisk(tool: string, args: unknown, options: { readonly directPush?: boolean } = {}): RiskDecision {
   const fixed = SENSITIVE_TOOLS[tool]
   if (fixed !== undefined) return { risk: 'SENSITIVE', reason: fixed }
   if (tool === 'remember' && stringField(args, 'scope') === 'user') return { risk: 'SENSITIVE', reason: 'Save a long-term memory about you' }
   if (tool === 'bash' || tool === 'pwsh' || tool === 'terminal_send') {
     const command = stringField(args, 'command', 'text', 'input')
-    if (SENSITIVE_COMMAND.test(command)) return { risk: 'SENSITIVE', reason: `Run a sensitive command: ${command.slice(0, 80)}` }
+    if (SENSITIVE_COMMAND.test(options.directPush === true ? withoutPlainPushes(command) : command)) return { risk: 'SENSITIVE', reason: `Run a sensitive command: ${command.slice(0, 80)}` }
     if (SECRET_PATH.test(command)) return { risk: 'SENSITIVE', reason: `Touch credentials or login items: ${command.slice(0, 80)}` }
     return isReadOnlyCommand(command) ? { risk: 'LOW_RISK', reason: 'read-only command' } : { risk: 'MODIFYING', reason: 'command may change files' }
   }
@@ -100,5 +114,6 @@ export function classifyRisk(tool: string, args: unknown): RiskDecision {
     return { risk: 'MODIFYING', reason: 'controls the computer' }
   }
   if (READ_TOOLS.test(tool)) return { risk: 'LOW_RISK', reason: 'reads only' }
+  if (tool === 'github' && stringField(args, 'method').toUpperCase() === 'GET') return { risk: 'LOW_RISK', reason: 'reads GitHub' }
   return { risk: 'MODIFYING', reason: 'changes state' }
 }

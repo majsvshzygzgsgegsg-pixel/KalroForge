@@ -176,7 +176,11 @@ const settingsSchema = record<StoredSettings>(z.object({
     categories: z.partialRecord(category, routedModel).optional(),
   }).optional(),
   loops: z.object({ enabled: z.boolean().optional(), noProgressSteps: z.number().int().min(5).optional() }).optional(),
-  checkpoints: z.object({ auto: z.boolean().optional(), protectedBranches: z.array(z.string().min(1)).optional() }).optional(),
+  checkpoints: z.object({
+    auto: z.boolean().optional(),
+    protectedBranches: z.array(z.string().min(1)).optional(),
+    directPushModes: z.array(z.string().min(1)).optional(),
+  }).optional(),
   delegation: z.object({ maxDepth: z.number().int().min(1).max(8).optional() }).optional(),
   background: z.object({ resumeOnRestart: z.boolean().optional() }).optional(),
 }))

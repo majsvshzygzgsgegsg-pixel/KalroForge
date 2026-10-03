@@ -53,6 +53,8 @@ export interface Config {
   readonly coordinatorModes: string[]
   /** Modes whose top-level Sessions are measured (state and turn metrics) without the coordinator prompt or tools. */
   readonly observedModes: string[]
+  /** Answer-only modes: they still see the editor context, but get no editor tools. */
+  readonly answerOnlyModes: string[]
   /** Escalate SENSITIVE tool calls in coordinator Sessions to a confirmation when the preset would allow them silently. */
   readonly confirmSensitive: boolean
   /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
@@ -63,6 +65,7 @@ export interface Config {
 export const Config: z<Config> = z.object({
   coordinatorModes: z.array(z.string()).default(['standard']),
   observedModes: z.array(z.string()).default(['fast']),
+  answerOnlyModes: z.array(z.string()).default(['chat']),
   confirmSensitive: z.boolean().default(true),
   holo: z.object({
     dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),

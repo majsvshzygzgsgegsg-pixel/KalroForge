@@ -55,12 +55,14 @@ export type GitDecision =
  * @param command - shell text.
  * @param currentBranch - checked-out branch, when known.
  * @param protectedBranches - branch names agents must not push to directly.
+ * @param options - `directPush` lets ordinary (non-force, non-delete) pushes reach protected branches without asking.
  * @returns a decision, or undefined when the command needs no extra gate.
  */
 export function gitGuard(
   command: string,
   currentBranch: string | undefined,
   protectedBranches: readonly string[],
+  options: { readonly directPush?: boolean } = {},
 ): GitDecision | undefined {
   const isProtected = (name: string | undefined): boolean => name !== undefined && protectedBranches.includes(name)
   for (const part of segments(command)) {
@@ -81,7 +83,7 @@ export function gitGuard(
       if (hitsProtected && (force || deletes)) {
         return { kind: 'deny', reason: `Force-pushing or deleting a protected branch (${protectedBranches.join(', ')}) is not allowed for agents.` }
       }
-      if (hitsProtected) {
+      if (hitsProtected && !(options.directPush === true && !words.includes('--mirror'))) {
         return { kind: 'ask', reason: `Push directly to protected branch ${targets.filter(isProtected).join(', ') || 'main/master'}` }
       }
       if (force) return { kind: 'ask', reason: 'Force-push a branch' }

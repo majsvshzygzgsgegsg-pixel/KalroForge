@@ -194,7 +194,12 @@ export interface OrchestrationSettings {
     readonly categories: Partial<Record<ModelCategory, RoutedModel>>
   }
   readonly loops: { readonly enabled: boolean; readonly noProgressSteps: number }
-  readonly checkpoints: { readonly auto: boolean; readonly protectedBranches: readonly string[] }
+  readonly checkpoints: {
+    readonly auto: boolean
+    readonly protectedBranches: readonly string[]
+    /** Modes whose ordinary pushes may land on protected branches without an approval. */
+    readonly directPushModes: readonly string[]
+  }
   readonly delegation: { readonly maxDepth: number }
   readonly background: { readonly resumeOnRestart: boolean }
 }

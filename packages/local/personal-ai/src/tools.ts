@@ -3,6 +3,8 @@
  * coordinator prompt built from the personality, a per-turn runtime context
  * (depth hint, active project, relevant memories, running work), and the
  * Personal AI tools. Main-agent Sessions receive agent-scoped memory only.
+ * Every other top-level Session, in any mode, gets the editor (DevKit) tools
+ * and context; the GitHub-capable modes also get the `github` tool.
  * Every tool call still passes the normal `tools/pre-execute` permission path.
  */
 import type { Context } from '@deepseek-ai/cordis'
@@ -18,7 +20,7 @@ import { classifyDepth, DEPTH_GUIDANCE } from './core/classifier.ts'
 import { parseCategories, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
-import { devTools } from './dev/install.ts'
+import { devTools, githubTool } from './dev/install.ts'
 import type { DevKit } from './dev/service.ts'
 import { lifeTools } from './life/install.ts'
 import type { LifeOs } from './life/service.ts'
@@ -35,6 +37,16 @@ export const PROJECT_TOOLS = ['create_project', 'open_project', 'update_project'
 export const CONTROL_TOOLS = ['pause_task', 'resume_task', 'cancel_task', 'update_task', 'add_task_constraint'] as const
 /** Agent-selection tools. */
 export const AGENT_TOOLS = ['recommend_agent', 'propose_agent', 'list_capabilities'] as const
+/** Modes that build and ship code: they get the `github` tool and editor-first guidance. */
+export const BUILD_MODES = ['self-edit', 'cordis', 'builder'] as const
+
+/** Extra guidance for build modes while an editor is connected. */
+export const EDITOR_BUILD_GUIDANCE = [
+  'Editor-first building: the user is working in VS Code / Cursor right now.',
+  '- Start from what the editor shows: the active file, cursor, selection, and Problems above are the most likely target.',
+  '- After editing, call editor_context and fix any new errors or warnings it reports in the files you touched.',
+  '- When you finish, use open_in_editor on the most important changed file and line so the user sees the change.',
+].join('\n')
 
 const JSON_OUTPUT = {
   schema: { type: 'json' },
@@ -100,7 +112,7 @@ export function coordinatorPrompt(personality: Personality): string {
  * @param config - plugin configuration.
  */
 export function installPersonalAiTools(ctx: Context, service: PersonalAi, config: Config): void {
-  type Role = 'coordinator' | 'observed' | 'agent'
+  type Role = 'coordinator' | 'observed' | 'agent' | 'editor'
   const installed = new Map<Agent, { readonly key: string; readonly dispose: () => void }>()
   /** Groups the voice conversation opened with `use_tools`, for the request they were opened in. */
   const opened = new Map<string, { readonly request: string; readonly categories: Set<CapabilityCategory> }>()
@@ -222,7 +234,19 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     const kit = dev()
     return kit === undefined ? [] : devTools(kit, agent)
   }
-  const devContext = (agent: Agent): string => dev()?.contextFor(agent.session.id, agent.session.header.cwd, requestOf(agent.session.id)) ?? ''
+  const isBuildMode = (agent: Agent): boolean => (BUILD_MODES as readonly string[]).includes(ctx.mainAgents.modeOf(agent))
+  const devContext = (agent: Agent): string => {
+    const kit = dev()
+    if (kit === undefined) return ''
+    const text = kit.contextFor(agent.session.id, agent.session.header.cwd, requestOf(agent.session.id))
+    if (!isBuildMode(agent) || !ctx.mainAgents.allowsTools(agent) || kit.editor() === undefined) return text
+    return text === '' ? EDITOR_BUILD_GUIDANCE : `${text}\n\n${EDITOR_BUILD_GUIDANCE}`
+  }
+  /** Editor tools (every mode except the answer-only ones) plus `github` in the build modes. */
+  const editorToolsFor = (agent: Agent): unknown[] => {
+    if (config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent))) return []
+    return [...devToolsFor(agent), ...isBuildMode(agent) && ctx.mainAgents.allowsTools(agent) ? [githubTool(agent)] : []]
+  }
 
   const coordinatorTools = (agent: Agent): unknown[] => [
     ...memoryTools('user', self => ({ ...projectId(), session: self.session.id })),
@@ -452,11 +476,19 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   const register = (agent: Agent, role: Role, agentId?: string): () => void => {
     const scoped = agent.ctx
     const disposers: Array<() => unknown> = []
-    if (role === 'observed') {
-      service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))
-      disposers.push(() => { service.drop(agent.session.id) })
+    const addEditor = (tools: unknown[]): void => {
+      for (const tool of tools) disposers.push(scoped.tools.register(tool as Parameters<typeof scoped.tools.register>[0]))
+      disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:dev', order: 135, text: () => devContext(agent) }))
+    }
+    if (role === 'observed' || role === 'editor') {
+      addEditor(editorToolsFor(agent))
+      if (role === 'observed') {
+        service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))
+        disposers.push(() => { service.drop(agent.session.id) })
+      }
     } else if (role === 'coordinator') {
-      for (const tool of coordinatorTools(agent)) disposers.push(scoped.tools.register(tool as Parameters<typeof scoped.tools.register>[0]))
+      const tools = [...coordinatorTools(agent), ...isBuildMode(agent) ? [githubTool(agent)] : []]
+      for (const tool of tools) disposers.push(scoped.tools.register(tool as Parameters<typeof scoped.tools.register>[0]))
       disposers.push(scoped.systemPrompt.section({
         name: 'personal-ai:coordinator',
         order: scoped.systemPrompt.getSectionOrder('TEAM_POLICY') + 8,
@@ -486,10 +518,11 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))
       disposers.push(() => { service.drop(agent.session.id) })
     } else if (agentId !== undefined) {
-      const tools = [...memoryTools('agent', () => ({ ...projectId(), agent: agentId, session: agent.session.id })), ...devToolsFor(agent)]
-      for (const tool of tools) disposers.push(scoped.tools.register(tool as Parameters<typeof scoped.tools.register>[0]))
+      for (const tool of memoryTools('agent', () => ({ ...projectId(), agent: agentId, session: agent.session.id }))) {
+        disposers.push(scoped.tools.register(tool as Parameters<typeof scoped.tools.register>[0]))
+      }
       disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:agent-memory', order: 131, text: () => agentContextText(agent, agentId) }))
-      disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:dev', order: 135, text: () => devContext(agent) }))
+      addEditor(editorToolsFor(agent))
     }
     return () => { for (const dispose of disposers.toReversed()) dispose() }
   }
@@ -498,10 +531,10 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     if (!isTopLevelSession(agent.session.header)) return undefined
     const mode = ctx.mainAgents.modeOf(agent)
     const record = ctx.mainAgents.recordForSession(agent.session.id)
-    if (record !== undefined) return ctx.mainAgents.allowsTools(agent) ? { role: 'agent', agentId: record.id } : undefined
+    if (record !== undefined) return ctx.mainAgents.allowsTools(agent) ? { role: 'agent', agentId: record.id } : { role: 'editor' }
     if (config.observedModes.includes(mode)) return { role: 'observed' }
-    if (!service.coordinatorEnabled() || !ctx.mainAgents.allowsTools(agent)) return undefined
-    return config.coordinatorModes.includes(mode) ? { role: 'coordinator' } : undefined
+    const coordinator = service.coordinatorEnabled() && ctx.mainAgents.allowsTools(agent) && config.coordinatorModes.includes(mode)
+    return coordinator ? { role: 'coordinator' } : { role: 'editor' }
   }
 
   const release = (agent: Agent): void => {

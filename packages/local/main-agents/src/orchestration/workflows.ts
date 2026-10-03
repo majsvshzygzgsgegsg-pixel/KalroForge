@@ -250,7 +250,7 @@ export class WorkflowEngine {
     const worker = this.workers.get(sessionId)
     if (worker !== undefined) {
       if (status === 'running') worker.sawRunning = true
-      else if (worker.sawRunning) void this.settleWorker(sessionId)
+      else if (worker.sawRunning) this.settleDetached(sessionId)
     }
     const integration = this.integrating.get(sessionId)
     if (integration !== undefined) {
@@ -431,11 +431,18 @@ export class WorkflowEngine {
       void this.syncTeamTask(owner, { ...task, workers: [name] }, 'reassign', name)
       // The worker may already have finished (and been disposed) while spawning resolved.
       if (live === undefined || (live.status !== 'running' && this.service.lastAssistantText(sessionId) !== '')) {
-        void this.settleWorker(sessionId)
+        this.settleDetached(sessionId)
       }
     } catch (error) {
       await this.finishTask(workflowId, taskId, undefined, { ok: false, text: `Could not start worker: ${error instanceof Error ? error.message : String(error)}` })
     }
+  }
+
+  /** Settle a worker outside any awaited chain; a late failure (e.g. storage closed on shutdown) is logged, not left unhandled. */
+  private settleDetached(sessionId: string): void {
+    this.settleWorker(sessionId).catch((error: unknown) => {
+      this.service.host.logger.warn(`main-agents: workflow worker ${sessionId} not settled: ${String(error)}`)
+    })
   }
 
   private async settleWorker(sessionId: string): Promise<void> {

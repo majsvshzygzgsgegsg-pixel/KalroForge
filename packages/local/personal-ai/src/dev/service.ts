@@ -17,6 +17,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { homedir, tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { Service, type Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type {} from '@deepseek-ai/dsh-llm'
@@ -58,6 +59,18 @@ const DEFAULT_ORIGINS: Readonly<Record<string, string>> = {
 }
 const BRIDGE_FILE = join(KAIROFORGE_HOME, 'editor-bridge.json')
 const SESSIONS_FILE = join(KAIROFORGE_HOME, 'editor-sessions.json')
+/** Mode editor questions use unless the extension picks another. */
+export const DEFAULT_EDITOR_MODE = 'standard'
+const MODE_NAMES: Readonly<Record<string, string>> = {
+  'standard': 'KairoForge (Lead)',
+  'self-edit': 'Self-Edit + GitHub',
+  'cordis': 'Creator mode',
+  'builder': 'Builder mode',
+  'fast': 'Fast mode',
+  'chat': 'Chat (answer only)',
+  'minimal': 'Minimal mode',
+  'ptc': 'PTC mode',
+}
 const MAX_INDEXES = 4
 const WARM_EVERY_MS = 2500
 const MIN_MAP_SCORE = 3
@@ -313,16 +326,29 @@ export class DevKit extends Service {
   // ---------------------------------------------------------------------------
   // Asking from the editor
 
-  private async sessionFor(workspace: string | undefined): Promise<string> {
-    const key = workspace ?? 'default'
+  /**
+   * Modes (agent presets) an editor question can run in.
+   * @returns preset ids and names.
+   */
+  async modes(): Promise<Array<{ id: string; name: string }>> {
+    const presets = await this.ctx.get('agentPresets')?.list() ?? []
+    const rows = presets
+      .filter(preset => preset.broken === undefined)
+      .map(preset => ({ id: preset.id, name: preset.name ?? MODE_NAMES[preset.id] ?? preset.id }))
+    return rows.length === 0 ? [{ id: DEFAULT_EDITOR_MODE, name: DEFAULT_EDITOR_MODE }] : rows
+  }
+
+  private async sessionFor(workspace: string | undefined, mode: string): Promise<string> {
+    const key = mode === DEFAULT_EDITOR_MODE ? workspace ?? 'default' : `${mode}:${workspace ?? 'default'}`
     this.editorSessions ??= await readFile(SESSIONS_FILE, 'utf8').then(text => JSON.parse(text) as Record<string, string>).catch(() => ({}))
     const known = this.editorSessions[key]
     if (known !== undefined) {
       const resolved = await this.ctx.sessionController.resolveAgent(SessionId(known)).catch(() => undefined)
       if (resolved !== undefined && !('error' in resolved)) return known
     }
-    const created = await this.ctx.sessionController.create({ agentPreset: 'standard', ...workspace === undefined ? {} : { cwd: workspace } })
-    const title = `${this.ctx.personalAi.personality().name} — ${workspace === undefined ? 'editor' : basename(workspace)} (editor)`
+    const created = await this.ctx.sessionController.create({ agentPreset: mode, ...workspace === undefined ? {} : { cwd: workspace } })
+    const where = workspace === undefined ? 'editor' : basename(workspace)
+    const title = `${this.ctx.personalAi.personality().name} — ${where} (editor${mode === DEFAULT_EDITOR_MODE ? '' : `, ${mode}`})`
     await this.ctx.sessionController.rename({ sessionId: created.sessionId, title }).catch(() => {})
     this.editorSessions[key] = created.sessionId
     await writeFile(SESSIONS_FILE, `${JSON.stringify(this.editorSessions)}\n`, { mode: 0o600 }).catch(() => {})
@@ -334,13 +360,18 @@ export class DevKit extends Service {
    * permissions, and approvals apply.
    * @param prompt - the user's words.
    * @param workspace - the editor's workspace folder.
+   * @param mode - agent preset to answer in (defaults to the coordinator mode).
    * @returns the running turn.
    */
-  async ask(prompt: string, workspace?: string): Promise<EditorTurn> {
+  async ask(prompt: string, workspace?: string, mode?: string): Promise<EditorTurn> {
     const text = prompt.trim()
     if (text === '') throw new PersonalAiError('invalid', 'type a question first')
+    const chosen = mode ?? DEFAULT_EDITOR_MODE
+    if (chosen !== DEFAULT_EDITOR_MODE && !(await this.modes()).some(row => row.id === chosen)) {
+      throw new PersonalAiError('invalid', `unknown mode "${chosen}"`)
+    }
     const folder = workspace !== undefined && existsSync(workspace) ? workspace : undefined
-    const sessionId = await this.sessionFor(folder)
+    const sessionId = await this.sessionFor(folder, chosen)
     if (this.turnBySession.has(sessionId)) throw new PersonalAiError('conflict', 'KairoForge is still answering your last editor question')
     const turn: EditorTurn = { id: randomUUID(), sessionId, status: 'running', updates: [], awaitingApproval: false, started: false, startedAt: new Date().toISOString() }
     this.turns.set(turn.id, turn)

@@ -256,7 +256,12 @@ export interface OrchestrationSettings {
     readonly categories: Partial<Record<ModelCategory, RoutedModel>>
   }
   readonly loops: { readonly enabled: boolean; readonly noProgressSteps: number }
-  readonly checkpoints: { readonly auto: boolean; readonly protectedBranches: readonly string[] }
+  readonly checkpoints: {
+    readonly auto: boolean
+    readonly protectedBranches: readonly string[]
+    /** Modes whose ordinary pushes may land on protected branches without an approval. */
+    readonly directPushModes: readonly string[]
+  }
   readonly delegation: { readonly maxDepth: number }
   readonly background: { readonly resumeOnRestart: boolean }
 }
@@ -265,7 +270,7 @@ export interface OrchestrationSettings {
 export const DEFAULT_SETTINGS: OrchestrationSettings = {
   routing: { enabled: true, scope: 'managed', categories: {} },
   loops: { enabled: true, noProgressSteps: 40 },
-  checkpoints: { auto: true, protectedBranches: ['main', 'master'] },
+  checkpoints: { auto: true, protectedBranches: ['main', 'master'], directPushModes: ['self-edit'] },
   delegation: { maxDepth: 3 },
   background: { resumeOnRestart: true },
 }

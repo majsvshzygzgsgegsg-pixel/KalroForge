@@ -5,7 +5,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { editorContextText, sanitizeSnapshot, type EditorSnapshot } from '../src/core/editor.ts'
 import { canonicalArgs, LOOP_LIMITS, LoopBreaker, malformedArgsHint, missingPathOf, suggestPaths } from '../src/core/reliability.ts'
 import { extractSymbols, rankFiles, renderRepoMap, searchTerms, type RepoFile } from '../src/core/repomap.ts'
+import { classifyRisk, withoutPlainPushes } from '../src/core/risk.ts'
 import { EXTENSION_MANIFEST, EXTENSION_SOURCE } from '../src/dev/extension-source.ts'
+import { githubGate, githubUrl, parseRemote, parseSlug, renderGithubResponse, slimGithub } from '../src/dev/github.ts'
 import { RepoIndex } from '../src/dev/repo-index.ts'
 import { checkSyntax } from '../src/dev/syntax.ts'
 
@@ -175,5 +177,76 @@ describe('editor extension package', () => {
     await writeFile(join(dir, 'extension.js'), EXTENSION_SOURCE)
     expect(await checkSyntax(join(dir, 'extension.js'))).toMatchObject({ ok: true })
     await rm(dir, { recursive: true, force: true })
+  })
+
+  it('registers every command it contributes, including the mode commands', () => {
+    const commands = EXTENSION_MANIFEST.contributes.commands.map(entry => entry.command)
+    expect(commands).toEqual(expect.arrayContaining(['kairoforge.askInMode', 'kairoforge.chooseMode']))
+    for (const command of commands) expect(EXTENSION_SOURCE).toContain(`registerCommand('${command}'`)
+    expect(EXTENSION_MANIFEST.contributes.configuration.properties['kairoforge.mode'].default).toBe('standard')
+  })
+})
+
+describe('github tool helpers', () => {
+  const prot = ['main', 'master']
+
+  it('finds the repository behind https and ssh remotes', () => {
+    expect(parseRemote('https://github.com/me/KalroForge.git\n')).toEqual({ owner: 'me', repo: 'KalroForge' })
+    expect(parseRemote('git@github.com:me/site.git')).toEqual({ owner: 'me', repo: 'site' })
+    expect(parseRemote('https://gitlab.com/me/x.git')).toBeUndefined()
+    expect(parseSlug('me/x')).toEqual({ owner: 'me', repo: 'x' })
+    expect(parseSlug('not a repo')).toBeUndefined()
+  })
+
+  it('fills {owner}/{repo} and stays on api.github.com', () => {
+    expect(githubUrl('/repos/{owner}/{repo}/pulls?state=open', { owner: 'me', repo: 'x' }).href).toBe('https://api.github.com/repos/me/x/pulls?state=open')
+    expect(githubUrl('repos/a/b', undefined).pathname).toBe('/repos/a/b')
+    expect(() => githubUrl('/repos/{owner}/{repo}', undefined)).toThrow(/no github.com remote/)
+    expect(() => githubUrl('https://evil.example/x', undefined)).toThrow(/only api.github.com/)
+    expect(() => githubUrl('//evil.example/x', undefined)).toThrow()
+    expect(() => githubUrl('/repos/a/b/../../user', undefined)).toThrow()
+  })
+
+  it('lets everyday repo work through and gates account-level or protected-branch changes', () => {
+    expect(githubGate('GET', '/repos/me/x', undefined, prot)).toBeUndefined()
+    expect(githubGate('POST', '/repos/me/x/pulls', { title: 't' }, prot)).toBeUndefined()
+    expect(githubGate('PUT', '/repos/me/x/pulls/3/merge', {}, prot)).toBeUndefined()
+    expect(githubGate('POST', '/repos/me/x/releases', { tag_name: 'v1' }, prot)).toBeUndefined()
+    expect(githubGate('PATCH', '/repos/me/x/git/refs/heads/master', { sha: 'abc' }, prot)).toBeUndefined()
+    expect(githubGate('PATCH', '/repos/me/x', { description: 'new' }, prot)).toBeUndefined()
+    expect(githubGate('POST', '/user/repos', { name: 'new' }, prot)).toBeUndefined()
+    expect(githubGate('PATCH', '/repos/me/x/git/refs/heads/main', { sha: 'abc', force: true }, prot)?.kind).toBe('deny')
+    expect(githubGate('DELETE', '/repos/me/x/git/refs/heads/master', undefined, prot)?.kind).toBe('deny')
+    expect(githubGate('DELETE', '/repos/me/x/git/refs/heads/feature', undefined, prot)).toBeUndefined()
+    expect(githubGate('DELETE', '/repos/me/x', undefined, prot)?.kind).toBe('ask')
+    expect(githubGate('PATCH', '/repos/me/x', { private: false }, prot)?.kind).toBe('ask')
+    expect(githubGate('PUT', '/repos/me/x/collaborators/bob', {}, prot)?.kind).toBe('ask')
+    expect(githubGate('PUT', '/repos/me/x/actions/secrets/TOKEN', {}, prot)?.kind).toBe('ask')
+    expect(githubGate('PUT', '/repos/me/x/branches/main/protection', {}, prot)?.kind).toBe('ask')
+    expect(githubGate('POST', '/repos/me/x/transfer', {}, prot)?.kind).toBe('ask')
+  })
+
+  it('slims responses and never echoes the token', () => {
+    expect(slimGithub({ id: 1, url: 'u', html_url: 'h', comments_url: 'c', node_id: 'n', user: { login: 'me', avatar_url: 'a' } }))
+      .toEqual({ id: 1, html_url: 'h', user: { login: 'me' } })
+    const token = 'gho_abcdefghijklmnopqrstuvwxyz0123456789'
+    const out = renderGithubResponse(201, JSON.stringify({ note: `token ${token}` }), token)
+    expect(out.startsWith('HTTP 201')).toBe(true)
+    expect(out).not.toContain(token)
+  })
+})
+
+describe('direct push modes', () => {
+  it('treats plain pushes as ordinary work and keeps destructive pushes sensitive', () => {
+    expect(withoutPlainPushes('git push origin HEAD && git push origin HEAD:master')).toBe('git status && git status')
+    expect(withoutPlainPushes('git push --force origin main')).toBe('git push --force origin main')
+    expect(withoutPlainPushes('git push origin :old')).toBe('git push origin :old')
+    expect(withoutPlainPushes('git push origin +main')).toBe('git push origin +main')
+    const push = { command: 'git push origin HEAD:master' }
+    expect(classifyRisk('bash', push).risk).toBe('SENSITIVE')
+    expect(classifyRisk('bash', push, { directPush: true }).risk).not.toBe('SENSITIVE')
+    expect(classifyRisk('bash', { command: 'git push -f origin main' }, { directPush: true }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('bash', { command: 'git push && rm -rf build' }, { directPush: true }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('github', { method: 'GET', path: '/repos/{owner}/{repo}' }).risk).toBe('LOW_RISK')
   })
 })

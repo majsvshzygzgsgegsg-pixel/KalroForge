@@ -24,7 +24,11 @@ const settingsBody = z.object({
     categories: z.partialRecord(category, routedModel.nullable()).optional(),
   }).strict().optional(),
   loops: z.object({ enabled: z.boolean().optional(), noProgressSteps: z.number().int().min(5).max(500).optional() }).strict().optional(),
-  checkpoints: z.object({ auto: z.boolean().optional(), protectedBranches: z.array(z.string().min(1)).optional() }).strict().optional(),
+  checkpoints: z.object({
+    auto: z.boolean().optional(),
+    protectedBranches: z.array(z.string().min(1)).optional(),
+    directPushModes: z.array(z.string().min(1)).optional(),
+  }).strict().optional(),
   delegation: z.object({ maxDepth: z.number().int().min(1).max(8).optional() }).strict().optional(),
   background: z.object({ resumeOnRestart: z.boolean().optional() }).strict().optional(),
 }).strict()

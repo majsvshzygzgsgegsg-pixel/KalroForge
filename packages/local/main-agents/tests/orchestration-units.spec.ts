@@ -165,6 +165,13 @@ describe('shell policy', () => {
     expect(gitGuard('git push origin :master', 'feature', prot)?.kind).toBe('deny')
     expect(gitGuard('git push', 'main', prot)?.kind).toBe('ask')
     expect(gitGuard('git push origin HEAD:main', 'feature', prot)?.kind).toBe('ask')
+    const direct = { directPush: true }
+    expect(gitGuard('git push', 'main', prot, direct)).toBeUndefined()
+    expect(gitGuard('git push origin kairoforge/x:master', 'kairoforge/x', prot, direct)).toBeUndefined()
+    expect(gitGuard('git push --force origin main', 'feature', prot, direct)?.kind).toBe('deny')
+    expect(gitGuard('git push origin :master', 'feature', prot, direct)?.kind).toBe('deny')
+    expect(gitGuard('git push --mirror origin', 'main', prot, direct)?.kind).toBe('ask')
+    expect(gitGuard('git push --force origin feature', 'feature', prot, direct)?.kind).toBe('ask')
     expect(gitGuard('git push -u origin kairoforge/fix', 'kairoforge/fix', prot)).toBeUndefined()
     expect(gitGuard('git push --force origin kairoforge/fix', 'kairoforge/fix', prot)?.kind).toBe('ask')
     expect(gitGuard('git reset --hard HEAD~1', 'x', prot)?.kind).toBe('ask')
