@@ -57,6 +57,8 @@ export interface Config {
   readonly answerOnlyModes: string[]
   /** Open each file an agent edits in Cursor (every mode except the answer-only ones). */
   readonly followEdits: boolean
+  /** When a request that does something arrives and Cursor is not connected, open its project in Cursor (rate-limited). */
+  readonly bringUpEditor: boolean
   /** Escalate SENSITIVE tool calls in coordinator Sessions to a confirmation when the preset would allow them silently. */
   readonly confirmSensitive: boolean
   /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
@@ -69,6 +71,7 @@ export const Config: z<Config> = z.object({
   observedModes: z.array(z.string()).default(['fast']),
   answerOnlyModes: z.array(z.string()).default(['chat']),
   followEdits: z.boolean().default(true),
+  bringUpEditor: z.boolean().default(true),
   confirmSensitive: z.boolean().default(true),
   holo: z.object({
     dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),

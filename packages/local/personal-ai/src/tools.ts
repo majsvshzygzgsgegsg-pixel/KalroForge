@@ -14,9 +14,9 @@ import { scopeOf } from '@deepseek-ai/dsh-scope'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import { isTopLevelSession } from '@local/main-agents'
+import { isTopLevelSession, messageBody } from '@local/main-agents'
 import { AGENT_TAGS, CAPABILITY_CATEGORIES, groupTools, proposeAgent, type AgentTag, type CapabilityCategory } from './core/capabilities.ts'
-import { classifyDepth, DEPTH_GUIDANCE } from './core/classifier.ts'
+import { classifyDepth, DEPTH_GUIDANCE, isActionable } from './core/classifier.ts'
 import { parseCategories, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
@@ -49,7 +49,10 @@ export const EDITOR_BUILD_GUIDANCE = [
 ].join('\n')
 
 /** Shown instead of live context when the Cursor extension is not reporting. */
-const EDITOR_OFFLINE_NOTE = 'Cursor\'s live context is not available right now (the KairoForge extension is installed but Cursor has not reloaded it yet); rely on repo_map and file reads.'
+export const EDITOR_OFFLINE_NOTE = [
+  'Cursor\'s live context is not available right now (Cursor is closed, or it has not reloaded the KairoForge extension yet);',
+  'rely on repo_map and file reads. Files you edit still open in Cursor, and requests that change something open the project in Cursor.',
+].join(' ')
 
 const JSON_OUTPUT = {
   schema: { type: 'json' },
@@ -123,7 +126,8 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   const toolbeltOf = (sessionId: string): VoiceToolbelt => {
     const request = requestOf(sessionId)
     const extra = opened.get(sessionId)
-    return voiceToolbelt(request, request === '' ? undefined : classifyDepth(request).depth, extra?.request === request ? extra.categories : [])
+    const depth = request === '' ? undefined : classifyDepth(messageBody(request), { editorTarget: editorTarget() }).depth
+    return voiceToolbelt(request, depth, extra?.request === request ? extra.categories : [])
   }
 
   const caller = (agent: Agent | undefined, tool: string): Agent => {
@@ -233,6 +237,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
 
   const life = (): LifeOs | undefined => ctx.get('lifeOs')
   const dev = (): DevKit | undefined => ctx.get('devKit')
+  const editorTarget = (): boolean => dev()?.editor()?.activeFile !== undefined
   const devToolsFor = (agent: Agent): unknown[] => {
     const kit = dev()
     return kit === undefined ? [] : devTools(kit, agent)
@@ -241,7 +246,14 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   const devContext = (agent: Agent): string => {
     const kit = dev()
     if (kit === undefined || config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent))) return ''
-    const text = kit.contextFor(agent.session.id, agent.session.header.cwd, requestOf(agent.session.id))
+    const request = requestOf(agent.session.id)
+    // Greetings and questions never touch the editor; a request that does something brings Cursor up when it is not connected.
+    if (config.bringUpEditor && request !== '' && isActionable(classifyDepth(messageBody(request), { editorTarget: editorTarget() }).depth)) {
+      void kit.bringUpEditor(agent.session.header.cwd).catch((error: unknown) => {
+        ctx.logger.warn(`personal-ai: could not bring Cursor up: ${String(error)}`)
+      })
+    }
+    const text = kit.contextFor(agent.session.id, agent.session.header.cwd, request)
     const guidance = kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE
     return text === '' ? guidance : `${text}\n\n${guidance}`
   }

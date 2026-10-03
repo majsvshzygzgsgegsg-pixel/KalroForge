@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { deriveState, isDelegatingTool, orbStateOf, type StateFacts } from '../src/core/assistant-state.ts'
 import { agentTags, categoryOf, groupTools, proposeAgent, rankAgents, tagsIn, type AgentCandidate } from '../src/core/capabilities.ts'
-import { classifyDepth, DEPTH_GUIDANCE } from '../src/core/classifier.ts'
+import { classifyDepth, DEPTH_GUIDANCE, isActionable } from '../src/core/classifier.ts'
 import { relevantMemories, searchMemories, type RankableMemory } from '../src/core/memory.ts'
 import { summarizeTurns, type TurnRecord } from '../src/core/metrics.ts'
 import { classifyRisk } from '../src/core/risk.ts'
@@ -32,9 +32,26 @@ describe('depth classifier', () => {
     expect(classifyDepth('git status').depth).toBe('tool')
   })
 
+  it('uses tools for short spoken commands that change something', () => {
+    for (const text of ['change the header color to blue', 'update the readme', 'delete the unused helper in utils', 'refactor the login form', 'push it']) {
+      expect(classifyDepth(text).depth, text).toBe('tool')
+      expect(isActionable(classifyDepth(text).depth), text).toBe(true)
+    }
+    for (const text of ['Hi', 'thanks', 'What is the difference between let and const?']) {
+      expect(isActionable(classifyDepth(text).depth), text).toBe(false)
+    }
+  })
+
   it('asks for clarification when there is no target', () => {
     expect(classifyDepth('fix it').depth).toBe('clarify')
     expect(classifyDepth('do it').depth).toBe('clarify')
+  })
+
+  it('acts on what is open in Cursor when a vague request has an editor target', () => {
+    expect(classifyDepth('fix this', { editorTarget: true })).toEqual({ depth: 'tool', reason: 'acts on what is open in Cursor' })
+    expect(classifyDepth('do it', { editorTarget: true }).depth).toBe('tool')
+    expect(classifyDepth('fix this', { editorTarget: false }).depth).toBe('clarify')
+    expect(classifyDepth('hi', { editorTarget: true }).depth).toBe('direct')
   })
 
   it('delegates when the user asks for an agent', () => {
@@ -298,6 +315,17 @@ describe('voice toolbelt', () => {
     expect(visible('build a complete dashboard app with auth')).toEqual(expect.arrayContaining(['create_workflow', 'spawn_teammate']))
     expect(visible('build me an app')).not.toContain('cua_driver_native__click')
     expect(visible('what is 2+2', ['SEARCH'])).toEqual(expect.arrayContaining(['grep', 'read']))
+  })
+
+  it('reads "Cursor" as the editor, not screen control', () => {
+    expect(visible('open it in cursor')).not.toContain('cua_driver_native__click')
+    expect(visible('use cursor to change the header')).toEqual(expect.arrayContaining(['read', 'bash', 'grep']))
+    expect(visible('move the cursor to the top left')).toContain('cua_driver_native__click')
+    expect(visible('click with the mouse cursor')).toContain('cua_driver_native__click')
+  })
+
+  it('gives a short command that changes something the working toolset', () => {
+    expect(visible('change the header color to blue')).toEqual(expect.arrayContaining(['read', 'bash', 'grep']))
   })
 
   it('accepts only known categories', () => {

@@ -54,16 +54,23 @@ const EDITOR_CLI: Readonly<Record<EditorKind, readonly string[]>> = {
   vscode: [...APP_DIRS.map(dir => join(dir, 'Visual Studio Code.app/Contents/Resources/app/bin/code')), '/usr/local/bin/code', '/opt/homebrew/bin/code'],
 }
 /**
- * The Git repository a file belongs to.
- * @param path - absolute file path.
- * @returns the repository root, when the file is in one.
+ * The Git repository a folder belongs to.
+ * @param dir - absolute folder path.
+ * @returns the repository root, when the folder is in one.
  */
-function projectRootOf(path: string): Promise<string | undefined> {
+function gitRootOf(dir: string): Promise<string | undefined> {
   return new Promise((done) => {
-    execFile('git', ['-C', dirname(path), 'rev-parse', '--show-toplevel'], { timeout: 5000 }, (error, stdout) => {
+    execFile('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 5000 }, (error, stdout) => {
       const root = stdout.trim()
       done(error === null && root !== '' ? root : undefined)
     })
+  })
+}
+
+/** Whether the Cursor app is running (exit status only; nothing about the process is read). */
+function cursorRunning(): Promise<boolean> {
+  return new Promise((done) => {
+    execFile('/usr/bin/pgrep', ['-xq', 'Cursor'], { timeout: 5000 }, (error) => { done(error === null) })
   })
 }
 
@@ -71,6 +78,10 @@ function projectRootOf(path: string): Promise<string | undefined> {
 const FOLLOW_GAP_MS = 1500
 /** How often KairoForge re-checks for editors that need the extension (a newly installed VS Code, an old version). */
 const AUTO_INSTALL_EVERY_MS = 10 * 60_000
+/** The extension counts as connected when it reported this recently (it heartbeats every 30 s). */
+const CONNECTED_MS = 3 * 60_000
+/** At most one "open this project in Cursor" per project in this window, so a disconnected editor is never spammed. */
+const BRING_UP_GAP_MS = 15 * 60_000
 
 /**
  * Compare dotted versions numerically.
@@ -133,6 +144,8 @@ export interface DevCounters {
   syntaxChecks: number
   /** Edited files KairoForge opened in Cursor by itself. */
   followedEdits?: number
+  /** Projects KairoForge opened in Cursor because a request needed it and Cursor was not connected. */
+  editorLaunches?: number
   syntaxFailures: number
   loopStops: number
   jsonHints: number
@@ -190,7 +203,8 @@ export class DevKit extends Service {
 
   readonly loops = new LoopBreaker()
   readonly counters: DevCounters = {
-    pathHints: 0, syntaxChecks: 0, syntaxFailures: 0, loopStops: 0, jsonHints: 0, repoMaps: 0, warmups: 0, followedEdits: 0,
+    pathHints: 0, syntaxChecks: 0, syntaxFailures: 0, loopStops: 0, jsonHints: 0, repoMaps: 0, warmups: 0,
+    followedEdits: 0, editorLaunches: 0,
   }
   private readonly token = randomBytes(24).toString('base64url')
   private snapshot: EditorSnapshot | undefined
@@ -206,6 +220,8 @@ export class DevKit extends Service {
   /** Files already opened in Cursor per session, for the current user request. */
   private readonly followed = new Map<string, Set<string>>()
   private lastFollowAt = 0
+  /** When each project was last opened in Cursor because the editor was not connected. */
+  private readonly broughtUp = new Map<string, number>()
 
   /**
    * @param ctx - Host context.
@@ -264,6 +280,40 @@ export class DevKit extends Service {
   /** Latest editor report, when one is fresh. */
   editor(): EditorSnapshot | undefined {
     return this.snapshot !== undefined && Date.now() - this.seenAt < 15 * 60_000 ? this.snapshot : undefined
+  }
+
+  /** Whether the editor extension is reporting right now. */
+  connected(): boolean {
+    return this.snapshot !== undefined && Date.now() - this.seenAt < CONNECTED_MS
+  }
+
+  /**
+   * Bring Cursor up for a request that does something while the extension is
+   * not reporting: open the request's project in Cursor so the extension
+   * activates and connects. Nothing happens while Cursor is connected, for the
+   * home folder, when that project's window is already open in a running
+   * Cursor (it only needs a reload), or more than once per project every
+   * 15 minutes.
+   * @param cwd - the agent's working directory.
+   * @returns the folder opened, when one was.
+   */
+  async bringUpEditor(cwd: string | undefined): Promise<string | undefined> {
+    if (this.connected()) return undefined
+    const cli = this.editorCli(PREFERRED_EDITOR)
+    const where = this.workspaceRoot(cwd)
+    if (cli === undefined || where === undefined || !existsSync(where)) return undefined
+    const root = await gitRootOf(where) ?? where
+    if (root === homedir() || root === '/') return undefined
+    const now = Date.now()
+    if (now - (this.broughtUp.get(root) ?? 0) < BRING_UP_GAP_MS) return undefined
+    this.broughtUp.set(root, now)
+    if (this.snapshot?.workspaceFolders.includes(root) === true && await cursorRunning()) return undefined
+    execFile(cli, [root], { timeout: 20_000 }, (error) => {
+      if (error !== null) this.ctx.logger.warn(`devkit: could not open ${root} in Cursor: ${error.message}`)
+    })
+    this.counters.editorLaunches = (this.counters.editorLaunches ?? 0) + 1
+    this.ctx.logger.info(`devkit: Cursor was not connected; opened ${root} in Cursor for the current request`)
+    return root
   }
 
   /**
@@ -533,7 +583,7 @@ export class DevKit extends Service {
     this.followed.set(sessionId, seen)
     this.lastFollowAt = now
     this.counters.followedEdits = (this.counters.followedEdits ?? 0) + 1
-    void projectRootOf(path).then((root) => {
+    void gitRootOf(dirname(path)).then((root) => {
       // Opening the project folder too puts the file in that project's Cursor window (reused when already open).
       const args = root === undefined || root === homedir() ? ['-g', path] : [root, '-g', path]
       execFile(cli, args, { timeout: 20_000 }, (error) => {
@@ -672,7 +722,7 @@ export class DevKit extends Service {
     }))
     return {
       editor: {
-        connected: editor !== undefined && Date.now() - this.seenAt < 3 * 60_000,
+        connected: this.connected(),
         problems: editor?.diagnostics.filter(diagnostic => diagnostic.severity === 'error').length ?? 0,
         ...editor === undefined ? {} : {
           name: editor.editor,

@@ -22,6 +22,7 @@ import { searchMemories, type MemoryQuery, type MemoryScope } from './core/memor
 import { summarizeTurns, type MetricsSummary, type TurnRecord } from './core/metrics.ts'
 import { MAX_SAY_CHARS, MAX_UPDATES, repeatsUpdate, toolUpdate } from './core/narration.ts'
 import { findSensitive } from './core/sensitive.ts'
+import type {} from './dev/service.ts'
 import { personalAiDomain } from './storage.ts'
 import {
   DEFAULT_PERSONALITY, PersonalAiError,
@@ -899,7 +900,7 @@ export class PersonalAi extends Service {
    */
   decide(sessionId: string, text: string, hasImage = false): CoordinatorDecision {
     const body = messageBody(text)
-    const depth = classifyDepth(body)
+    const depth = classifyDepth(body, { editorTarget: this.ctx.get('devKit')?.editor()?.activeFile !== undefined })
     const category = classifyModelCategory({ mode: 'standard', lastUserText: text, hasImage, worker: false })
     const decision: CoordinatorDecision = {
       sessionId,

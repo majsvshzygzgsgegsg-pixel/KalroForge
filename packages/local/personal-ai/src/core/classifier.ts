@@ -31,7 +31,11 @@ const AGENT = new RegExp(String.raw`\b(?:ask|delegate|hand (?:this|it) (?:off|ov
 const BUILD = /\b(?:build|create|implement|develop|set up|scaffold|migrate|refactor|rewrite|port|design and build)\b/i
 const LARGE = new RegExp(String.raw`\b(?:full|complete|entire|whole|end-to-end|production[- ]ready|from scratch|app(?:lication)?|platform|system|service|website|dashboard|backend and frontend|frontend and backend|with (?:auth|tests|a database|deployment))\b`, 'i')
 const VAGUE = new RegExp(String.raw`^(?:do it|fix it|fix this|make it (?:better|work|nicer)|change it|update it|that one|the other one|continue|go on|again|same thing|you know what i mean)[\s!.?]*$`, 'i')
-const ACTION = new RegExp(String.raw`\b(?:open|read|show|list|find|search|grep|run|execute|check|look (?:up|at|into)|edit|write|create|make|add|remove|rename|move|copy|fix|install|test|build|commit|diff|status|git|file|folder|directory|repo|terminal|command|browser|website|url|screenshot|click|type|download|upload|summari[sz]e (?:this|the|my)|analy[sz]e (?:this|the|my))\b`, 'i')
+const ACTION = new RegExp([
+  String.raw`\b(?:open|read|show|list|find|search|grep|run|execute|check|look (?:up|at|into)|edit|write|create|make|add|remove|rename|move|copy|fix|install|test|build|commit|diff|status|git|file|folder|directory|repo|terminal|command`,
+  String.raw`|change|update|replace|delete|improve|refactor|implement|rewrite|tweak|adjust|restyle|style|clean up|format|lint|debug|patch|push|publish|deploy|revert|undo|code`,
+  String.raw`|browser|website|url|screenshot|click|type|download|upload|summari[sz]e (?:this|the|my)|analy[sz]e (?:this|the|my))\b`,
+].join(''), 'i')
 const QUESTION = /^(?:what|why|how|who|when|where|which|is|are|can|could|should|would|does|do|explain|tell me|define)\b|\?\s*$/i
 const NUMBERED = /(?:^|\n)\s*(?:\d+[.)]|[-*•])\s+\S/g
 
@@ -39,12 +43,19 @@ function words(text: string): number {
   return text.trim().split(/\s+/).filter(word => word !== '').length
 }
 
+/** What the classifier knows beyond the words. */
+export interface DepthContext {
+  /** Cursor reports an active file, so "fix this" / "do it" has a target. */
+  readonly editorTarget?: boolean
+}
+
 /**
  * Classify one request into the cheapest depth that can handle it.
  * @param input - the user's message text (framing headers already removed).
+ * @param context - editor state that can give a vague request its target.
  * @returns depth and reason.
  */
-export function classifyDepth(input: string): DepthDecision {
+export function classifyDepth(input: string, context: DepthContext = {}): DepthDecision {
   const text = input.trim()
   if (text === '') return { depth: 'direct', reason: 'empty message' }
   if (SMALL_TALK.test(text)) return { depth: 'direct', reason: 'greeting or small talk' }
@@ -55,10 +66,23 @@ export function classifyDepth(input: string): DepthDecision {
   if (BUILD.test(text) && (LARGE.test(text) || steps >= 3 || words(text) > 60)) {
     return { depth: 'workflow', reason: 'large multi-part build' }
   }
-  if (VAGUE.test(text)) return { depth: 'clarify', reason: 'no clear target; ask what to act on' }
+  if (VAGUE.test(text)) {
+    return context.editorTarget === true
+      ? { depth: 'tool', reason: 'acts on what is open in Cursor' }
+      : { depth: 'clarify', reason: 'no clear target; ask what to act on' }
+  }
   if (ACTION.test(text)) return { depth: 'tool', reason: 'needs tools on files, terminal, browser, or the computer' }
   if (QUESTION.test(text) || words(text) <= 25) return { depth: 'direct', reason: 'question or short request answerable directly' }
   return { depth: 'tool', reason: 'longer request that may need tools' }
+}
+
+/**
+ * Whether a depth means the user asked for something to be done (not a greeting, question, or clarification).
+ * @param depth - classified depth.
+ * @returns true for depths that act.
+ */
+export function isActionable(depth: Depth): boolean {
+  return depth !== 'direct' && depth !== 'clarify'
 }
 
 /** Coordinator guidance for each depth, phrased for the model. */

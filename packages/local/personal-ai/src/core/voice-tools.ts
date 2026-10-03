@@ -25,10 +25,13 @@ const CORE_TOOLS: ReadonlySet<string> = new Set([
   'pause_task', 'resume_task', 'cancel_task', 'update_task',
 ])
 
-/** Groups opened up front because the request names them. */
+/**
+ * Groups opened up front because the request names them. A bare "cursor" means the Cursor editor
+ * (FILES/SEARCH tools), not screen control; only "move the cursor" or "mouse" opens COMPUTER.
+ */
 const NAMED: ReadonlyArray<readonly [CapabilityCategory, RegExp]> = [
   ['COMPUTER', new RegExp([
-    String.raw`\b(?:screen|screenshot|click|double[- ]click|tap|press|keyboard|mouse|cursor|scroll|drag|hotkey|shortcut|clipboard|menu`,
+    String.raw`\b(?:screen|screenshot|click|double[- ]click|tap|press|keyboard|mouse|move (?:the )?cursor|scroll|drag|hotkey|shortcut|clipboard|menu`,
     String.raw`|window|windows|desktop|dock|finder|launch|quit|switch to|volume|brightness|spotify|music|computer|mac)\b`,
   ].join(''), 'i')],
   ['BROWSER', /\b(?:browser|website|web ?page|tab|tabs|url|navigate|go to|safari|chrome|firefox)\b/i],

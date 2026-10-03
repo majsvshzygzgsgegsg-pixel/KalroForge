@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -31,6 +31,7 @@ import * as mainAgents from '@local/main-agents'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as personalAi from '../src/index.ts'
 import { handlePersonalAiRoute } from '../src/routes.ts'
+import { EDITOR_BUILD_GUIDANCE, EDITOR_OFFLINE_NOTE } from '../src/tools.ts'
 
 const SIGNAL = new AbortController().signal
 const roots: string[] = []
@@ -152,6 +153,8 @@ interface HoloOptions { readonly dir: string; readonly port: number; readonly au
 async function setup(
   paths = { sessions: tempDir('pai-sessions-'), storage: tempDir('pai-storage-') },
   holo: HoloOptions = { dir: tempDir('pai-holo-'), port: 1, autoStart: false },
+  // Tests never open the real Cursor: bring-up is off unless a test stubs it.
+  bringUpEditor = false,
 ): Promise<Setup> {
   const ctx = new Context()
   contexts.add(ctx)
@@ -180,10 +183,15 @@ async function setup(
   await vi.waitFor(() => { expect(ctx.get('orchestration')).toBeDefined() })
   await ctx.mainAgents.whenReady()
   await ctx.orchestration.whenReady()
-  // The harness has no preset registry; Sessions whose id starts with `fast-` report Fast Mode.
+  // The harness has no preset registry; Sessions whose id starts with `fast-` / `chat-` report Fast Mode / Chat.
   const modeOf = ctx.mainAgents.modeOf.bind(ctx.mainAgents)
-  vi.spyOn(ctx.mainAgents, 'modeOf').mockImplementation(agent => String(agent.session.id).startsWith('fast-') ? 'fast' : modeOf(agent))
-  await ctx.plugin(personalAi, { coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, confirmSensitive: true, holo })
+  vi.spyOn(ctx.mainAgents, 'modeOf').mockImplementation((agent) => {
+    const id = String(agent.session.id)
+    return id.startsWith('fast-') ? 'fast' : id.startsWith('chat-') ? 'chat' : modeOf(agent)
+  })
+  await ctx.plugin(personalAi, {
+    coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, bringUpEditor, confirmSensitive: true, holo,
+  })
   await vi.waitFor(() => { expect(ctx.get('personalAi')).toBeDefined() })
   await ctx.personalAi.whenReady()
   await vi.waitFor(() => { expect(ctx.get('holoDeck')).toBeDefined() })
@@ -273,6 +281,70 @@ describe('personal ai', () => {
     await ctx.personalAi.setCoordinator(false)
     await vi.waitFor(async () => { expect(await toolNames(ctx, leadAgent)).not.toContain('pause_task') })
     expect(await toolNames(ctx, leadAgent)).toContain('create_workflow')
+  }, 30_000)
+
+  it('puts Cursor guidance and editor tools in every mode except Chat', async () => {
+    const { ctx } = await setup()
+    await vi.waitFor(() => { expect(ctx.get('devKit')).toBeDefined() })
+    const leadAgent = await lead(ctx)
+    await vi.waitFor(async () => { expect((await assembled(ctx, leadAgent)).contexts).toContain(EDITOR_BUILD_GUIDANCE) })
+    expect((await assembled(ctx, leadAgent)).contexts).toContain(EDITOR_OFFLINE_NOTE)
+    expect(await toolNames(ctx, leadAgent)).toEqual(expect.arrayContaining(['editor_context', 'repo_map', 'open_in_editor']))
+
+    const fast = await ctx.agentLoop.create(SessionId('fast-editor'), { provider: 'mock', model: 'lead' })
+    await vi.waitFor(async () => { expect(await toolNames(ctx, fast)).toContain('open_in_editor') })
+    expect((await assembled(ctx, fast)).contexts).toContain(EDITOR_BUILD_GUIDANCE)
+
+    const chat = await ctx.agentLoop.create(SessionId('chat-editor'), { provider: 'mock', model: 'lead' })
+    await vi.waitFor(() => { expect(ctx.agents.get(SessionId('chat-editor'))).toBe(chat) })
+    expect(await toolNames(ctx, chat)).not.toContain('open_in_editor')
+    expect((await assembled(ctx, chat)).contexts).not.toContain('Cursor is the user\'s editor')
+
+    // A live editor report replaces the offline note with the editor's own context.
+    ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [tempDir('pai-workspace-')], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    const live = await ctx.agentLoop.create(SessionId('lead-live'), { provider: 'mock', model: 'lead' })
+    await vi.waitFor(async () => { expect((await assembled(ctx, live)).contexts).toContain(EDITOR_BUILD_GUIDANCE) })
+    expect((await assembled(ctx, live)).contexts).not.toContain(EDITOR_OFFLINE_NOTE)
+  }, 30_000)
+
+  it('brings Cursor up for requests that do something, never for greetings or Chat', async () => {
+    const { ctx } = await setup(undefined, undefined, true)
+    await vi.waitFor(() => { expect(ctx.get('devKit')).toBeDefined() })
+    const bringUp = vi.spyOn(ctx.devKit, 'bringUpEditor').mockResolvedValue(undefined)
+    const say = async (agent: Agent, text: string): Promise<void> => {
+      agent.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }))
+      await vi.waitFor(() => { expect(ctx.orchestration.peekTelemetry(agent.session.id)?.lastUserText).toBe(text) }, { timeout: 10_000 })
+      await agent.whenIdle()
+      await assembled(ctx, agent)
+    }
+
+    const leadAgent = await lead(ctx)
+    await say(leadAgent, 'Hi')
+    expect(bringUp).not.toHaveBeenCalled()
+    await say(leadAgent, 'change the header color to blue')
+    expect(bringUp).toHaveBeenCalled()
+
+    bringUp.mockClear()
+    const chat = await ctx.agentLoop.create(SessionId('chat-bring-up'), { provider: 'mock', model: 'lead' })
+    await vi.waitFor(() => { expect(ctx.agents.get(SessionId('chat-bring-up'))).toBe(chat) })
+    await say(chat, 'change the header color to blue')
+    expect(bringUp).not.toHaveBeenCalled()
+  }, 30_000)
+
+  it('opens a project in Cursor at most once per window and never while Cursor is connected', async () => {
+    const { ctx } = await setup()
+    await vi.waitFor(() => { expect(ctx.get('devKit')).toBeDefined() })
+    // A harmless stand-in for the Cursor CLI.
+    vi.spyOn(ctx.devKit, 'editorCli').mockReturnValue('/usr/bin/true')
+    const project = tempDir('pai-bring-up-')
+    expect(await ctx.devKit.bringUpEditor(project)).toBe(project)
+    expect(await ctx.devKit.bringUpEditor(project)).toBeUndefined()
+    expect(ctx.devKit.counters.editorLaunches).toBe(1)
+    expect(await ctx.devKit.bringUpEditor(homedir())).toBeUndefined()
+
+    ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    expect(await ctx.devKit.bringUpEditor(tempDir('pai-bring-up-'))).toBeUndefined()
+    expect(ctx.devKit.counters.editorLaunches).toBe(1)
   }, 30_000)
 
   it('asks before a main agent\'s sensitive call, whatever its permission preset', async () => {
