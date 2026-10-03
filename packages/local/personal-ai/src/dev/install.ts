@@ -26,6 +26,7 @@ import { PersonalAiError } from '../types.ts'
 import { EDITORS, PREFERRED_EDITOR, type DevKit, type EditorKind } from './service.ts'
 import { forgetGithubToken, GITHUB_METHODS, githubGate, githubToken, githubUrl, parseSlug, renderGithubResponse, repoSlugOf, type GithubMethod } from './github.ts'
 import { APPLESCRIPT_COOKBOOK, appleScriptDictionary } from './applescript.ts'
+import { MAC_ACTION_NAMES, macActionCatalog, macActionScript } from '../core/mac-actions.ts'
 import { checkSyntax, syntaxWarning } from './syntax.ts'
 
 /** Editor bridge route prefix (used by the extension). */
@@ -36,6 +37,8 @@ const EDIT_TOOLS = new Set(['edit', 'write', 'str_replace_editor', 'apply_patch'
 export const APPLESCRIPT_TOOL = 'applescript'
 /** Name of the read-only scripting dictionary tool. */
 export const APPLESCRIPT_DICTIONARY_TOOL = 'applescript_dictionary'
+/** Name of the ready-made Mac actions tool. */
+export const MAC_ACTION_TOOL = 'mac_action'
 const OSASCRIPT = '/usr/bin/osascript'
 const SIMULATED_INPUT_COMMAND = /\b(?:pyautogui|pynput|cliclick|autopy|pyobjc-framework-Quartz)\b/i
 const SIMULATED_INPUT_IMPORT = /^\s*(?:import|from)\s+(?:pyautogui|pynput|autopy)\b/m
@@ -261,6 +264,41 @@ function applescriptTool(): unknown {
   })
 }
 
+function macActionTool(): unknown {
+  const text = { type: 'string' as const }
+  return defineTool({
+    name: MAC_ACTION_TOOL,
+    description: [
+      'Do a common thing on this Mac with a ready-made, tested AppleScript: pick the action and fill in its values.',
+      'Use this first; use the applescript tool only for something no action covers. Actions:',
+      macActionCatalog(),
+    ].join('\n'),
+    parameters: {
+      action: { type: 'string', enum: [...MAC_ACTION_NAMES], required: true },
+      app: { ...text, description: 'App name, e.g. "Notes", "Safari", "Google Chrome".' },
+      text: { ...text, description: 'Text to type, show, or copy.' },
+      title: text,
+      to: { ...text, description: 'Email address.' },
+      subject: text,
+      body: text,
+      url: text,
+      query: text,
+      path: { ...text, description: 'Absolute path.' },
+      browser: { ...text, description: 'Browser app name; default browser when omitted.' },
+      menu: text,
+      item: text,
+      command: text,
+      level: { type: 'number', description: 'Volume 0-100.' },
+    },
+    output: TEXT_OUTPUT,
+    execute: async (args, { signal }) => {
+      const { action, ...values } = args
+      const out = await runOsascript(macActionScript(action, values), 'AppleScript', signal)
+      return out === 'The script ran and returned nothing.' ? `Done: ${action}.` : out
+    },
+  })
+}
+
 function applescriptDictionaryTool(): unknown {
   return defineTool({
     name: APPLESCRIPT_DICTIONARY_TOOL,
@@ -394,7 +432,7 @@ export function devTools(dev: DevKit, agent: Agent): unknown[] {
         return openInEditor(dev, path, args.line === undefined ? undefined : Math.max(1, Math.round(args.line)))
       },
     }),
-    ...process.platform === 'darwin' ? [applescriptTool(), applescriptDictionaryTool()] : [],
+    ...process.platform === 'darwin' ? [macActionTool(), applescriptTool(), applescriptDictionaryTool()] : [],
   ]
 }
 

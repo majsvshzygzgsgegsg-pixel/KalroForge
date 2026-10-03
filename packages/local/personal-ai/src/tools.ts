@@ -50,8 +50,9 @@ export const EDITOR_BUILD_GUIDANCE = [
 
 /** How to control the Mac: AppleScript first, never simulated input scripts. */
 export const MAC_CONTROL_GUIDANCE = [
-  'Mac control: use the applescript tool first for anything on the Mac — opening, quitting, and switching apps, Finder, Music, Safari tabs, Mail, Notes,',
-  'Reminders, Calendar, volume, notifications, and clicking buttons or menus by name through System Events. Never write or run pyautogui, pynput,',
+  'Mac control: use mac_action first — ready-made, tested scripts for opening apps and web pages, Google and Maps searches, Gmail and Mail drafts, Notes,',
+  'Reminders, typing into an app, menus, Music, volume, notifications, Finder, and the clipboard. For anything else use the applescript tool',
+  '(System Events clicks buttons and menus by name). Never write or run pyautogui, pynput,',
   'cliclick, or other simulated mouse/keyboard scripts. Never guess an app\'s terms: use the applescript cookbook or call applescript_dictionary first.',
   'Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen.',
 ].join(' ')

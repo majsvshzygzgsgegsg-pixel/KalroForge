@@ -240,6 +240,15 @@ export class ApprovalService extends Service {
    * @param session - the exact accepted session whose policy applies.
    * @returns the policy every ask for this session resolves under right now.
    */
+  /**
+   * The policy in effect for a session (its override, else the configured default).
+   * @param session - the session to read.
+   * @returns `'ask'` or `'never'`.
+   */
+  policyOf(session: Session): ApprovalPolicy {
+    return this.effectivePolicy(session)
+  }
+
   private effectivePolicy(session: Session): ApprovalPolicy {
     return this.overrideOf(session) ?? this.config.policy ?? 'ask'
   }

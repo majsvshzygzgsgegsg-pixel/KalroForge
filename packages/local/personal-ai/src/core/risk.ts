@@ -7,6 +7,7 @@
  */
 import { isReadOnlyCommand } from '@local/main-agents'
 import { categoryOf } from './capabilities.ts'
+import { macActionRisk, type MacActionArgs } from './mac-actions.ts'
 import { findSensitive } from './sensitive.ts'
 
 /** Approval classes. */
@@ -51,10 +52,13 @@ const SENSITIVE_FILE = new RegExp([
   String.raw`(?:^|/)\.env(?:\.[\w-]+)?$`, String.raw`^/(?:etc|System|Library)/`,
 ].join('|'))
 const COMPUTER_READ = /screenshot|list|get_|read|observe|snapshot|describe|find/i
-/** AppleScript / JXA that runs shell commands, elevates, deletes, sends, types, powers off, or touches credentials. */
+/**
+ * AppleScript / JXA that runs shell commands, elevates, deletes, sends, powers off, or touches credentials.
+ * Typing is gated like computer_type_text: sensitive only for secret text.
+ */
 const SENSITIVE_SCRIPT = new RegExp([
   String.raw`\bdo\s+shell\s+script\b|\bdoShellScript\b|administrator\s+privileges`,
-  String.raw`|\bdelete\b|\bempty\b[^\n]*\btrash\b|\bsend\b|\.send\(|\bkeystroke\b|\bkey\s+code\b`,
+  String.raw`|\bdelete\b|\bempty\b[^\n]*\btrash\b|\bsend\b|\.send\(`,
   String.raw`|\b(?:shut\s*down|restart|log\s*out)\b|\bpassword\b|\bkeychain\b|\bsecurity\s+find-`,
 ].join(''), 'i')
 
@@ -107,6 +111,15 @@ export function classifyRisk(tool: string, args: unknown, options: { readonly di
     return isReadOnlyCommand(command) ? { risk: 'LOW_RISK', reason: 'read-only command' } : { risk: 'MODIFYING', reason: 'command may change files' }
   }
   if (tool === 'applescript_dictionary') return { risk: 'LOW_RISK', reason: 'reads an app\'s scripting dictionary' }
+  if (tool === 'mac_action') {
+    const values = (typeof args === 'object' && args !== null ? args : {}) as MacActionArgs & { action?: unknown }
+    const action = typeof values.action === 'string' ? values.action : ''
+    const risk = macActionRisk(action, values)
+    if (risk === 'sensitive') return { risk: 'SENSITIVE', reason: `Mac action ${action}` }
+    const typed = [values.text, values.body, values.subject, values.title].filter(value => typeof value === 'string').join('\n')
+    if (typed !== '' && findSensitive(typed).sensitive) return { risk: 'SENSITIVE', reason: `Mac action ${action} with sensitive text` }
+    return risk === 'read' ? { risk: 'LOW_RISK', reason: 'reads Mac state' } : { risk: 'MODIFYING', reason: `Mac action ${action}` }
+  }
   if (tool === 'applescript') {
     const script = stringField(args, 'script')
     if (SENSITIVE_SCRIPT.test(script)) return { risk: 'SENSITIVE', reason: `Run a sensitive AppleScript: ${script.replaceAll(/\s+/g, ' ').slice(0, 80)}` }

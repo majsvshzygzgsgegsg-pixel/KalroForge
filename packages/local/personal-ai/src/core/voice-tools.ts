@@ -23,6 +23,7 @@ const CORE_TOOLS: ReadonlySet<string> = new Set([
   'open_holo', 'close_holo', 'holo_status', 'holo_add', 'holo_update', 'holo_remove',
   'list_main_agents', 'recommend_agent', 'delegate_to_main_agent', 'list_background_tasks', 'start_background_task',
   'pause_task', 'resume_task', 'cancel_task', 'update_task',
+  'mac_action', 'applescript', 'applescript_dictionary',
 ])
 
 /**

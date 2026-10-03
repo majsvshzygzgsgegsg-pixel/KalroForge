@@ -15,7 +15,7 @@ import type { Config } from './index.ts'
 import type { PersonalAi } from './service.ts'
 
 /** Personal AI tools whose SENSITIVE calls always ask, whatever the preset says. */
-const OWN_GATED = new Set(['forget', 'archive_project', 'remember', 'create_tool', 'applescript'])
+const OWN_GATED = new Set(['forget', 'archive_project', 'remember', 'create_tool', 'applescript', 'mac_action'])
 
 interface UserMessageData { readonly source?: { readonly kind?: string; readonly form?: string } }
 
@@ -116,6 +116,14 @@ export function installPersonalAiHooks(ctx: Context, service: PersonalAi, config
     const directPush = mode !== undefined && (ctx.get('orchestration')?.settings().checkpoints.directPushModes ?? []).includes(mode)
     const risk = classifyRisk(exec.name, exec.arguments, { directPush })
     const gated = risk.risk === 'SENSITIVE' && (OWN_GATED.has(exec.name) || config.confirmSensitive)
+    if (gated && exec.agent !== undefined && ctx.get('approval')?.policyOf(exec.agent.session) === 'never') {
+      return {
+        kind: 'deny',
+        reason: `${risk.reason} needs the user's confirmation, and approval prompts are off in this session, so it was not run. `
+          + 'Do the safe part instead (for email: mail_draft or gmail_compose, so the user presses Send) and tell the user what is left for them. '
+          + 'Do not use screen, keyboard, or other tools to do the same thing.',
+      }
+    }
     if (gated) {
       return {
         kind: 'ask',

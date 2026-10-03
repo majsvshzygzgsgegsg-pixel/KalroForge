@@ -216,13 +216,32 @@ describe('risk classes', () => {
       'tell application "Finder" to delete file "a.txt" of desktop',
       'tell application "Finder" to empty the trash',
       'tell application "Messages" to send "hi" to buddy "Bob"',
-      'tell application "System Events" to keystroke "q" using command down',
       'tell application "System Events" to shut down',
       'Application("Mail").send(message)',
       'set p to "my password is hunter2"',
     ]) expect(classifyRisk('applescript', { script }).risk, script).toBe('SENSITIVE')
     expect(classifyRisk('bash', { command: 'osascript -e "beep"' }).risk).toBe('SENSITIVE')
     expect(classifyRisk('applescript_dictionary', { app: 'Music' }).risk).toBe('LOW_RISK')
+    // Typing is gated like computer_type_text: ordinary text changes things, secret text asks.
+    expect(classifyRisk('applescript', { script: 'tell application "System Events" to keystroke "hi there"' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('applescript', { script: 'tell application "System Events" to keystroke "my password is hunter2"' }).risk).toBe('SENSITIVE')
+  })
+
+  it('gates ready-made Mac actions by what they do', () => {
+    expect(classifyRisk('mac_action', { action: 'new_note', body: 'hi there' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('mac_action', { action: 'gmail_compose', to: 'a@b.co', body: 'What time tomorrow?' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('mac_action', { action: 'frontmost_app' }).risk).toBe('LOW_RISK')
+    expect(classifyRisk('mac_action', { action: 'volume' }).risk).toBe('LOW_RISK')
+    expect(classifyRisk('mac_action', { action: 'volume', level: 30 }).risk).toBe('MODIFYING')
+    expect(classifyRisk('mac_action', { action: 'mail_send', to: 'a@b.co', subject: 's', body: 'b' }).risk).toBe('SENSITIVE')
+    expect(classifyRisk('mac_action', { action: 'type_text', text: 'my password is hunter2' }).risk).toBe('SENSITIVE')
+  })
+
+  it('always offers the AppleScript tools to working requests without opening screen control', () => {
+    const belt = voiceToolbelt('open my apple notes app and type hi there', 'tool')
+    expect(belt.lean).toBe(false)
+    const names = voiceTools(['mac_action', 'applescript', 'applescript_dictionary', 'cua_driver_native__click'].map(name => ({ name })), belt).map(tool => tool.name)
+    expect(names).toEqual(expect.arrayContaining(['mac_action', 'applescript', 'applescript_dictionary']))
   })
 
   it('opens Mac control for AppleScript requests only when they name it', () => {
@@ -320,7 +339,8 @@ describe('coordinator prompt', () => {
 
   it.runIf(process.platform === 'darwin')('tells the coordinator to control the Mac with AppleScript, not simulated input', () => {
     const text = coordinatorPrompt(DEFAULT_PERSONALITY)
-    expect(text).toContain('use the applescript tool first')
+    expect(text).toContain('use mac_action first')
+    expect(text).toContain('For anything else use the applescript tool')
     expect(text).toMatch(/Never write or run pyautogui/)
     expect(text).not.toContain('Use open_in_editor to show the user what you changed')
   })

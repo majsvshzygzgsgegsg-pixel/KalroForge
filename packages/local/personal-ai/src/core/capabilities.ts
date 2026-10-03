@@ -21,7 +21,7 @@ const EXACT: Readonly<Record<string, CapabilityCategory>> = {
   remember: 'PROJECT', recall: 'PROJECT', forget: 'PROJECT',
   search_brain: 'SEARCH', index_folder: 'PROJECT', link_entities: 'PROJECT', unlink_entities: 'PROJECT', graph_query: 'PROJECT',
   create_tool: 'TERMINAL', list_user_tools: 'TERMINAL',
-  editor_context: 'FILES', open_in_editor: 'FILES', repo_map: 'SEARCH',
+  editor_context: 'FILES', open_in_editor: 'FILES', repo_map: 'SEARCH', mac_action: 'COMPUTER',
   create_workflow: 'WORKFLOWS', workflow_status: 'WORKFLOWS', cancel_workflow: 'WORKFLOWS', retry_workflow_task: 'WORKFLOWS', finish_workflow: 'WORKFLOWS', ralph: 'WORKFLOWS',
   start_background_task: 'BACKGROUND_TASKS', list_background_tasks: 'BACKGROUND_TASKS', control_background_task: 'BACKGROUND_TASKS', report_task_progress: 'BACKGROUND_TASKS',
   pause_task: 'BACKGROUND_TASKS', resume_task: 'BACKGROUND_TASKS', cancel_task: 'BACKGROUND_TASKS', update_task: 'BACKGROUND_TASKS', add_task_constraint: 'BACKGROUND_TASKS',

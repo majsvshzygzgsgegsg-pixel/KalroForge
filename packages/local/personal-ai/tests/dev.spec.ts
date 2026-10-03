@@ -10,6 +10,7 @@ import { EXTENSION_MANIFEST, EXTENSION_SOURCE } from '../src/dev/extension-sourc
 import { githubGate, githubUrl, parseRemote, parseSlug, renderGithubResponse, slimGithub } from '../src/dev/github.ts'
 import { RepoIndex } from '../src/dev/repo-index.ts'
 import { APPLESCRIPT_COOKBOOK, appleScriptDictionary, summariseSdef } from '../src/dev/applescript.ts'
+import { asText, MAC_ACTION_NAMES, macActionScript, type MacActionArgs } from '../src/core/mac-actions.ts'
 import { runOsascript, simulatedInputReason } from '../src/dev/install.ts'
 import { compareVersions } from '../src/dev/service.ts'
 import { checkSyntax } from '../src/dev/syntax.ts'
@@ -217,6 +218,48 @@ describe('simulated input refusal', () => {
     expect(simulatedInputReason('write', { file_path: 'notes.md', content: 'We stopped using pyautogui.' })).toBeUndefined()
     expect(simulatedInputReason('applescript', { script: 'tell application "Finder" to activate' })).toBeUndefined()
   })
+})
+
+const SAMPLE_ARGS: MacActionArgs = {
+  app: 'Notes', text: 'He said "hi"\\there\nline two', title: 'Plan', to: 'friend@example.com', subject: 'Meeting', body: 'What time "tomorrow"?',
+  url: 'https://example.com/?a=1&b=2', query: 'chinese food near me', path: '/Users/me/Desktop', menu: 'File', item: 'New Window',
+  command: 'playpause', level: 40,
+}
+
+describe('mac actions', () => {
+  it('escapes any text into a safe AppleScript string', () => {
+    expect(asText('say "hi"')).toBe('"say \\"hi\\""')
+    expect(asText('a\\b')).toBe('"a\\\\b"')
+    expect(asText('one\ntwo')).toBe('"one" & linefeed & "two"')
+  })
+
+  it('builds the exact script for common requests', () => {
+    expect(macActionScript('new_note', { body: 'hi there' })).toContain('make new note with properties {name:"hi there", body:"hi there"}')
+    expect(macActionScript('maps_search', { query: 'chinese food' })).toBe('open location "https://www.google.com/maps/search/chinese%20food"')
+    expect(macActionScript('gmail_compose', { to: 'a@b.co', subject: 'Hi', body: 'What time?' }))
+      .toBe('open location "https://mail.google.com/mail/?view=cm&fs=1&to=a%40b.co&su=Hi&body=What%20time%3F"')
+    expect(macActionScript('open_url', { url: 'https://x.co', browser: 'Google Chrome' })).toContain('quoted form of "Google Chrome"')
+    expect(macActionScript('volume', { level: 140 })).toBe('set volume output volume 100')
+  })
+
+  it('names what is missing and rejects unknown actions', () => {
+    expect(() => macActionScript('mail_send', { to: 'a@b.co' })).toThrow('mail_send needs subject, body.')
+    expect(() => macActionScript('teleport', {})).toThrow(/Unknown action "teleport"/)
+    expect(() => macActionScript('music', { command: 'louder' })).toThrow(/music command must be/)
+  })
+
+  it.runIf(process.platform === 'darwin')('compiles every action against the real apps', async () => {
+    const { execFile } = await import('node:child_process')
+    const dir = await mkdtemp(join(tmpdir(), 'kf-mac-'))
+    for (const action of MAC_ACTION_NAMES) {
+      const script = macActionScript(action, action === 'music' ? { command: 'next' } : SAMPLE_ARGS)
+      const error = await new Promise<string | undefined>((done) => {
+        execFile('/usr/bin/osacompile', ['-o', join(dir, 'x.scpt'), '-e', script], (failure, _out, stderr) => { done(failure === null ? undefined : stderr) })
+      })
+      expect(error, `${action}: ${script}`).toBeUndefined()
+    }
+    await rm(dir, { recursive: true, force: true })
+  }, 60_000)
 })
 
 describe('applescript dictionary summary', () => {

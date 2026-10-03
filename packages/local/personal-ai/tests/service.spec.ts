@@ -374,6 +374,26 @@ describe('personal ai', () => {
     expect(ctx.personalAi.memories()).toHaveLength(0)
   }, 30_000)
 
+  it('explains a sensitive call it cannot ask about when approval prompts are off, instead of a bare rejection', async () => {
+    const s = await setup()
+    const { ctx } = s
+    await ctx.plugin(ApprovalService, { policy: 'never' })
+    const asked: string[] = []
+    ctx.on('approval/request', (request) => {
+      asked.push(request.toolName)
+      return Promise.resolve<ApprovalOutcome>('allowed-once')
+    })
+    const view = await ctx.mainAgents.create('Helper', {}, { kind: 'user' })
+    const helper = liveAgent(ctx, view.sessionId)
+    await vi.waitFor(async () => { expect(await toolNames(ctx, helper)).toContain('remember') })
+    const result = await viaTurn(s, helper, 'remember', { text: 'Prefers pnpm over npm', scope: 'user' })
+    expect(result.isError).toBe(true)
+    expect(result.text).toMatch(/approval prompts are off in this session, so it was not run/)
+    expect(result.text).toMatch(/Do not use screen, keyboard, or other tools to do the same thing/)
+    expect(asked).toEqual([])
+    expect(ctx.personalAi.memories()).toHaveLength(0)
+  }, 30_000)
+
   it('stores memories, refuses secrets, and asks before saving a memory about the user', async () => {
     const s = await setup()
     const { ctx } = s
