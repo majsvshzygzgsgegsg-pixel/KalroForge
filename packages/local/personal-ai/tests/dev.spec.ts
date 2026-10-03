@@ -12,7 +12,7 @@ import { RepoIndex } from '../src/dev/repo-index.ts'
 import { APPLESCRIPT_COOKBOOK, appleScriptDictionary, summariseSdef } from '../src/dev/applescript.ts'
 import { asText, MAC_ACTION_NAMES, macActionScript, type MacActionArgs } from '../src/core/mac-actions.ts'
 import { runOsascript, simulatedInputReason } from '../src/dev/install.ts'
-import { compareVersions } from '../src/dev/service.ts'
+import { appBundleOf, compareVersions } from '../src/dev/service.ts'
 import { checkSyntax } from '../src/dev/syntax.ts'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
@@ -35,6 +35,14 @@ function snapshot(overrides: Partial<EditorSnapshot> = {}): EditorSnapshot {
     ...overrides,
   }
 }
+
+describe('opening things in Cursor', () => {
+  it.runIf(process.platform === 'darwin')('opens through the app bundle in the background, not the CLI that brings Cursor forward', () => {
+    expect(appBundleOf('/Applications/Cursor.app/Contents/Resources/app/bin/cursor')).toBe('/Applications/Cursor.app')
+    expect(appBundleOf('/usr/local/bin/cursor')).toBeUndefined()
+    expect(appBundleOf('/usr/bin/true')).toBeUndefined()
+  })
+})
 
 describe('editor context', () => {
   it('describes the file, cursor, code, problems, and tabs', () => {

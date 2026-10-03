@@ -77,6 +77,56 @@ function cursorRunning(): Promise<boolean> {
   })
 }
 
+/** Run one AppleScript line; resolves its trimmed output, or '' on failure. */
+function osascript(script: string): Promise<string> {
+  return new Promise((done) => {
+    execFile('/usr/bin/osascript', ['-e', script], { timeout: 5000 }, (error, stdout) => { done(error === null ? stdout.trim() : '') })
+  })
+}
+
+const FRONT_APP = 'tell application "System Events" to tell (first application process whose frontmost is true) to get {name, bundle identifier}'
+const BUNDLE_ID = /^[\w.-]+$/
+/** How long after a background open Cursor may still pull itself to the front. */
+const REFOCUS_WINDOW_MS = 15_000
+
+/**
+ * Open folders or files in a macOS editor app without taking the user away from what they are doing:
+ * `open -g` keeps the app in the background, and if the editor still comes to the front
+ * within a few seconds, the app the user was in is brought back.
+ * @param app - the editor's .app bundle.
+ * @param paths - the folders or files to open.
+ * @returns once they were handed over and focus settled.
+ */
+export async function openInBackground(app: string, paths: readonly string[]): Promise<void> {
+  const appName = basename(app, '.app')
+  const [beforeName = '', beforeId = ''] = (await osascript(FRONT_APP)).split(', ')
+  await new Promise<void>((done, fail) => {
+    execFile('/usr/bin/open', ['-g', '-a', app, ...paths], { timeout: 20_000 }, (error) => {
+      if (error === null) done()
+      else fail(new Error(error.message))
+    })
+  })
+  if (beforeName === appName || !BUNDLE_ID.test(beforeId)) return
+  for (let waited = 0; waited < REFOCUS_WINDOW_MS; waited += 500) {
+    await new Promise(resolve => setTimeout(resolve, 500))
+    const [front = ''] = (await osascript(FRONT_APP)).split(', ')
+    if (front === appName) {
+      await osascript(`tell application id "${beforeId}" to activate`)
+      return
+    }
+  }
+}
+
+/**
+ * The macOS app bundle an editor CLI lives in. Its own CLI brings the editor to the front, so
+ * KairoForge opens things through the bundle in the background instead.
+ * @param cli - the editor's command-line tool.
+ * @returns the .app path on macOS, when the CLI is inside one.
+ */
+export function appBundleOf(cli: string): string | undefined {
+  return process.platform === 'darwin' ? /^(.+?\.app)\//.exec(cli)?.[1] : undefined
+}
+
 /** Minimum gap between files KairoForge opens by itself, so parallel workers do not flood the editor. */
 const FOLLOW_GAP_MS = 1500
 /** How often KairoForge re-checks for editors that need the extension (a newly installed VS Code, an old version). */
@@ -353,11 +403,15 @@ export class DevKit extends Service {
     if (now - (this.broughtUp.get(root) ?? 0) < BRING_UP_GAP_MS) return undefined
     this.broughtUp.set(root, now)
     if (this.snapshot?.workspaceFolders.includes(root) === true && await this.cursorRunning()) return undefined
-    execFile(cli, [root], { timeout: 20_000 }, (error) => {
-      if (error !== null) this.ctx.logger.warn(`devkit: could not open ${root} in Cursor: ${error.message}`)
-    })
+    const app = appBundleOf(cli)
+    const warn = (error: unknown): void => { this.ctx.logger.warn(`devkit: could not open ${root} in Cursor: ${String(error)}`) }
+    if (app === undefined) {
+      execFile(cli, [root], { timeout: 20_000 }, (error) => { if (error !== null) warn(error.message) })
+    } else {
+      openInBackground(app, [root]).catch(warn)
+    }
     this.counters.editorLaunches = (this.counters.editorLaunches ?? 0) + 1
-    this.ctx.logger.info(`devkit: Cursor was not connected; opened ${root} in Cursor for the current request`)
+    this.ctx.logger.info(`devkit: Cursor was not connected; opened ${root} in Cursor in the background for the current request`)
     return root
   }
 
@@ -630,10 +684,14 @@ export class DevKit extends Service {
     this.counters.followedEdits = (this.counters.followedEdits ?? 0) + 1
     void gitRootOf(dirname(path)).then((root) => {
       // Opening the project folder too puts the file in that project's Cursor window (reused when already open).
-      const args = root === undefined || root === homedir() ? ['-g', path] : [root, '-g', path]
-      execFile(cli, args, { timeout: 20_000 }, (error) => {
-        if (error !== null) this.ctx.logger.warn(`devkit: could not open ${path} in Cursor: ${error.message}`)
-      })
+      const project = root === undefined || root === homedir() ? [] : [root]
+      const warn = (error: unknown): void => { this.ctx.logger.warn(`devkit: could not open ${path} in Cursor: ${String(error)}`) }
+      const app = appBundleOf(cli)
+      if (app !== undefined) {
+        openInBackground(app, [...project, path]).catch(warn)
+        return
+      }
+      execFile(cli, [...project, '-g', path], { timeout: 20_000 }, (error) => { if (error !== null) warn(error.message) })
     })
     return true
   }
