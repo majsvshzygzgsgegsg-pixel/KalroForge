@@ -9,6 +9,7 @@ import { classifyRisk, withoutPlainPushes } from '../src/core/risk.ts'
 import { EXTENSION_MANIFEST, EXTENSION_SOURCE } from '../src/dev/extension-source.ts'
 import { githubGate, githubUrl, parseRemote, parseSlug, renderGithubResponse, slimGithub } from '../src/dev/github.ts'
 import { RepoIndex } from '../src/dev/repo-index.ts'
+import { compareVersions } from '../src/dev/service.ts'
 import { checkSyntax } from '../src/dev/syntax.ts'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
@@ -177,6 +178,13 @@ describe('editor extension package', () => {
     await writeFile(join(dir, 'extension.js'), EXTENSION_SOURCE)
     expect(await checkSyntax(join(dir, 'extension.js'))).toMatchObject({ ok: true })
     await rm(dir, { recursive: true, force: true })
+  })
+
+  it('compares extension versions numerically for auto-upgrade', () => {
+    expect(compareVersions('0.10.0', '0.9.0')).toBeGreaterThan(0)
+    expect(compareVersions('0.2.0', '0.2.0')).toBe(0)
+    expect(compareVersions('0.1.0', '0.2.0')).toBeLessThan(0)
+    expect(['0.10.0', '0.2.0', '0.9.1'].sort(compareVersions).pop()).toBe('0.10.0')
   })
 
   it('registers every command it contributes, including the mode commands', () => {

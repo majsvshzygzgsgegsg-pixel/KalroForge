@@ -22,7 +22,7 @@ import { z } from 'zod'
 import { editorContextText, type EditorSnapshot } from '../core/editor.ts'
 import { malformedArgsHint, missingPathOf } from '../core/reliability.ts'
 import { PersonalAiError } from '../types.ts'
-import { EDITORS, type DevKit, type EditorKind } from './service.ts'
+import { EDITORS, PREFERRED_EDITOR, type DevKit, type EditorKind } from './service.ts'
 import { forgetGithubToken, GITHUB_METHODS, githubGate, githubToken, githubUrl, parseSlug, renderGithubResponse, repoSlugOf, type GithubMethod } from './github.ts'
 import { checkSyntax, syntaxWarning } from './syntax.ts'
 
@@ -165,10 +165,9 @@ export function installDevHooks(ctx: Context, dev: DevKit): void {
 }
 
 function openInEditor(dev: DevKit, path: string, line: number | undefined): Promise<string> {
-  const editor = dev.editor()?.editor ?? ''
-  const order: EditorKind[] = /visual studio code|vs ?code/i.test(editor) ? ['vscode', 'cursor'] : ['cursor', 'vscode']
+  const order: EditorKind[] = [PREFERRED_EDITOR, ...EDITORS.filter(kind => kind !== PREFERRED_EDITOR)]
   const cli = order.map(kind => dev.editorCli(kind)).find(found => found !== undefined)
-  if (cli === undefined) return Promise.resolve('No editor CLI found (install Cursor or VS Code in /Applications).')
+  if (cli === undefined) return Promise.resolve('Cursor is not installed in /Applications, so there is no editor to open.')
   const target = line === undefined ? path : `${path}:${String(line)}`
   return new Promise((done) => {
     execFile(cli, ['-g', target], { timeout: 20_000 }, (error) => {
@@ -265,7 +264,7 @@ export function devTools(dev: DevKit, agent: Agent): unknown[] {
   return [
     defineTool({
       name: 'editor_context',
-      description: 'What the user has open in VS Code / Cursor right now: active file, cursor, selection, nearby code, open tabs, and the editor\'s errors and warnings.',
+      description: 'What the user has open in Cursor right now: active file, cursor, selection, nearby code, open tabs, and the editor\'s errors and warnings.',
       parameters: {},
       output: TEXT_OUTPUT,
       execute: () => {
@@ -284,7 +283,7 @@ export function devTools(dev: DevKit, agent: Agent): unknown[] {
     }),
     defineTool({
       name: 'open_in_editor',
-      description: 'Open a file (optionally at a line) in the user\'s editor so they can see what you changed or found.',
+      description: 'Open a file (optionally at a line) in Cursor so they can see what you changed or found.',
       parameters: {
         path: { type: 'string', required: true, description: 'Absolute path, or relative to the workspace.' },
         line: { type: 'number', description: '1-based line to jump to.' },

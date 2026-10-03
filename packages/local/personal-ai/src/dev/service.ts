@@ -44,10 +44,31 @@ declare module '@deepseek-ai/cordis' {
 export const EDITORS = ['cursor', 'vscode'] as const
 /** One supported editor. */
 export type EditorKind = typeof EDITORS[number]
+/** The editor KairoForge opens files in and codes alongside. */
+export const PREFERRED_EDITOR: EditorKind = 'cursor'
 
+const APP_DIRS = ['/Applications', join(homedir(), 'Applications')]
 const EDITOR_CLI: Readonly<Record<EditorKind, readonly string[]>> = {
-  cursor: ['/Applications/Cursor.app/Contents/Resources/app/bin/cursor', '/usr/local/bin/cursor', '/opt/homebrew/bin/cursor'],
-  vscode: ['/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code', '/usr/local/bin/code', '/opt/homebrew/bin/code'],
+  cursor: [...APP_DIRS.map(dir => join(dir, 'Cursor.app/Contents/Resources/app/bin/cursor')), '/usr/local/bin/cursor', '/opt/homebrew/bin/cursor'],
+  vscode: [...APP_DIRS.map(dir => join(dir, 'Visual Studio Code.app/Contents/Resources/app/bin/code')), '/usr/local/bin/code', '/opt/homebrew/bin/code'],
+}
+/** How often KairoForge re-checks for editors that need the extension (a newly installed VS Code, an old version). */
+const AUTO_INSTALL_EVERY_MS = 10 * 60_000
+
+/**
+ * Compare dotted versions numerically.
+ * @param a - version.
+ * @param b - version.
+ * @returns negative, zero, or positive.
+ */
+export function compareVersions(a: string, b: string): number {
+  const left = a.split('.').map(Number)
+  const right = b.split('.').map(Number)
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const diff = (left[i] ?? 0) - (right[i] ?? 0)
+    if (diff !== 0) return diff
+  }
+  return 0
 }
 const EDITOR_EXTENSIONS_DIR: Readonly<Record<EditorKind, string>> = {
   cursor: join(homedir(), '.cursor', 'extensions'),
@@ -160,6 +181,7 @@ export class DevKit extends Service {
   private editorSessions: Record<string, string> | undefined
   private readonly warmedAt = new Map<string, number>()
   private lastProvider: string | undefined
+  private autoInstalling = false
 
   /**
    * @param ctx - Host context.
@@ -170,6 +192,11 @@ export class DevKit extends Service {
       void this.writeBridge().catch((error: unknown) => { ctx.logger.warn(`devkit: editor bridge file: ${String(error)}`) })
       return async () => { await this.removeBridge() }
     }, 'personal-ai: editor bridge file')
+    ctx.effect(() => {
+      const first = setTimeout(() => { void this.autoInstall() }, 8000)
+      const timer = setInterval(() => { void this.autoInstall() }, AUTO_INSTALL_EVERY_MS)
+      return () => { clearTimeout(first); clearInterval(timer) }
+    }, 'personal-ai: editor extension auto-install')
     ctx.on('session/event', (session, event) => { this.observe(session.id, event.type, event.data) })
     ctx.on('agent/status', ({ agent, status }) => { this.observeStatus(agent.session.id, status) })
   }
@@ -460,8 +487,37 @@ export class DevKit extends Service {
 
   private async installedVersion(editor: EditorKind): Promise<string | undefined> {
     const entries = await readdir(EDITOR_EXTENSIONS_DIR[editor]).catch(() => [])
-    const found = entries.filter(name => name.startsWith(`${EXTENSION_ID}-`)).sort().pop()
-    return found?.slice(EXTENSION_ID.length + 1)
+    const versions = entries.filter(name => name.startsWith(`${EXTENSION_ID}-`)).map(name => name.slice(EXTENSION_ID.length + 1))
+    return versions.sort(compareVersions).pop()
+  }
+
+  /**
+   * Keep the extension installed and current in every editor on this Mac,
+   * so VS Code and Cursor are always connected without a manual step.
+   * @returns editors that were installed or upgraded.
+   */
+  async autoInstall(): Promise<EditorKind[]> {
+    if (this.autoInstalling) return []
+    this.autoInstalling = true
+    const done: EditorKind[] = []
+    try {
+      for (const editor of EDITORS) {
+        if (this.editorCli(editor) === undefined) continue
+        const version = await this.installedVersion(editor)
+        if (version !== undefined && compareVersions(version, EXTENSION_VERSION) >= 0) continue
+        const result = await this.installExtension(editor).catch((error: unknown) => {
+          this.ctx.logger.warn(`devkit: extension install into ${editor} failed: ${String(error)}`)
+          return undefined
+        })
+        if (result?.installed === true) {
+          done.push(editor)
+          this.ctx.logger.info(`devkit: KairoForge extension ${result.version} installed into ${editor}`)
+        }
+      }
+    } finally {
+      this.autoInstalling = false
+    }
+    return done
   }
 
   /**

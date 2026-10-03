@@ -37,12 +37,12 @@ export const PROJECT_TOOLS = ['create_project', 'open_project', 'update_project'
 export const CONTROL_TOOLS = ['pause_task', 'resume_task', 'cancel_task', 'update_task', 'add_task_constraint'] as const
 /** Agent-selection tools. */
 export const AGENT_TOOLS = ['recommend_agent', 'propose_agent', 'list_capabilities'] as const
-/** Modes that build and ship code: they get the `github` tool and editor-first guidance. */
+/** Modes that build and ship code: they get the `github` tool. */
 export const BUILD_MODES = ['self-edit', 'cordis', 'builder'] as const
 
-/** Extra guidance for build modes while an editor is connected. */
+/** Guidance for every mode with tools while an editor is connected. */
 export const EDITOR_BUILD_GUIDANCE = [
-  'Editor-first building: the user is working in VS Code / Cursor right now.',
+  'Editor-first: the user is coding in Cursor right now; Cursor is their editor for this work.',
   '- Start from what the editor shows: the active file, cursor, selection, and Problems above are the most likely target.',
   '- After editing, call editor_context and fix any new errors or warnings it reports in the files you touched.',
   '- When you finish, use open_in_editor on the most important changed file and line so the user sees the change.',
@@ -239,7 +239,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     const kit = dev()
     if (kit === undefined) return ''
     const text = kit.contextFor(agent.session.id, agent.session.header.cwd, requestOf(agent.session.id))
-    if (!isBuildMode(agent) || !ctx.mainAgents.allowsTools(agent) || kit.editor() === undefined) return text
+    if (config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent)) || kit.editor() === undefined) return text
     return text === '' ? EDITOR_BUILD_GUIDANCE : `${text}\n\n${EDITOR_BUILD_GUIDANCE}`
   }
   /** Editor tools (every mode except the answer-only ones) plus `github` in the build modes. */
