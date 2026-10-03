@@ -5,7 +5,7 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import css from './ConnectionsCard.module.css'
 
 /** Styles forwarded to primitives: their `className` accepts `string`, not `string | undefined`. */
-const classes = css as Record<string, string>
+const classes = css
 
 /**
  * One stylesheet class name for a primitive that takes a plain string.
@@ -124,8 +124,8 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 /** Pull a typed field off an unknown JSON payload. */
-function field<T>(value: unknown, key: string): T | undefined {
-  return (value as Record<string, T> | null | undefined)?.[key]
+function field(value: unknown, key: string): unknown {
+  return (value as Record<string, unknown> | null | undefined)?.[key]
 }
 
 /** One JSON request against the Host connections service. */
@@ -142,32 +142,32 @@ async function request(path: string, body?: unknown, signal?: AbortSignal): Prom
 /** Load the connector catalog. A missing `connection` field means "not connected". */
 async function fetchCatalog(signal: AbortSignal): Promise<ConnectCatalog> {
   const payload = await request('/catalog', undefined, signal)
-  const services = (field<ConnectService[]>(payload, 'services') ?? [])
+  const services = ((field(payload, 'services') as ConnectService[] | undefined) ?? [])
     .map(service => ({ ...service, connection: service.connection ?? null }))
-  return { services, connectedCount: field<number>(payload, 'connectedCount') ?? 0 }
+  return { services, connectedCount: (field(payload, 'connectedCount') as number | undefined) ?? 0 }
 }
 
 /** Start a sign-in attempt for one method. */
 async function startAttempt(service: string, method: string): Promise<ConnectAttempt> {
-  return field<ConnectAttempt>(await request('/start', { service, method }), 'attempt')
+  return field(await request('/start', { service, method }), 'attempt') as ConnectAttempt | undefined
     ?? Promise.reject(new ConnectError('The service did not return a sign-in attempt.'))
 }
 
 /** Read the current state of one attempt. */
 async function fetchAttempt(id: string, signal?: AbortSignal): Promise<ConnectAttempt> {
-  return field<ConnectAttempt>(await request(`/attempt?id=${encodeURIComponent(id)}`, undefined, signal), 'attempt')
+  return field(await request(`/attempt?id=${encodeURIComponent(id)}`, undefined, signal), 'attempt') as ConnectAttempt | undefined
     ?? Promise.reject(new ConnectError('The service did not return the sign-in attempt.'))
 }
 
 /** Answer the input one attempt is waiting for. */
 async function answerAttempt(id: string, value: string): Promise<ConnectAttempt> {
-  return field<ConnectAttempt>(await request('/answer', { id, value }), 'attempt')
+  return field(await request('/answer', { id, value }), 'attempt') as ConnectAttempt | undefined
     ?? Promise.reject(new ConnectError('The service did not return the sign-in attempt.'))
 }
 
 /** Abandon an attempt on the Host. */
 async function cancelAttempt(id: string): Promise<ConnectAttempt> {
-  return field<ConnectAttempt>(await request('/cancel', { id }), 'attempt')
+  return field(await request('/cancel', { id }), 'attempt') as ConnectAttempt | undefined
     ?? Promise.reject(new ConnectError('The service did not return the sign-in attempt.'))
 }
 
@@ -340,7 +340,8 @@ export function ConnectionsCard({ t }: PropsRuntime<'settings.general.item'> & P
 
   /** Copy the device code and flash the confirmation label. */
   const copyCode = useCallback((code: string): void => {
-    void navigator.clipboard?.writeText(code).then(() => { setCopied(true) }, () => { /* manual selection still works */ })
+    const clipboard = navigator.clipboard as Clipboard | undefined
+    void clipboard?.writeText(code).then(() => { setCopied(true) }, () => { /* manual selection still works */ })
   }, [])
 
   /** Send the typed secret or code back to the Host. */
@@ -418,7 +419,7 @@ export function ConnectionsCard({ t }: PropsRuntime<'settings.general.item'> & P
   const manageConnectedAt = manage?.connection.connectedAt
   const manageConnectedText = manageConnectedAt === undefined ? '' : new Date(manageConnectedAt).toLocaleString()
   const manageVerified = manage?.connection.verified === true
-  const manageMethod = manage?.service.methods.find(candidate => candidate.id === manage?.connection.method)?.label
+  const manageMethod = manage?.service.methods.find(candidate => candidate.id === manage.connection.method)?.label
     ?? manage?.connection.method ?? ''
 
   return <div className={css.row}>
@@ -461,7 +462,7 @@ export function ConnectionsCard({ t }: PropsRuntime<'settings.general.item'> & P
           <div className={css.name} title={service.name}>{service.name}</div>
           <div className={css.category}>{service.category}</div>
         </div>
-        {service.connection === null || service.connection === undefined
+        {service.connection === null
           ? <Button size="sm" variant="outline" disabled={startingService === service.id}
             onClick={() => { connect(service) }}>
             {t('connections.connect')}
@@ -492,7 +493,7 @@ export function ConnectionsCard({ t }: PropsRuntime<'settings.general.item'> & P
           </dd>
         </dl>
         <div className={css.actions}>
-          <Button variant="primary" disabled={busy} onClick={() => { if (manage !== null) disconnect(manage.service) }}>
+          <Button variant="primary" disabled={busy} onClick={() => { disconnect(manage.service) }}>
             {t('connections.disconnect')}
           </Button>
           <Button onClick={() => { setManage(null) }}>{t('connections.close')}</Button>
@@ -501,13 +502,13 @@ export function ConnectionsCard({ t }: PropsRuntime<'settings.general.item'> & P
       {manage === null && attempt !== null && <div className={css.modalBody}>
         {phase !== 'connected' && phase !== 'failed' && phase !== 'cancelled' && attemptUrl !== undefined
             && <div className={css.actions}>
-              <Button variant="primary" onClick={() => { openSignIn(attemptUrl ?? '') }}>
+              <Button variant="primary" onClick={() => { openSignIn(attemptUrl) }}>
                 {phase === 'waiting-code' ? t('connections.openPage') : t('connections.openSignIn')}
               </Button>
             </div>}
         {attemptCode !== undefined && <div className={css.codeRow}>
           <code className={css.code}>{attemptCode}</code>
-          <Button size="sm" variant="outline" onClick={() => { copyCode(attemptCode ?? '') }}>
+          <Button size="sm" variant="outline" onClick={() => { copyCode(attemptCode) }}>
             {copied ? t('connections.copied') : t('connections.copy')}
           </Button>
         </div>}

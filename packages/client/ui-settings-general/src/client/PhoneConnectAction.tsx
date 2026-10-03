@@ -6,7 +6,7 @@ import css from './PhoneConnectAction.module.css'
 export type PhoneConnectActionProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'settings'>
 
 function phoneConnectDetails() {
-  const current = new URL(globalThis.location?.href ?? 'http://127.0.0.1:3080/')
+  const current = new URL((globalThis.location as Location | undefined)?.href ?? 'http://127.0.0.1:3080/')
   const token = current.searchParams.get('token') ?? ''
   const port = current.port === '' ? '3080' : current.port
   const loopback = current.hostname === '127.0.0.1' || current.hostname === 'localhost' || current.hostname === '[::1]'
@@ -29,7 +29,7 @@ export function PhoneConnectAction({ wide, t }: PhoneConnectActionProps) {
   const [copied, setCopied] = useState<'url' | 'code' | null>(null)
   const details = useMemo(phoneConnectDetails, [open])
   const copy = async (kind: 'url' | 'code', value: string) => {
-    await navigator.clipboard?.writeText(value)
+    await (navigator.clipboard as Clipboard | undefined)?.writeText(value)
     setCopied(kind)
     window.setTimeout(() => { setCopied(null) }, 1400)
   }

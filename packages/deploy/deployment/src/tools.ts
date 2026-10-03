@@ -149,8 +149,8 @@ export function registerDeploymentTools(ctx: Context, manager: DeploymentManager
         schema: { type: 'object', additionalProperties: true },
         render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }],
       },
-      async execute() {
-        return asToolResult({ providers: manager.providers(), releaseRoot: manager.releaseRoot })
+      execute() {
+        return Promise.resolve(asToolResult({ providers: manager.providers(), releaseRoot: manager.releaseRoot }))
       },
     })),
 

@@ -117,6 +117,9 @@ const jsonResponse = (body: unknown, status = 200): Response => ({
   json: async () => body,
 }) as unknown as Response
 
+/** The URL a fetch call targets, whatever form it was given in. */
+const urlOf = (input: RequestInfo | URL): string => typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
 /** Route the three Host connections endpoints this card calls. */
 const connectFetch = (catalog: unknown, startBody: unknown = jsonResponse({
   attempt: {
@@ -124,7 +127,7 @@ const connectFetch = (catalog: unknown, startBody: unknown = jsonResponse({
     message: 'Finish signing in with the browser window that just opened.', url: 'https://accounts.google.com/o/oauth2',
   },
 })) => vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-  const url = String(input)
+  const url = urlOf(input)
   if (url.endsWith('/catalog')) return jsonResponse(catalog)
   if (url.endsWith('/start') && init?.body !== undefined) return startBody
   if (url.includes('/attempt?id=')) return jsonResponse({
@@ -170,8 +173,8 @@ describe('ConnectionsCard', () => {
     expect(screen.getByText('Finish signing in with the browser window that just opened.')).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain(en['connections.waiting'])
     expect(screen.getByRole('button', { name: 'Open sign-in page' })).toBeTruthy()
-    const start = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/start'))
-    expect(JSON.parse(String(start?.[1]?.body))).toEqual({ service: 'gmail', method: 'google' })
+    const start = fetchMock.mock.calls.find(([input]) => urlOf(input).endsWith('/start'))
+    expect(JSON.parse(start?.[1]?.body as string)).toEqual({ service: 'gmail', method: 'google' })
     expect(start?.[1]?.credentials).toBe('same-origin')
   })
 })

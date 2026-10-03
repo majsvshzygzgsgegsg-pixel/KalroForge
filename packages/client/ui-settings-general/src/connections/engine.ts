@@ -73,7 +73,7 @@ export interface CatalogEntryView extends ServiceRecipe {
 /** Credentials the engine reads and writes; one record per key. */
 export interface ConnectionStore {
   /** The grant payload at a key, or undefined when nothing is stored. */
-  read(key: string): Promise<unknown | undefined>
+  read(key: string): Promise<unknown>
   /** Replace the grant payload at a key. */
   write(key: string, payload: unknown): Promise<void>
   /** Delete the record at a key. */
@@ -678,7 +678,8 @@ export class ConnectionEngine {
     const granted = parseTokenResponse(text, 'json')
     const deviceCode = granted.device_code
     const userCode = granted.user_code
-    const verificationUrl = granted.verification_uri ?? granted.verification_uri_complete
+    const verificationUrl = [granted.verification_uri, granted.verification_uri_complete]
+      .find((value): value is string => typeof value === 'string' && value !== '')
     if (typeof deviceCode !== 'string' || typeof userCode !== 'string') {
       throw new ConnectError(`${attempt.service.name} returned no device code`, 'no-device-code')
     }
@@ -687,8 +688,8 @@ export class ConnectionEngine {
     const expiresAt = this.now() + (Number(granted.expires_in) > 0 ? Number(granted.expires_in) * 1000 : this.timeoutMs)
     attempt.phase = 'waiting-code'
     attempt.code = userCode
-    attempt.message = `Enter this code at ${String(verificationUrl ?? method.deviceUrl)} to finish signing in.`
-    if (typeof verificationUrl === 'string') {
+    attempt.message = `Enter this code at ${verificationUrl ?? method.deviceUrl} to finish signing in.`
+    if (verificationUrl !== undefined) {
       attempt.url = verificationUrl
       this.openUrl(verificationUrl)
     }
@@ -729,7 +730,10 @@ export class ConnectionEngine {
         case 'authorization_pending': break
         case 'slow_down': slowDown(); break
         case undefined: throw new ConnectError(`${attempt.service.name} returned no token`, 'no-access-token')
-        default: throw new ConnectError(`${attempt.service.name} refused the sign-in: ${parsed.error}`, 'device-refused')
+        default: {
+          const reason = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error)
+          throw new ConnectError(`${attempt.service.name} refused the sign-in: ${reason}`, 'device-refused')
+        }
       }
     }
   }

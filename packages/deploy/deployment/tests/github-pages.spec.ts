@@ -204,9 +204,8 @@ describe('rolling back a published site', () => {
       ...firstCommit === undefined ? {} : { externalId: firstCommit },
     }
     // Rollback is part of this adapter's contract; assert it rather than assume it.
-    const restore = provider.restore
-    if (restore === undefined) throw new Error('github-pages must implement restore')
-    const restored = await restore.call(provider, context(site, 'dep_restore'), record)
+    if (provider.restore === undefined) throw new Error('github-pages must implement restore')
+    const restored = await provider.restore(context(site, 'dep_restore'), record)
 
     expect(gitOut(['-C', bare, 'rev-parse', 'gh-pages'])).toBe(first.externalId)
     expect(restored.externalId).toBe(first.externalId)

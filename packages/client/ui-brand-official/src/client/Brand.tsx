@@ -11,7 +11,7 @@ type KairoForgeMarkProps = SidebarBrandMarkOwnerProps & Pick<HeroBrandMarkOwnerP
  * @param props - Host-supplied mark presentation.
  * @returns the KairoForge product mark.
  */
-export function KairoForgeBrandMark({ size = 32, className }: KairoForgeMarkProps) {
+export function KairoForgeBrandMark({ size, className }: KairoForgeMarkProps) {
   return (
     <img
       alt=""

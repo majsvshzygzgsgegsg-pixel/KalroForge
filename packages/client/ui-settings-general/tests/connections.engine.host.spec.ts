@@ -7,10 +7,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CatalogEntryView, ConnectionStore } from '../src/connections/engine.ts'
 import { ConnectError, ConnectionEngine } from '../src/connections/engine.ts'
 
+/** The URL a fetch call targets, whatever form it was given in. */
+const urlOf = (input: RequestInfo | URL): string => typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
 /** One process-local credential store. */
 class MemoryStore implements ConnectionStore {
   readonly records = new Map<string, unknown>()
-  async read(key: string): Promise<unknown | undefined> { return this.records.get(key) }
+  async read(key: string): Promise<unknown> { return this.records.get(key) }
   async write(key: string, payload: unknown): Promise<void> { this.records.set(key, payload) }
   async remove(key: string): Promise<void> { this.records.delete(key) }
   async keys(): Promise<readonly string[]> { return [...this.records.keys()] }
@@ -130,7 +133,7 @@ describe('oauth method', () => {
   it('asks for the app once, then completes the PKCE redirect and stores tokens', async () => {
     const calls: string[] = []
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
+      const url = urlOf(input)
       calls.push(url)
       if (url === 'https://oauth2.googleapis.com/token') return json({ access_token: 'at-123', refresh_token: 'rt-456' })
       if (url === 'https://openidconnect.googleapis.com/v1/userinfo') return json({ email: 'you@example.com' })
@@ -188,7 +191,7 @@ describe('device method', () => {
   it('shows the user code, polls, and connects', async () => {
     let polls = 0
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
+      const url = urlOf(input)
       if (url === 'https://github.com/login/device/code') {
         return json({ device_code: 'dev-1', user_code: 'ABCD-1234', verification_uri: 'https://github.com/login/device', interval: 1, expires_in: 900 })
       }

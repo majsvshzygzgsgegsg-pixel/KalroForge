@@ -67,7 +67,7 @@ function firstAssistantReplyText(): string {
 }
 
 function speakKairoForgeReply(text: string): void {
-  const speech = globalThis.speechSynthesis
+  const speech = globalThis.speechSynthesis as SpeechSynthesis | undefined
   if (speech === undefined || text.trim() === '') return
   speech.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
