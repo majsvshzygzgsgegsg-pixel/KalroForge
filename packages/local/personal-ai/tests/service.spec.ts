@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
@@ -497,7 +497,7 @@ describe('personal ai', () => {
     expect(adapter.requests.length).toBe(modelCalls + 2)
   }, 30_000)
 
-  it.runIf(process.platform === 'darwin')('sends Mac requests to Cursor and hides KairoForge\'s own computer tools while Cursor is the hands', async () => {
+  it.runIf(process.platform === 'darwin')('fires plain commands instantly, sends screen requests to Cursor, and hides KairoForge\'s own computer tools from the model', async () => {
     const root = tempDir('pai-cursor-')
     const binary = join(root, 'cursor-agent')
     writeFileSync(binary, fakeCursorAgent(root))
@@ -514,16 +514,39 @@ describe('personal ai', () => {
     expect(names).not.toContain('applescript')
     expect((await assembled(ctx, agent)).sections).toContain('Mac control goes through Cursor')
 
+    // Stand-in so no real AppleScript runs.
+    const macCalls: unknown[] = []
+    ctx.on('tools/execute', async (exec, next) => {
+      if (exec.name !== 'mac_action') return next()
+      macCalls.push(exec.arguments)
+      return Promise.resolve({ isError: false as const, value: 'Done.', content: [{ type: 'text' as const, text: 'Done.' }] })
+    }, true)
+    const lastReply = (): string => JSON.stringify(agent.session.snapshotEvents().findLast(entry => entry.type === 'assistant/message')?.data ?? {})
     const modelCalls = adapter.requests.length
+
+    // A plain command fires KairoForge's own AppleScript at once: no model, no Cursor.
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'open my apple notes app and type hi' }], source: { kind: 'user' } }))
-    await vi.waitFor(() => {
-      const event = agent.session.snapshotEvents().findLast(entry => entry.type === 'assistant/message')
-      expect(JSON.stringify(event?.data ?? {})).toContain('Opened Notes and typed hi.')
-    }, { timeout: 15_000 })
+    await vi.waitFor(() => { expect(lastReply()).toContain('Made a new note in Notes') }, { timeout: 15_000 })
+    await agent.whenIdle()
+    expect(macCalls).toEqual([{ action: 'new_note', body: 'hi', show: true }])
+    expect(existsSync(join(root, 'runs.ndjson'))).toBe(false)
+
+    // A screen request goes straight to Cursor, also without a model step.
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'click the blue button on my screen' }], source: { kind: 'user' } }))
+    await vi.waitFor(() => { expect(lastReply()).toContain('Opened Notes and typed hi.') }, { timeout: 15_000 })
     await agent.whenIdle()
     expect(adapter.requests.length).toBe(modelCalls)
     const runs = readFileSync(join(root, 'runs.ndjson'), 'utf8').trim().split('\n').map(line => JSON.parse(line) as { args: string[] })
-    expect(runs.map(run => run.args.at(-1))).toEqual(['open my apple notes app and type hi'])
+    expect(runs.map(run => run.args.at(-1))).toEqual(['click the blue button on my screen'])
+
+    // When the model hands a request to Cursor, Cursor's status is the reply: one model call, not two.
+    adapter.turnScript = { id: 'cursor-call', name: CURSOR_COMPUTER, args: { task: 'tidy my desktop windows' }, issued: false }
+    const before = adapter.requests.length
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'tidy my desktop windows' }], source: { kind: 'user' } }))
+    await vi.waitFor(() => { expect(readFileSync(join(root, 'runs.ndjson'), 'utf8')).toContain('tidy my desktop windows') }, { timeout: 15_000 })
+    await agent.whenIdle()
+    expect(lastReply()).toContain('Opened Notes and typed hi.')
+    expect(adapter.requests.length).toBe(before + 1)
   }, 30_000)
 
   it('auto-approves a sensitive call with approval prompts off when autoApprove is on, without asking', async () => {

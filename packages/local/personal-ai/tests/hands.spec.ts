@@ -107,10 +107,16 @@ describe('CursorHands', () => {
   it('tells Cursor the execution protocol', async () => {
     await new CursorHands(binary, join(root, 'hands'), '').prepare()
     const rules = await readFile(join(root, 'hands', 'AGENTS.md'), 'utf8')
+    expect(rules).toContain('Output only tool calls')
+    expect(rules).toContain('Blind fire. Never verify')
+    expect(rules).toContain('at most five words')
     expect(rules).toContain('Native apps = AppleScript only')
     expect(rules).toContain('https://www.youtube.com/results?search_query=')
-    expect(rules).toContain('Parallel execution')
-    expect(rules).toContain('Never run the same failing command more than once more')
+    expect(rules).toContain('Fire and forget')
+    expect(rules).toContain('Issue independent calls together')
+    expect(rules).toContain('never repeat a failing command more than once')
+    expect(rules).toContain('call applescript_dictionary only after a script has failed')
+    expect(rules).toContain('tell application "Notes" to make new note with properties {body:"TEXT"}')
   })
 
   it('reports a failed run instead of claiming success', async () => {

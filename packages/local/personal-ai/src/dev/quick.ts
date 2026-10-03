@@ -57,9 +57,15 @@ function toolCallChunks(callId: string, name: string, args: object): StreamChunk
   ]
 }
 
-/** Serves the planned quick command for the calling Session: the tool call first, then the reply. */
+/**
+ * Serves the planned quick command for the calling Session — the tool call first, then the reply — or,
+ * after the model's own Cursor calls all succeeded, Cursor's status as the reply.
+ */
 class InstantAdapter extends LlmAdapter {
-  constructor(private readonly planOf: (sessionId: string) => Plan | undefined) {
+  constructor(
+    private readonly planOf: (sessionId: string) => Plan | undefined,
+    private readonly cursorReplyOf: (sessionId: string) => string | undefined,
+  ) {
     super()
   }
 
@@ -69,9 +75,10 @@ class InstantAdapter extends LlmAdapter {
 
   async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     await Promise.resolve()
-    const plan = options.sessionId === undefined ? undefined : this.planOf(String(options.sessionId))
+    const sessionId = options.sessionId === undefined ? '' : String(options.sessionId)
+    const plan = this.planOf(sessionId)
     if (plan === undefined) {
-      yield * textChunks('I lost track of that request; please say it again.')
+      yield * textChunks(this.cursorReplyOf(sessionId) ?? 'I lost track of that request; please say it again.')
       return
     }
     const answer = options.messages.find(message =>
@@ -111,7 +118,7 @@ function lastUserRequest(messages: readonly UserMessage[]): string | undefined {
 
 /**
  * Install quick commands on every top-level Session that has mac_action (macOS only).
- * While Cursor is the hands, plain Mac commands and screen requests go to `cursor_computer` instead.
+ * While Cursor is the hands, screen requests (clicking, the mouse, "take control") go straight to `cursor_computer`.
  * @param ctx - Host context.
  * @param resolve - maps a spoken app name to an installed app.
  * @param cursorHands - whether Cursor is the hands right now.
@@ -124,7 +131,15 @@ export function installQuickCommands(
   if (process.platform !== 'darwin') return
   const plans = new Map<string, Plan>()
   const routes = new Map<string, { readonly provider: string; readonly model: string }>()
-  ctx.llm.registerAdapter([INSTANT_PROVIDER], new InstantAdapter(sessionId => plans.get(sessionId)))
+  /** Tool calls each Session finished since its last model request. */
+  const settled = new Map<string, Array<{ readonly name: string; readonly reply?: string }>>()
+  /** Cursor's status, served as the reply of the step after the model's own Cursor calls. */
+  const cursorReplies = new Map<string, string>()
+  ctx.llm.registerAdapter([INSTANT_PROVIDER], new InstantAdapter(sessionId => plans.get(sessionId), (sessionId) => {
+    const reply = cursorReplies.get(sessionId)
+    cursorReplies.delete(sessionId)
+    return reply
+  }))
   // Any top-level Session that can run mac_action (Lead, Fast, editor, and main-agent Sessions alike).
   const has = (agent: Agent, tool: string): boolean => {
     if (!isTopLevelSession(agent.session.header)) return false
@@ -132,13 +147,13 @@ export function installQuickCommands(
     return scope !== undefined && ctx.tools.get(tool, scope) !== undefined
   }
   const planFor = (agent: Agent, request: string): Pick<Plan, 'call' | 'done'> | undefined => {
+    // A plain command fires its tested AppleScript at once — no model at all, so faster than any route through Cursor.
     const command = parseQuickCommand(request, resolve)
-    if (cursorHands() && has(agent, CURSOR_COMPUTER)) {
-      const forCursor = command !== undefined || (isScreenRequest(request) && !HOLO.test(request))
-      return forCursor ? { call: { name: CURSOR_COMPUTER, args: { task: request } } } : undefined
+    if (command !== undefined && has(agent, MAC_ACTION)) {
+      return { call: { name: MAC_ACTION, args: { action: command.action, ...command.args } }, done: command.done }
     }
-    if (command === undefined || !has(agent, MAC_ACTION)) return undefined
-    return { call: { name: MAC_ACTION, args: { action: command.action, ...command.args } }, done: command.done }
+    const forCursor = cursorHands() && has(agent, CURSOR_COMPUTER) && isScreenRequest(request) && !HOLO.test(request)
+    return forCursor ? { call: { name: CURSOR_COMPUTER, args: { task: request } } } : undefined
   }
 
   ctx.on('agent/pre-step', async (payload, next) => {
@@ -164,20 +179,37 @@ export function installQuickCommands(
     } else {
       routes.set(sessionId, { provider: config.provider, model: config.model })
     }
-    const plan = plans.get(sessionId)
-    if (plan === undefined || plan.turn !== turn) return base
-    if (step === plan.step || (step === plan.step + 1 && plan.ok === true)) {
+    const instant = (): typeof base => {
       const { reasoningEffort: _effort, ...rest } = base
       return { ...rest, provider: INSTANT_PROVIDER, model: INSTANT_MODEL }
     }
-    plans.delete(sessionId)
+    const finished = settled.get(sessionId) ?? []
+    settled.delete(sessionId)
+    const plan = plans.get(sessionId)
+    if (plan !== undefined && plan.turn === turn) {
+      if (step === plan.step || (step === plan.step + 1 && plan.ok === true)) return instant()
+      plans.delete(sessionId)
+    } else if (plan !== undefined) {
+      plans.delete(sessionId)
+    }
+    // Every call the model just made was a successful Cursor run: Cursor's status is the reply, without another model round trip.
+    if (step > 1 && finished.length > 0 && finished.every(call => call.name === CURSOR_COMPUTER && call.reply !== undefined)) {
+      cursorReplies.set(sessionId, finished.map(call => call.reply).join(' '))
+      return instant()
+    }
     return base
   }, true)
 
   ctx.on('tools/post-execute', async (exec, result, next) => {
     const decision = await next()
-    const plan = exec.agent === undefined ? undefined : plans.get(exec.agent.session.id)
-    if (plan !== undefined && String(exec.callId) === plan.callId) plan.ok = !result.isError && decision.kind === 'accept'
+    if (exec.agent === undefined) return decision
+    const sessionId = exec.agent.session.id
+    const plan = plans.get(sessionId)
+    const ok = !result.isError && decision.kind === 'accept'
+    if (plan !== undefined && String(exec.callId) === plan.callId) plan.ok = ok
+    const value = result.isError ? undefined : result.value as { reply?: unknown } | null
+    const reply = ok && typeof value?.reply === 'string' && value.reply.trim() !== '' ? value.reply.trim() : undefined
+    settled.set(sessionId, [...settled.get(sessionId) ?? [], { name: exec.name, ...reply === undefined ? {} : { reply } }])
     return decision
   })
 }
