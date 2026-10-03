@@ -69,8 +69,11 @@ function gitRootOf(dir: string): Promise<string | undefined> {
 
 /** Whether the Cursor app is running (exit status only; nothing about the process is read). */
 function cursorRunning(): Promise<boolean> {
+  // pgrep cannot see GUI apps from a launchd-started server; AppleScript can.
   return new Promise((done) => {
-    execFile('/usr/bin/pgrep', ['-xq', 'Cursor'], { timeout: 5000 }, (error) => { done(error === null) })
+    execFile('/usr/bin/osascript', ['-e', 'application "Cursor" is running'], { timeout: 5000 }, (error, stdout) => {
+      done(error === null && stdout.trim() === 'true')
+    })
   })
 }
 
@@ -81,7 +84,7 @@ const AUTO_INSTALL_EVERY_MS = 10 * 60_000
 /** The extension counts as connected when it reported this recently (it heartbeats every 30 s). */
 const CONNECTED_MS = 3 * 60_000
 /** At most one "open this project in Cursor" per project in this window, so a disconnected editor is never spammed. */
-const BRING_UP_GAP_MS = 15 * 60_000
+const BRING_UP_GAP_MS = 60_000
 
 /**
  * Compare dotted versions numerically.
@@ -314,25 +317,33 @@ export class DevKit extends Service {
     return this.snapshot !== undefined && Date.now() - this.seenAt < CONNECTED_MS
   }
 
+  /**
+   * Whether the Cursor app is running.
+   * @returns true while Cursor is open.
+   */
+  cursorRunning(): Promise<boolean> {
+    return cursorRunning()
+  }
+
   /** Whether a Cursor window on a real project (not a scratch or folderless window) is reporting right now. */
   onProject(): boolean {
     return this.connected() && this.snapshot !== undefined && onProjectWindow(this.snapshot)
   }
 
   /**
-   * Bring Cursor up for a request that does something while the extension is
+   * Bring Cursor up for every message the user types while the extension is
    * not reporting: open the request's project in Cursor so the extension
    * activates and connects. Nothing happens while a Cursor window on a real
    * project is reporting (Cursor's Agents window or a scratch window does not
    * count), for the
    * home folder, when that project's window is already open in a running
-   * Cursor (it only needs a reload), or more than once per project every
-   * 15 minutes.
+   * Cursor (it only needs a reload), or more than once per project a minute.
    * @param cwd - the agent's working directory.
    * @returns the folder opened, when one was.
    */
   async bringUpEditor(cwd: string | undefined): Promise<string | undefined> {
-    if (this.onProject()) return undefined
+    // A quit Cursor can still look connected for a few minutes after its last heartbeat.
+    if (this.onProject() && await this.cursorRunning()) return undefined
     const cli = this.editorCli(PREFERRED_EDITOR)
     const where = this.workspaceRoot(cwd)
     if (cli === undefined || where === undefined || !existsSync(where)) return undefined
@@ -341,7 +352,7 @@ export class DevKit extends Service {
     const now = Date.now()
     if (now - (this.broughtUp.get(root) ?? 0) < BRING_UP_GAP_MS) return undefined
     this.broughtUp.set(root, now)
-    if (this.snapshot?.workspaceFolders.includes(root) === true && await cursorRunning()) return undefined
+    if (this.snapshot?.workspaceFolders.includes(root) === true && await this.cursorRunning()) return undefined
     execFile(cli, [root], { timeout: 20_000 }, (error) => {
       if (error !== null) this.ctx.logger.warn(`devkit: could not open ${root} in Cursor: ${error.message}`)
     })

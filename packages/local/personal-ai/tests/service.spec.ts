@@ -324,7 +324,7 @@ describe('personal ai', () => {
     expect((await assembled(ctx, live)).sections).toContain(CURSOR_MEANING)
   }, 30_000)
 
-  it('brings Cursor up for requests that do something, never for greetings or Chat', async () => {
+  it('brings Cursor up for every message the user types, in every mode', async () => {
     const { ctx } = await setup(undefined, undefined, true)
     await vi.waitFor(() => { expect(ctx.get('devKit')).toBeDefined() })
     const bringUp = vi.spyOn(ctx.devKit, 'bringUpEditor').mockResolvedValue(undefined)
@@ -337,14 +337,19 @@ describe('personal ai', () => {
 
     const leadAgent = await lead(ctx)
     await say(leadAgent, 'Hi')
-    expect(bringUp).not.toHaveBeenCalled()
+    expect(bringUp).toHaveBeenCalledTimes(1)
     await say(leadAgent, 'change the header color to blue')
-    expect(bringUp).toHaveBeenCalled()
+    expect(bringUp).toHaveBeenCalledTimes(2)
 
     bringUp.mockClear()
     const chat = await ctx.agentLoop.create(SessionId('chat-bring-up'), { provider: 'mock', model: 'lead' })
     await vi.waitFor(() => { expect(ctx.agents.get(SessionId('chat-bring-up'))).toBe(chat) })
-    await say(chat, 'change the header color to blue')
+    await say(chat, 'what is a closure?')
+    expect(bringUp).toHaveBeenCalledTimes(1)
+    // Context and tool results are not typed by the user.
+    bringUp.mockClear()
+    leadAgent.followup(createUserMessage({ content: [{ type: 'text', text: 'runtime note' }], source: { kind: 'plugin' } as never }))
+    await leadAgent.whenIdle()
     expect(bringUp).not.toHaveBeenCalled()
   }, 30_000)
 
@@ -368,8 +373,15 @@ describe('personal ai', () => {
     expect(ctx.devKit.counters.editorLaunches).toBe(2)
 
     vi.spyOn(ctx.devKit, 'onProject').mockReturnValue(true)
+    const running = vi.spyOn(ctx.devKit, 'cursorRunning').mockResolvedValue(true)
     expect(await ctx.devKit.bringUpEditor(tempDir('pai-bring-up-'))).toBeUndefined()
     expect(ctx.devKit.counters.editorLaunches).toBe(2)
+
+    // Cursor was quit but its last heartbeat is still fresh: open the project again.
+    running.mockResolvedValue(false)
+    const third = tempDir('pai-bring-up-')
+    expect(await ctx.devKit.bringUpEditor(third)).toBe(third)
+    expect(ctx.devKit.counters.editorLaunches).toBe(3)
   }, 30_000)
 
   it('never lets a scratch or folderless Cursor window replace the project window that is reporting', async () => {

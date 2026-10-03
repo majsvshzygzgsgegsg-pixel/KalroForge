@@ -16,7 +16,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { isTopLevelSession, messageBody } from '@local/main-agents'
 import { AGENT_TAGS, CAPABILITY_CATEGORIES, groupTools, proposeAgent, type AgentTag, type CapabilityCategory } from './core/capabilities.ts'
-import { classifyDepth, DEPTH_GUIDANCE, isActionable } from './core/classifier.ts'
+import { classifyDepth, DEPTH_GUIDANCE } from './core/classifier.ts'
 import { parseCategories, typedTools, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
@@ -261,6 +261,15 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   const life = (): LifeOs | undefined => ctx.get('lifeOs')
   const dev = (): DevKit | undefined => ctx.get('devKit')
   const editorTarget = (): boolean => dev()?.editor()?.activeFile !== undefined
+  // Every message the user types, in any mode, brings Cursor up when it is not running on a project.
+  if (config.bringUpEditor) {
+    ctx.on('session/event', (session, event) => {
+      if (event.type !== 'user/message' || (event.data as { source?: { kind?: string } }).source?.kind !== 'user') return
+      void dev()?.bringUpEditor(session.header.cwd).catch((error: unknown) => {
+        ctx.logger.warn(`personal-ai: could not bring Cursor up: ${String(error)}`)
+      })
+    })
+  }
   const devToolsFor = (agent: Agent): unknown[] => {
     const kit = dev()
     return kit === undefined ? [] : devTools(kit, agent)
@@ -270,12 +279,6 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     const kit = dev()
     if (kit === undefined || config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent))) return ''
     const request = requestOf(agent.session.id)
-    // Greetings and questions never touch the editor; a request that does something brings Cursor up when it is not connected.
-    if (config.bringUpEditor && request !== '' && isActionable(classifyDepth(messageBody(request), { editorTarget: editorTarget() }).depth)) {
-      void kit.bringUpEditor(agent.session.header.cwd).catch((error: unknown) => {
-        ctx.logger.warn(`personal-ai: could not bring Cursor up: ${String(error)}`)
-      })
-    }
     const text = kit.contextFor(agent.session.id, agent.session.header.cwd, request)
     const editor = `${kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE}\n${CURSOR_MEANING}`
     const guidance = process.platform === 'darwin' ? `${editor}\n${MAC_CONTROL_GUIDANCE}` : editor
