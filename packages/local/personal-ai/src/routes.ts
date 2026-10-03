@@ -16,6 +16,8 @@ import { classifyDepth } from './core/classifier.ts'
 import { HOLO_SIGNALS, HoloSceneError, type HoloPerception } from './core/holo-scene.ts'
 import { MEMORY_SCOPES, type MemoryScope } from './core/memory.ts'
 import type { HoloDeck } from './holo.ts'
+import { handleLifeRoute } from './life/install.ts'
+import type { LifeOs } from './life/service.ts'
 import type { PersonalAi } from './service.ts'
 import { CONTROL_ACTIONS, PersonalAiError, type TaskRef } from './types.ts'
 
@@ -218,6 +220,12 @@ function stateView(service: PersonalAi, ctx: Context, sessionId?: string): Recor
   return { ...service.assistantState(sessionId), ...holo === undefined ? {} : { holo: holo.view() } }
 }
 
+function lifeOf(ctx: Context): LifeOs {
+  const life = ctx.get('lifeOs')
+  if (life === undefined) throw new PersonalAiError('not-found', 'Life OS is not available')
+  return life
+}
+
 function deckOf(ctx: Context): HoloDeck {
   const deck = ctx.get('holoDeck')
   if (deck === undefined) throw new PersonalAiError('not-found', 'Holo Hands is not available')
@@ -272,7 +280,7 @@ export async function handlePersonalAiRoute(
   parts: readonly string[],
   query: URLSearchParams,
   body: unknown,
-): Promise<{ status: number; payload: unknown }> {
+): Promise<{ status: number; payload: unknown; html?: string }> {
   await service.whenReady()
   const [scope, id, action] = parts
   const ok = (payload: unknown): { status: number; payload: unknown } => ({ status: 200, payload })
@@ -317,6 +325,7 @@ export async function handlePersonalAiRoute(
       case 'converse':
         if (id !== undefined) return ok(service.converseTurn(id))
         return ok({ sessionId: service.conversationSessionId() ?? null })
+      case 'life': return handleLifeRoute(lifeOf(ctx), method, parts.slice(1), query, body)
       default:
     }
     return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }
@@ -375,6 +384,7 @@ export async function handlePersonalAiRoute(
       if (id === 'new') return ok(await service.newConversation())
       return ok(await service.converse(parse(converseBody, body).text))
     case 'holo': return ok(await holoAction(deckOf(ctx), id, body))
+    case 'life': return handleLifeRoute(lifeOf(ctx), method, parts.slice(1), query, body)
     default:
   }
   return { status: 404, payload: { code: 'not-found', message: `unknown route ${parts.join('/')}` } }
@@ -408,6 +418,13 @@ export function installPersonalAiRoutes(ctx: Context, service: PersonalAi): void
         }
         const body = method === 'POST' ? await readBody(req) : undefined
         const outcome = await handlePersonalAiRoute(service, ctx, method, parts, url.searchParams, body)
+        if (outcome.html !== undefined) {
+          res.statusCode = outcome.status
+          res.setHeader('content-type', 'text/html; charset=utf-8')
+          res.setHeader('cache-control', 'no-store')
+          res.end(outcome.html)
+          return
+        }
         sendJson(res, outcome.status, outcome.payload)
       } catch (error) {
         if (error instanceof PersonalAiError) {

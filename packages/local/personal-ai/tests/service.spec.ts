@@ -10,6 +10,11 @@ import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-test
 import TeamService from '@deepseek-ai/dsh-experimental-agent-team'
 import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
+
+vi.hoisted(() => {
+  // Life OS keeps its Vault and tools under KAIROFORGE_HOME; tests must never touch the real one.
+  process.env.KAIROFORGE_HOME = `${process.env.TMPDIR ?? '/tmp'}/kf-service-spec-${String(process.pid)}`
+})
 import { scopeOf } from '@deepseek-ai/dsh-scope'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'

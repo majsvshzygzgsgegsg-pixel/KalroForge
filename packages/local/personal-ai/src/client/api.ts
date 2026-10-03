@@ -311,6 +311,104 @@ export interface ConverseTurn {
   readonly finishedAt?: string
 }
 
+/** Life OS switches. */
+export interface LifeSettings {
+  readonly focus: boolean
+  readonly clipboard: boolean
+  readonly notifications: boolean
+  readonly stuckSeconds: number
+  readonly roots: readonly string[]
+  readonly approvedRoutines: readonly string[]
+  readonly vips: readonly string[]
+  readonly urgentWords: readonly string[]
+  readonly mutedApps: readonly string[]
+  readonly healing: boolean
+  readonly airGap: boolean
+  readonly localModel?: { readonly provider: string; readonly model: string }
+  readonly lan: boolean
+}
+
+/** One routed notification. */
+export interface RoutedNotification {
+  readonly at: number
+  readonly app: string
+  readonly route: 'urgent' | 'normal' | 'silent'
+  readonly reason: string
+  readonly summary: string
+}
+
+/** One learned routine. */
+export interface Routine {
+  readonly id: string
+  readonly minute: number
+  readonly apps: readonly string[]
+  readonly days: number
+}
+
+/** `GET /personal-ai/life`. */
+export interface LifeStatus {
+  readonly settings: LifeSettings
+  readonly vault: { readonly mode: 'secure-enclave' | 'file' | 'locked'; readonly detail: string; readonly sealedFiles: number }
+  readonly brain: {
+    readonly roots: readonly string[]
+    readonly documents: number
+    readonly chunks: number
+    readonly indexing: boolean
+    readonly progress?: { readonly root: string; readonly seen: number }
+    readonly lastIndexedAt?: string
+    readonly skippedSensitive: number
+    readonly graph: { readonly entities: number; readonly relations: number }
+    readonly watching: number
+    readonly error?: string
+  }
+  readonly senses: {
+    readonly supported: boolean
+    readonly watching: boolean
+    readonly front?: { readonly app?: string; readonly title?: string; readonly idle?: number }
+    readonly clip?: { readonly insight: { readonly kind: string; readonly summary: string }; readonly at: string }
+    readonly clipsIgnored: number
+    readonly routines: readonly Routine[]
+    readonly notifications: { readonly enabled: boolean; readonly error?: string; readonly recent: readonly RoutedNotification[] }
+    readonly offer?: { readonly text: string; readonly at: string }
+    readonly error?: string
+  }
+  readonly healing: ReadonlyArray<{ readonly id: string; readonly kind: string; readonly note: string; readonly at: string }>
+  readonly tools: readonly UserTool[]
+  readonly airGap: {
+    readonly on: boolean
+    readonly localModel?: { readonly provider: string; readonly model: string }
+    readonly ready: boolean
+    readonly detail: string
+    readonly providers: readonly string[]
+  }
+  readonly phone: { readonly path: string; readonly lanUrl?: string; readonly advertising: boolean }
+  readonly graph: readonly GraphFact[]
+}
+
+/** One self-written tool. */
+export interface UserTool {
+  readonly name: string
+  readonly description: string
+  readonly language: string
+  readonly reachesNetwork: boolean
+}
+
+/** One knowledge-graph relation. */
+export interface GraphFact {
+  readonly from: string
+  readonly relation: string
+  readonly to: string
+  readonly text: string
+  readonly at: string
+}
+
+/** One brain search hit. */
+export interface BrainHit {
+  readonly doc: string
+  readonly snippet: string
+  readonly score: number
+}
+
 /**
  * Call one `/personal-ai/*` route: GET without a body, POST with one.
  * @param path - path below `/personal-ai/`.
@@ -396,4 +494,12 @@ export const api = {
     request<{ ok: boolean }>('holo/layout', { items }),
   holoActivate: (itemId: string, value?: string) =>
     request<{ prompt: string | null }>('holo/activate', { id: itemId, ...value === undefined ? {} : { value } }),
+  life: () => request<LifeStatus>('life'),
+  lifeSettings: (changes: Partial<LifeSettings>) => request<LifeSettings>('life/settings', changes),
+  lifeSearch: (query: string) => request<{ results: BrainHit[] }>(`life/search?q=${id(query)}`),
+  lifeLink: (from: string, relation: string, to: string) => request<{ linked: string }>('life/link', { from, relation, to }),
+  lifeUnlink: (from: string, to: string) => request<{ removed: number }>('life/unlink', { from, to }),
+  lifeReindex: () => request<{ reindexing: boolean }>('life/reindex', {}),
+  lifeRoutine: (routineId: string, approved: boolean) => request<LifeSettings>('life/routine', { id: routineId, approved }),
+  lifeDeleteTool: (name: string) => request<{ removed: boolean }>(`life/tool/${id(name)}/delete`, {}),
 }

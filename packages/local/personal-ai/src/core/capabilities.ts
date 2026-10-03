@@ -19,6 +19,8 @@ const EXACT: Readonly<Record<string, CapabilityCategory>> = {
   create_checkpoint: 'GIT', list_checkpoints: 'GIT', compare_checkpoint: 'GIT', restore_checkpoint: 'GIT', delete_checkpoint: 'GIT', propose_rollback: 'GIT',
   create_project: 'PROJECT', open_project: 'PROJECT', update_project: 'PROJECT', archive_project: 'PROJECT', assign_agent_to_project: 'PROJECT', project_status: 'PROJECT',
   remember: 'PROJECT', recall: 'PROJECT', forget: 'PROJECT',
+  search_brain: 'SEARCH', index_folder: 'PROJECT', link_entities: 'PROJECT', unlink_entities: 'PROJECT', graph_query: 'PROJECT',
+  create_tool: 'TERMINAL', list_user_tools: 'TERMINAL',
   create_workflow: 'WORKFLOWS', workflow_status: 'WORKFLOWS', cancel_workflow: 'WORKFLOWS', retry_workflow_task: 'WORKFLOWS', finish_workflow: 'WORKFLOWS', ralph: 'WORKFLOWS',
   start_background_task: 'BACKGROUND_TASKS', list_background_tasks: 'BACKGROUND_TASKS', control_background_task: 'BACKGROUND_TASKS', report_task_progress: 'BACKGROUND_TASKS',
   pause_task: 'BACKGROUND_TASKS', resume_task: 'BACKGROUND_TASKS', cancel_task: 'BACKGROUND_TASKS', update_task: 'BACKGROUND_TASKS', add_task_constraint: 'BACKGROUND_TASKS',
@@ -26,7 +28,7 @@ const EXACT: Readonly<Record<string, CapabilityCategory>> = {
 }
 
 const PATTERNS: ReadonlyArray<readonly [RegExp, CapabilityCategory]> = [
-  [/^terminal_/, 'TERMINAL'],
+  [/^terminal_|^user_tool__/, 'TERMINAL'],
   [/github|^gh_|pull_request|webhook/, 'GITHUB'],
   [/(?:^|_)git(?:_|$)|checkpoint/, 'GIT'],
   [/computer|cua|screenshot|mouse|keyboard|(?:^|_)click|type_text|press_key|launch_app|open_app|applescript|window/, 'COMPUTER'],

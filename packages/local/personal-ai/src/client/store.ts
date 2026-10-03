@@ -140,6 +140,10 @@ export function createLiveStore(options: LiveStoreOptions = {}): LiveStore {
       lastNoticeAt = notices.at(-1)?.at ?? lastNoticeAt
       const fresh = notices.filter(notice => !snapshot.toasts.some(toast => toast.id === notice.id))
       if (fresh.length > 0) publish({ toasts: [...snapshot.toasts, ...fresh].slice(-MAX_TOASTS) })
+      // Urgent notifications and stuck offers are proactive: say them out loud unless a call is speaking its own turn.
+      for (const notice of fresh) {
+        if ((notice.kind === 'urgent' || notice.kind === 'stuck') && provider?.snapshot()?.live !== true) provider?.tts.say(notice.text)
+      }
     } catch {
       // Notifications are best-effort; the Activity view shows the full history.
     }

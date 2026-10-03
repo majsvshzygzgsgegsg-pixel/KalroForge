@@ -18,6 +18,8 @@ import { classifyDepth, DEPTH_GUIDANCE } from './core/classifier.ts'
 import { parseCategories, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
+import { lifeTools } from './life/install.ts'
+import type { LifeOs } from './life/service.ts'
 import { MEMORY_SCOPES, relevantMemories, type MemoryScope } from './core/memory.ts'
 import type { Config } from './index.ts'
 import type { PersonalAi } from './service.ts'
@@ -82,6 +84,7 @@ export function coordinatorPrompt(personality: Personality): string {
     'Running work: when the user asks to pause, stop, change, or constrain running work, use pause_task, resume_task, cancel_task, update_task, or add_task_constraint, and report the returned outcome exactly (applied, delivered, or rejected). Never resume possibly destructive work without checking its state first.',
     'Agents: recommend_agent ranks main agents for a task; if the user names a different agent, theirs wins. propose_agent drafts a new agent — show the proposal and create it with create_main_agent only after the user agrees.',
     'Computer control and sensitive actions go through KairoForge\'s normal approval prompts. If something is denied, do not look for a way around it.',
+    'Life OS: search_brain searches the user\'s own indexed files (notes, PDFs, code) — use it for questions about their work or life before guessing. When the user tells you how people, projects, or problems relate ("Michael is my boss"), record it with link_entities; graph_query recalls it. When you notice you keep doing the same job by hand, write yourself a tool with create_tool.',
     'Holo Hands: when the user says "open holo", "open holo hands", or similar, call open_holo and report what it returned. While it is open, build what they ask for on the deck with holo_add and wire things together with holo_connect; a widget can be anything you can write in HTML/CSS/JS.',
   )
   return lines.join('\n')
@@ -210,9 +213,15 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     },
   } as never)
 
+  const life = (): LifeOs | undefined => ctx.get('lifeOs')
+
   const coordinatorTools = (agent: Agent): unknown[] => [
     ...memoryTools('user', self => ({ ...projectId(), session: self.session.id })),
     ...holoTools(ctx.holoDeck),
+    ...(() => {
+      const service = life()
+      return service === undefined ? [] : lifeTools(service, agent)
+    })(),
     defineTool({
       name: 'list_projects',
       description: 'List registered projects (most recently used first) and which one is active.',
@@ -451,6 +460,11 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
         text: () => service.conversationSessionId() === agent.session.id ? VOICE_NARRATION : '',
       }))
       disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:holo', order: 133, text: () => ctx.holoDeck.contextLine() }))
+      disposers.push(scoped.systemPrompt.context({
+        name: 'personal-ai:life',
+        order: 134,
+        text: () => life()?.contextFor(requestOf(agent.session.id)) ?? '',
+      }))
       // Only the loop's own step assembly is trimmed; list_capabilities assembles without an Agent and still sees everything.
       disposers.push(scoped.on('system-prompt/assemble', async (_assembly, context, next) => {
         const assembled = await next()
@@ -486,7 +500,8 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   const sync = (agent: Agent): void => {
     if (ctx.agents.get(agent.id) !== agent) return
     const wanted = roleOf(agent)
-    const key = wanted === undefined ? '' : `${wanted.role}:${wanted.agentId ?? ''}:${ctx.mainAgents.modeOf(agent)}`
+    const own = wanted?.role === 'coordinator' ? `:${life()?.userTools.revision ?? 'none'}` : ''
+    const key = wanted === undefined ? '' : `${wanted.role}:${wanted.agentId ?? ''}:${ctx.mainAgents.modeOf(agent)}${own}`
     const current = installed.get(agent)
     if (current?.key === key) return
     if (current !== undefined) release(agent)
@@ -515,6 +530,8 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   ctx.on('agent-preset/selected', scheduleSyncAll)
   ctx.on('tools/change', scheduleSyncAll)
   ctx.on('personal-ai/personality', scheduleSyncAll)
+  ctx.on('personal-ai/user-tools', scheduleSyncAll)
+  ctx.inject(['lifeOs'], () => { scheduleSyncAll() })
   ctx.effect(() => () => {
     active = false
     for (const agent of [...installed.keys()]) release(agent)

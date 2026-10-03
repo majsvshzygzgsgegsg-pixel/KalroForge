@@ -21,8 +21,9 @@ export interface RiskDecision {
   readonly reason: string
 }
 
-const READ_TOOLS = new RegExp(String.raw`^(?:read|read_image|glob|grep|lsp|web_search|web_fetch|recall|project_status|list_[a-z_]+|get_[a-z_]+|[a-z_]+_status|compare_checkpoint|session_[a-z_]+|job_list|job_output|terminal_list|terminal_read|recommend_agent|propose_agent|list_capabilities|use_tools|wait_agent)$`)
+const READ_TOOLS = new RegExp(String.raw`^(?:read|read_image|glob|grep|lsp|web_search|web_fetch|recall|project_status|list_[a-z_]+|get_[a-z_]+|[a-z_]+_status|compare_checkpoint|session_[a-z_]+|job_list|job_output|terminal_list|terminal_read|recommend_agent|propose_agent|list_capabilities|use_tools|wait_agent|search_brain|graph_query)$`)
 const SENSITIVE_TOOLS: Readonly<Record<string, string>> = {
+  create_tool: 'Write a new tool KairoForge can run later',
   archive_project: 'Archive a project',
   forget: 'Delete a memory',
   restore_checkpoint: 'Restore files from a checkpoint',
@@ -50,6 +51,15 @@ const SENSITIVE_FILE = new RegExp([
   String.raw`(?:^|/)\.env(?:\.[\w-]+)?$`, String.raw`^/(?:etc|System|Library)/`,
 ].join('|'))
 const COMPUTER_READ = /screenshot|list|get_|read|observe|snapshot|describe|find/i
+
+/**
+ * Whether a path holds credentials, login items, shell startup files, env files, or system files.
+ * @param path - absolute or relative path.
+ * @returns true when it must never be indexed or read silently.
+ */
+export function isSecretPath(path: string): boolean {
+  return SECRET_PATH.test(path) || SENSITIVE_FILE.test(path)
+}
 
 function stringField(args: unknown, ...names: string[]): string {
   if (typeof args !== 'object' || args === null) return ''

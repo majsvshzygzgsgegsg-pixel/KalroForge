@@ -8,6 +8,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { HoloDeck, DEFAULT_HOLO_CONFIG } from './holo.ts'
 import { installPersonalAiHooks } from './hooks.ts'
+import { installLifeHooks } from './life/install.ts'
+import { LifeOs } from './life/service.ts'
 import { installPersonalAiRoutes } from './routes.ts'
 import { PersonalAi } from './service.ts'
 import { installPersonalAiTools } from './tools.ts'
@@ -15,6 +17,12 @@ import { installPersonalAiTools } from './tools.ts'
 export { PersonalAi } from './service.ts'
 export { HoloDeck, holoDomain, DEFAULT_HOLO_CONFIG } from './holo.ts'
 export type { HoloConfig, HoloOpenResult, HoloView } from './holo.ts'
+export { LifeOs, lifeDomain, DEFAULT_LIFE_SETTINGS } from './life/service.ts'
+export type { LifeSettings, LifeStatus, AirGapStatus, ModelRef } from './life/service.ts'
+export * from './core/autonomy.ts'
+export * from './core/graph.ts'
+export * from './core/senses.ts'
+export * from './core/vectors.ts'
 export { HOLO_TOOLS } from './holo-tools.ts'
 export * from './core/holo-scene.ts'
 export type { AssistantStateView, PersonalNotice, ProjectInput } from './service.ts'
@@ -63,6 +71,8 @@ export const Config: z<Config> = z.object({
 export function apply(ctx: Context, config: Config): void {
   ctx.plugin(PersonalAi)
   ctx.plugin(HoloDeck, config.holo)
+  ctx.plugin(LifeOs)
+  ctx.inject(['lifeOs'], (scoped) => { installLifeHooks(scoped, scoped.lifeOs) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'agents', 'tools', 'systemPrompt'], (scoped) => {
     installPersonalAiHooks(scoped, scoped.personalAi, config)
     installPersonalAiTools(scoped, scoped.personalAi, config)
