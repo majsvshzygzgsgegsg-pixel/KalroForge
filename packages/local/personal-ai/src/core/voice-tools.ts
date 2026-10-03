@@ -86,7 +86,8 @@ export function parseCategories(names: readonly string[]): CapabilityCategory[] 
 /** Requests about the screen itself: the only typed requests that see screen-driving tools up front. */
 const SCREEN_REQUEST = new RegExp([
   String.raw`\b(?:screen|screenshot|click|double[- ]click|mouse|pointer|move (?:the )?(?:mouse )?cursor|mouse cursor|scroll|drag`,
-  String.raw`|what(?:'s| is) on|look at (?:my|the) (?:screen|window)|see my|computer use)\b`,
+  String.raw`|what(?:'s| is) on|look at (?:my|the) (?:screen|window)|see my|computer use|touch|press (?:the |that |a )?button|tick|checkbox`,
+  String.raw`|fill (?:in|out)|hands|(?:full )?control (?:of )?my (?:computer|mac|screen))\b`,
 ].join(''), 'i')
 
 /**

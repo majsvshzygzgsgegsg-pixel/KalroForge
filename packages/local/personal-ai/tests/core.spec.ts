@@ -67,6 +67,12 @@ describe('depth classifier', () => {
 
   it('runs background work in the background', () => {
     expect(classifyDepth('Run the full test suite in the background and let me know when it\'s done').depth).toBe('background')
+    expect(classifyDepth('Refactor the auth module in the background').depth).toBe('background')
+  })
+
+  it('treats "in the background" on the computer as quiet input, not a background job', () => {
+    expect(classifyDepth('type hello in TextEdit in the background without bringing it to the front').depth).toBe('tool')
+    expect(classifyDepth('use your hands in the background on my computer and press the OK button').depth).toBe('tool')
     expect(classifyDepth('monitor the deploy logs overnight').depth).toBe('background')
   })
 
@@ -224,6 +230,9 @@ describe('typed tool list', () => {
     expect(names('click the blue button on my screen')).toContain('cua_driver_native__click')
     expect(names('move the mouse cursor to the dock')).toContain('computer_screenshot')
     expect(names('open notes', ['COMPUTER'])).toContain('cua_driver_native__click')
+    expect(names('press the button that says continue in installer')).toContain('cua_driver_native__click')
+    expect(names('tick the checkbox and fill in the form')).toContain('cua_driver_native__click')
+    expect(names('take full control of my computer')).toContain('cua_driver_native__click')
   })
 })
 

@@ -95,6 +95,20 @@ describe('Cua Driver native provider', () => {
     expect(result.content).toEqual([{ type: 'text', text: 'Error: background_unavailable' }])
   })
 
+  it('shows structured window ids and element tokens to the model', async () => {
+    fixture.call = async () => ({
+      content: [{ type: 'text', text: 'Found 1 window(s).' }],
+      structuredContent: { _note: 'prefer elements', tree_markdown: '- [0] AXWindow', windows: [{ window_id: 2368, title: 'Untitled' }] },
+    })
+    await ctx.plugin(NativeProvider)
+    const result = await execute('check_permissions')
+    expect(result.isError).toBe(false)
+    const text = result.content.map(block => block.type === 'text' ? block.text : '').join('\n')
+    expect(text).toContain('Found 1 window(s).')
+    expect(text).toContain('structured: {"windows":[{"window_id":2368,"title":"Untitled"}]}')
+    expect(text).not.toContain('tree_markdown')
+  })
+
   it('leaves an unrelated tool running when the native provider unloads', async () => {
     const started = Promise.withResolvers<AbortSignal>()
     const settled = Promise.withResolvers<boolean>()

@@ -290,6 +290,16 @@
       config:
         autoApprove: true
 
+    # Computer use: the in-process Cua Driver operates the Mac's apps and
+    # windows (snapshots, clicks by accessibility element, typing, keys,
+    # scrolling, dragging, menus, screenshots), delivering input in the
+    # background. Needs Accessibility and Screen Recording for node.
+    - id: computer-use
+      name: '@deepseek-ai/dsh-computer-use'
+    - id: computer-use-cua-driver-native
+      name: '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'
+      disabled: !!js "process.platform !== 'darwin'"
+
     - id: office-to-pdf
       name: '@deepseek-ai/dsh-office-to-pdf'
 

@@ -40,6 +40,34 @@ Prefer background delivery. A refusal does not authorize a foreground retry. Ver
 
 On macOS, cursor-overlay operations may return facility_unavailable even when screenshots and input work.`
 
+/** Keys of structured results that only repeat the text content. */
+const TEXT_DUPLICATES = new Set(['_note', 'tree_markdown'])
+
+/** Structured text beyond this many characters is cut; `max_elements` bounds a large window. */
+const STRUCTURED_TEXT_LIMIT = 60_000
+
+/**
+ * The model sees only text content, while window ids and element tokens exist
+ * only in `structuredContent`; repeat it as one compact JSON text block.
+ * @param raw - parsed MCP result from the driver.
+ * @returns the result with a structured text block appended when one applies.
+ */
+export function withStructuredText(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw
+  const result = raw as { content?: unknown; structuredContent?: unknown; isError?: unknown }
+  const structured = result.structuredContent
+  if (result.isError === true || typeof structured !== 'object' || structured === null || !Array.isArray(result.content)) return raw
+  const kept = Array.isArray(structured)
+    ? structured
+    : Object.fromEntries(Object.entries(structured).filter(([key]) => !TEXT_DUPLICATES.has(key)))
+  let text = JSON.stringify(kept)
+  if (text === '{}' || text === '[]') return raw
+  if (text.length > STRUCTURED_TEXT_LIMIT) {
+    text = `${text.slice(0, STRUCTURED_TEXT_LIMIT)}… [structured result cut at ${String(STRUCTURED_TEXT_LIMIT)} characters; pass max_elements or max_depth]`
+  }
+  return { ...result, content: [...result.content as unknown[], { type: 'text', text: `structured: ${text}` }] }
+}
+
 /**
  * Own one native runtime and expose its catalog through the MCP result adapter.
  * Startup failures roll back every registration. Unload removes tools, aborts
@@ -111,7 +139,7 @@ export async function apply(ctx: Context): Promise<void> {
           combined.throwIfAborted()
           const result = await activeDriver.callTool(tool.name, JSON.stringify(args), { signal: combined })
           combined.throwIfAborted()
-          return JSON.parse(result.rawJson) as unknown
+          return withStructuredText(JSON.parse(result.rawJson) as unknown)
         },
       })
       inner.tools.register(definition)
