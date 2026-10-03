@@ -29,9 +29,10 @@ import ApprovalService from '@deepseek-ai/dsh-user-approval'
 import type { ApprovalOutcome } from '@deepseek-ai/dsh-user-approval'
 import * as mainAgents from '@local/main-agents'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
+import { isScratchWorkspace } from '../src/dev/service.ts'
 import * as personalAi from '../src/index.ts'
 import { handlePersonalAiRoute } from '../src/routes.ts'
-import { EDITOR_BUILD_GUIDANCE, EDITOR_OFFLINE_NOTE, MAC_CONTROL_GUIDANCE } from '../src/tools.ts'
+import { CURSOR_MEANING, EDITOR_BUILD_GUIDANCE, EDITOR_OFFLINE_NOTE, MAC_CONTROL_GUIDANCE } from '../src/tools.ts'
 
 const SIGNAL = new AbortController().signal
 const roots: string[] = []
@@ -156,6 +157,7 @@ async function setup(
   // Tests never open the real Cursor: bring-up is off unless a test stubs it.
   bringUpEditor = false,
   autoApprove = false,
+  quickCommands = false,
 ): Promise<Setup> {
   const ctx = new Context()
   contexts.add(ctx)
@@ -191,7 +193,7 @@ async function setup(
     return id.startsWith('fast-') ? 'fast' : id.startsWith('chat-') ? 'chat' : modeOf(agent)
   })
   await ctx.plugin(personalAi, {
-    coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, bringUpEditor, confirmSensitive: true, autoApprove, holo,
+    coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, bringUpEditor, confirmSensitive: true, autoApprove, quickCommands, holo,
   })
   await vi.waitFor(() => { expect(ctx.get('personalAi')).toBeDefined() })
   await ctx.personalAi.whenReady()
@@ -308,9 +310,18 @@ describe('personal ai', () => {
 
     // A live editor report replaces the offline note with the editor's own context.
     ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [tempDir('pai-workspace-')], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    expect(ctx.devKit.editor()).toBeUndefined()
+    const project = join(homedir(), 'kf-spec-missing-project')
+    ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [project], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    expect(ctx.devKit.editor()?.workspaceFolders).toEqual([project])
+    // A scratch window reporting later does not take over from the project window.
+    ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: ['/private/tmp/kf-cursor-test'], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    expect(ctx.devKit.editor()?.workspaceFolders).toEqual([project])
     const live = await ctx.agentLoop.create(SessionId('lead-live'), { provider: 'mock', model: 'lead' })
     await vi.waitFor(async () => { expect((await assembled(ctx, live)).contexts).toContain(EDITOR_BUILD_GUIDANCE) })
     expect((await assembled(ctx, live)).contexts).not.toContain(EDITOR_OFFLINE_NOTE)
+    expect((await assembled(ctx, live)).contexts).toContain(CURSOR_MEANING)
+    expect((await assembled(ctx, live)).sections).toContain(CURSOR_MEANING)
   }, 30_000)
 
   it('brings Cursor up for requests that do something, never for greetings or Chat', async () => {
@@ -337,7 +348,7 @@ describe('personal ai', () => {
     expect(bringUp).not.toHaveBeenCalled()
   }, 30_000)
 
-  it('opens a project in Cursor at most once per window and never while Cursor is connected', async () => {
+  it('opens a project in Cursor at most once per window and never while a project window is connected', async () => {
     const { ctx } = await setup()
     await vi.waitFor(() => { expect(ctx.get('devKit')).toBeDefined() })
     // A harmless stand-in for the Cursor CLI.
@@ -348,9 +359,32 @@ describe('personal ai', () => {
     expect(ctx.devKit.counters.editorLaunches).toBe(1)
     expect(await ctx.devKit.bringUpEditor(homedir())).toBeUndefined()
 
+    // Only Cursor's Agents window (no folder) or a scratch window is reporting: that is not the project's editor.
     ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    expect(ctx.devKit.connected()).toBe(true)
+    expect(ctx.devKit.onProject()).toBe(false)
+    const second = tempDir('pai-bring-up-')
+    expect(await ctx.devKit.bringUpEditor(second)).toBe(second)
+    expect(ctx.devKit.counters.editorLaunches).toBe(2)
+
+    vi.spyOn(ctx.devKit, 'onProject').mockReturnValue(true)
     expect(await ctx.devKit.bringUpEditor(tempDir('pai-bring-up-'))).toBeUndefined()
-    expect(ctx.devKit.counters.editorLaunches).toBe(1)
+    expect(ctx.devKit.counters.editorLaunches).toBe(2)
+  }, 30_000)
+
+  it('never lets a scratch or folderless Cursor window replace the project window that is reporting', async () => {
+    const { ctx } = await setup()
+    await vi.waitFor(() => { expect(ctx.get('devKit')).toBeDefined() })
+    vi.spyOn(ctx.devKit, 'onProject').mockReturnValue(true)
+    ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [tempDir('kf-cursor-test-')], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    ctx.devKit.noteEditor({ editor: 'Cursor', workspaceFolders: [], openFiles: [], diagnostics: [], at: new Date().toISOString() })
+    expect(ctx.devKit.editor()).toBeUndefined()
+    expect(isScratchWorkspace(['/private/tmp/kf-cursor-test'])).toBe(true)
+    expect(isScratchWorkspace([join(tmpdir(), 'x')])).toBe(true)
+    expect(isScratchWorkspace([])).toBe(true)
+    expect(isScratchWorkspace(['/Users/frank/Projects/app'])).toBe(false)
+    expect(isScratchWorkspace(['/tmp/scratch', '/Users/frank/Projects/app'])).toBe(false)
+    expect(isScratchWorkspace(['/tmpfoo/app'])).toBe(false)
   }, 30_000)
 
   it('asks before a main agent\'s sensitive call, whatever its permission preset', async () => {
@@ -393,6 +427,47 @@ describe('personal ai', () => {
     expect(result.text).toMatch(/Do not use screen, keyboard, or other tools to do the same thing/)
     expect(asked).toEqual([])
     expect(ctx.personalAi.memories()).toHaveLength(0)
+  }, 30_000)
+
+  it.runIf(process.platform === 'darwin')('runs a plain Mac command without the model, and hands a failed one back to it', async () => {
+    const { ctx, adapter } = await setup(undefined, undefined, false, false, true)
+    const calls: unknown[] = []
+    let fail = false
+    // Stand-ins so no real AppleScript runs: a denied call fails, an allowed one reports "Done."
+    ctx.on('tools/pre-execute', async (exec, next) => {
+      if (exec.name !== 'mac_action') return next()
+      calls.push(exec.arguments)
+      return fail ? { kind: 'deny', reason: 'no such app' } : { kind: 'allow' }
+    }, true)
+    ctx.on('tools/execute', async (exec, next) => {
+      if (exec.name !== 'mac_action') return next()
+      return Promise.resolve({ isError: false as const, value: 'Done.', content: [{ type: 'text' as const, text: 'Done.' }] })
+    }, true)
+    const agent = await lead(ctx, 'lead-quick')
+    const reply = (): string => {
+      const event = agent.session.snapshotEvents().findLast(entry => entry.type === 'assistant/message')
+      type Data = { message?: { content?: Array<{ type: string; text?: string }> } } | undefined
+      const content = (event?.data as Data)?.message?.content ?? []
+      return content.flatMap(block => block.type === 'text' && block.text !== undefined ? [block.text] : []).join('')
+    }
+    const say = async (text: string, expected: string): Promise<void> => {
+      agent.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }))
+      await vi.waitFor(() => { expect(reply()).toBe(expected) }, { timeout: 10_000 })
+      await agent.whenIdle()
+    }
+    const modelCalls = adapter.requests.length
+    await say('open my apple notes app and type hi there', 'Made a new note in Notes that says "hi there".')
+    expect(calls).toEqual([{ action: 'new_note', body: 'hi there' }])
+    expect(adapter.requests.length).toBe(modelCalls)
+
+    fail = true
+    await say('volume 30', 'ok')
+    expect(calls.at(-1)).toEqual({ action: 'volume', level: 30 })
+    expect(adapter.requests.length).toBe(modelCalls + 1)
+
+    await say('open cursor', 'ok')
+    expect(calls).toHaveLength(2)
+    expect(adapter.requests.length).toBe(modelCalls + 2)
   }, 30_000)
 
   it('auto-approves a sensitive call with approval prompts off when autoApprove is on, without asking', async () => {

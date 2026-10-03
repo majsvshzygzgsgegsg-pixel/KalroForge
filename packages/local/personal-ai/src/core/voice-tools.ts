@@ -83,6 +83,31 @@ export function parseCategories(names: readonly string[]): CapabilityCategory[] 
   return CAPABILITY_CATEGORIES.filter(category => wanted.has(category))
 }
 
+/** Requests about the screen itself: the only typed requests that see screen-driving tools up front. */
+const SCREEN_REQUEST = new RegExp([
+  String.raw`\b(?:screen|screenshot|click|double[- ]click|mouse|pointer|move (?:the )?(?:mouse )?cursor|mouse cursor|scroll|drag`,
+  String.raw`|what(?:'s| is) on|look at (?:my|the) (?:screen|window)|see my|computer use)\b`,
+].join(''), 'i')
+
+/**
+ * Typed coordinator requests: everything except screen-driving tools, which
+ * take several slow model steps per action. They stay available when the
+ * request is about the screen or the model opens COMPUTER with {@link USE_TOOLS};
+ * mac_action and applescript are never hidden.
+ * @param tools - every tool the Session has.
+ * @param request - the user's message.
+ * @param opened - groups the model opened with {@link USE_TOOLS} for this request.
+ * @returns the visible subset, in the original order.
+ */
+export function typedTools<T extends { readonly name: string }>(
+  tools: readonly T[],
+  request: string,
+  opened: Iterable<CapabilityCategory> = [],
+): T[] {
+  if (SCREEN_REQUEST.test(request) || [...opened].includes('COMPUTER')) return [...tools]
+  return tools.filter(tool => CORE_TOOLS.has(tool.name) || categoryOf(tool.name) !== 'COMPUTER')
+}
+
 /**
  * The voice conversation's tools for one request.
  * @param tools - every tool the Session has.

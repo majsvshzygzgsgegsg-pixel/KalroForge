@@ -168,6 +168,8 @@ export interface ExtensionState {
 export interface DevStatus {
   readonly editor: {
     readonly connected: boolean
+    /** A window on a real project is reporting (not only a scratch, test, or folderless window). */
+    readonly onProject: boolean
     readonly name?: string
     readonly lastSeen?: string
     readonly activeFile?: string
@@ -197,6 +199,25 @@ function run(command: string, args: readonly string[], cwd?: string): Promise<{ 
 
 function within(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`)
+}
+
+const SCRATCH_ROOTS = [...new Set([tmpdir(), '/tmp', '/private/tmp', '/var/folders', '/private/var/folders'])]
+
+/**
+ * Whether an editor window has no real project: no folder at all (Cursor's
+ * Agents window, an empty window) or only temporary folders (a scratch or test
+ * window). Such a window never stands in for the user's project window.
+ * @param folders - the window's workspace folders.
+ * @returns true when the window is not on a project.
+ */
+export function isScratchWorkspace(folders: readonly string[]): boolean {
+  return folders.every(folder => SCRATCH_ROOTS.some(root => within(folder, root)))
+}
+
+/** Whether a report comes from a window on the user's work: a real project folder, or a lone file outside temporary folders. */
+function onProjectWindow(snapshot: EditorSnapshot): boolean {
+  if (snapshot.workspaceFolders.length > 0) return !isScratchWorkspace(snapshot.workspaceFolders)
+  return snapshot.activeFile !== undefined && !isScratchWorkspace([snapshot.activeFile])
 }
 
 /** DevKit service. */
@@ -273,15 +294,19 @@ export class DevKit extends Service {
    * @param raw - validated report.
    */
   noteEditor(raw: EditorSnapshot): void {
-    this.snapshot = sanitizeSnapshot(raw)
+    const next = sanitizeSnapshot(raw)
+    // A scratch or folderless window must not replace a project window that is still reporting.
+    if (!onProjectWindow(next) && this.onProject()) return
+    this.snapshot = next
     this.seenAt = Date.now()
     const root = this.snapshot.workspaceFolders[0]
     if (root !== undefined) void this.indexFor(root).refreshIfStale()
   }
 
-  /** Latest editor report, when one is fresh. */
+  /** Latest editor report from a window on the user's work, when one is fresh. */
   editor(): EditorSnapshot | undefined {
-    return this.snapshot !== undefined && Date.now() - this.seenAt < 15 * 60_000 ? this.snapshot : undefined
+    const snapshot = this.snapshot
+    return snapshot !== undefined && Date.now() - this.seenAt < 15 * 60_000 && onProjectWindow(snapshot) ? snapshot : undefined
   }
 
   /** Whether the editor extension is reporting right now. */
@@ -289,10 +314,17 @@ export class DevKit extends Service {
     return this.snapshot !== undefined && Date.now() - this.seenAt < CONNECTED_MS
   }
 
+  /** Whether a Cursor window on a real project (not a scratch or folderless window) is reporting right now. */
+  onProject(): boolean {
+    return this.connected() && this.snapshot !== undefined && onProjectWindow(this.snapshot)
+  }
+
   /**
    * Bring Cursor up for a request that does something while the extension is
    * not reporting: open the request's project in Cursor so the extension
-   * activates and connects. Nothing happens while Cursor is connected, for the
+   * activates and connects. Nothing happens while a Cursor window on a real
+   * project is reporting (Cursor's Agents window or a scratch window does not
+   * count), for the
    * home folder, when that project's window is already open in a running
    * Cursor (it only needs a reload), or more than once per project every
    * 15 minutes.
@@ -300,7 +332,7 @@ export class DevKit extends Service {
    * @returns the folder opened, when one was.
    */
   async bringUpEditor(cwd: string | undefined): Promise<string | undefined> {
-    if (this.connected()) return undefined
+    if (this.onProject()) return undefined
     const cli = this.editorCli(PREFERRED_EDITOR)
     const where = this.workspaceRoot(cwd)
     if (cli === undefined || where === undefined || !existsSync(where)) return undefined
@@ -725,6 +757,7 @@ export class DevKit extends Service {
     return {
       editor: {
         connected: this.connected(),
+        onProject: this.onProject(),
         problems: editor?.diagnostics.filter(diagnostic => diagnostic.severity === 'error').length ?? 0,
         ...editor === undefined ? {} : {
           name: editor.editor,

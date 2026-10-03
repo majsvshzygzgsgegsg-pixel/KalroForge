@@ -7,6 +7,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { installDevHooks, installEditorBridge } from './dev/install.ts'
+import { installQuickCommands } from './dev/quick.ts'
 import { DevKit } from './dev/service.ts'
 import { HoloDeck, DEFAULT_HOLO_CONFIG } from './holo.ts'
 import { installPersonalAiHooks } from './hooks.ts'
@@ -67,6 +68,8 @@ export interface Config {
    * protection-wiping commands are still refused.
    */
   readonly autoApprove: boolean
+  /** Run plain Mac commands ("open Notes and type hi", "volume 30") straight away, without a model round trip (macOS). */
+  readonly quickCommands: boolean
   /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
   readonly holo: { readonly dir: string; readonly port: number; readonly autoStart: boolean }
 }
@@ -80,6 +83,7 @@ export const Config: z<Config> = z.object({
   bringUpEditor: z.boolean().default(true),
   confirmSensitive: z.boolean().default(true),
   autoApprove: z.boolean().default(false),
+  quickCommands: z.boolean().default(true),
   holo: z.object({
     dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),
     port: z.natural().default(DEFAULT_HOLO_CONFIG.port),
@@ -109,6 +113,7 @@ export function apply(ctx: Context, config: Config): void {
     installPersonalAiHooks(scoped, scoped.personalAi, config)
     installPersonalAiTools(scoped, scoped.personalAi, config)
   })
+  if (config.quickCommands) ctx.inject(['personalAi', 'llm', 'agents', 'tools'], (scoped) => { installQuickCommands(scoped, scoped.personalAi) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'webServer', 'connection'], (scoped) => {
     installPersonalAiRoutes(scoped, scoped.personalAi)
   })

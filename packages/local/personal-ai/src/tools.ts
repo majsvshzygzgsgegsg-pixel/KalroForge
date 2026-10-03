@@ -17,7 +17,7 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { isTopLevelSession, messageBody } from '@local/main-agents'
 import { AGENT_TAGS, CAPABILITY_CATEGORIES, groupTools, proposeAgent, type AgentTag, type CapabilityCategory } from './core/capabilities.ts'
 import { classifyDepth, DEPTH_GUIDANCE, isActionable } from './core/classifier.ts'
-import { parseCategories, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
+import { parseCategories, typedTools, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
 import { devTools, githubTool } from './dev/install.ts'
@@ -54,10 +54,19 @@ export const MAC_CONTROL_GUIDANCE = [
   'Reminders, typing into an app, menus, Music, volume, notifications, Finder, and the clipboard. For anything else use the applescript tool',
   '(System Events clicks buttons and menus by name). Never write or run pyautogui, pynput,',
   'cliclick, or other simulated mouse/keyboard scripts. Never guess an app\'s terms: use the applescript cookbook or call applescript_dictionary first.',
-  'Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen.',
+  'Use screenshot-and-click computer tools only for an app AppleScript cannot reach, or to look at the screen;',
+  'when they are not in your list and use_tools is, open COMPUTER with use_tools first.',
   'Be fast: do the whole request in one call where you can (one script may open an app and type), go straight to a URL',
   '(a YouTube search or a channel\'s /videos page, a Maps search) instead of reading the screen, and once a call succeeds reply in one short sentence',
   'without re-checking the screen.',
+].join(' ')
+
+/** What "Cursor" means in a request: the code editor app, never the mouse pointer or another Cursor product. */
+export const CURSOR_MEANING = [
+  '"Cursor", "in Cursor", "use Cursor", and "the Cursor editor" always mean the Cursor code editor app: open files and projects in it with',
+  'open_in_editor (a project folder opens in its own editor window) and read what it shows with editor_context. Never use the mouse, screen,',
+  'or computer tools, mac_action, or applescript for Cursor, and never start Cursor\'s own AI agent or CLI agent. Only "mouse cursor",',
+  '"move the cursor", or "the pointer" mean the on-screen pointer.',
 ].join(' ')
 
 /** Shown instead of live context when the Cursor extension is not reporting. */
@@ -118,6 +127,7 @@ export function coordinatorPrompt(personality: Personality): string {
     'Computer control and sensitive actions go through KairoForge\'s normal approval prompts. If something is denied, do not look for a way around it.',
     ...process.platform === 'darwin' ? [MAC_CONTROL_GUIDANCE] : [],
     'Life OS: search_brain searches the user\'s own indexed files (notes, PDFs, code) — use it for questions about their work or life before guessing. When the user tells you how people, projects, or problems relate ("Michael is my boss"), record it with link_entities; graph_query recalls it. When you notice you keep doing the same job by hand, write yourself a tool with create_tool.',
+    CURSOR_MEANING,
     'Coding: when the user\'s editor is connected you are told its active file, cursor, selection, and problems — "this", "here", and "this error" mean them. Never guess a path: use the repo map you are given, or repo_map / glob, and read before editing. After an edit, a syntax check result may follow; fix a reported failure first. Files you edit open in Cursor automatically.',
     'Holo Hands: when the user says "open holo", "open holo hands", or similar, call open_holo and report what it returned. While it is open, build what they ask for on the deck with holo_add and wire things together with holo_connect; a widget can be anything you can write in HTML/CSS/JS.',
   )
@@ -267,7 +277,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       })
     }
     const text = kit.contextFor(agent.session.id, agent.session.header.cwd, request)
-    const editor = kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE
+    const editor = `${kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE}\n${CURSOR_MEANING}`
     const guidance = process.platform === 'darwin' ? `${editor}\n${MAC_CONTROL_GUIDANCE}` : editor
     return text === '' ? guidance : `${text}\n\n${guidance}`
   }
@@ -426,7 +436,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     }),
     defineTool({
       name: USE_TOOLS,
-      description: 'Open more tool groups for the rest of this request (the spoken conversation starts with a small toolset). They appear on your next step.',
+      description: 'Open more tool groups for the rest of this request (the spoken conversation starts with a small toolset; typed requests start without screen-control tools). They appear on your next step.',
       parameters: {
         categories: { type: 'array', required: true, items: { type: 'string', enum: [...CAPABILITY_CATEGORIES] } },
       },
@@ -540,8 +550,14 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       // Only the loop's own step assembly is trimmed; list_capabilities assembles without an Agent and still sees everything.
       disposers.push(scoped.on('system-prompt/assemble', async (_assembly, context, next) => {
         const assembled = await next()
-        if (context.agent !== agent || service.conversationSessionId() !== agent.session.id) return assembled
-        return { ...assembled, tools: voiceTools(assembled.tools, toolbeltOf(agent.session.id)) }
+        if (context.agent !== agent) return assembled
+        const sessionId = agent.session.id
+        if (service.conversationSessionId() !== sessionId) {
+          const extra = opened.get(sessionId)
+          const request = requestOf(sessionId)
+          return { ...assembled, tools: typedTools(assembled.tools, request, extra?.request === request ? extra.categories : []) }
+        }
+        return { ...assembled, tools: voiceTools(assembled.tools, toolbeltOf(sessionId)) }
       }))
       disposers.push(() => { opened.delete(agent.session.id) })
       service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))

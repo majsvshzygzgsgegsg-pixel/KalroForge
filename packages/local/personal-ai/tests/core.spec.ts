@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { deriveState, isDelegatingTool, orbStateOf, type StateFacts } from '../src/core/assistant-state.ts'
-import { agentTags, categoryOf, groupTools, proposeAgent, rankAgents, tagsIn, type AgentCandidate } from '../src/core/capabilities.ts'
+import { agentTags, categoryOf, groupTools, proposeAgent, rankAgents, tagsIn, type AgentCandidate, type CapabilityCategory } from '../src/core/capabilities.ts'
 import { classifyDepth, DEPTH_GUIDANCE, isActionable } from '../src/core/classifier.ts'
 import { relevantMemories, searchMemories, type RankableMemory } from '../src/core/memory.ts'
 import { summarizeTurns, type TurnRecord } from '../src/core/metrics.ts'
+import { parseQuickCommand } from '../src/core/quick-commands.ts'
 import { catastrophicReason, classifyRisk } from '../src/core/risk.ts'
 import { findSensitive } from '../src/core/sensitive.ts'
-import { parseCategories, voiceToolbelt, voiceTools } from '../src/core/voice-tools.ts'
+import { parseCategories, typedTools, voiceToolbelt, voiceTools } from '../src/core/voice-tools.ts'
 import { coordinatorPrompt } from '../src/tools.ts'
 import { DEFAULT_PERSONALITY } from '../src/types.ts'
 
@@ -165,6 +166,49 @@ describe('agent selection', () => {
     const builder = proposeAgent('implement and test backend features', 'Backend Builder')
     expect(builder.name).toBe('Backend Builder')
     expect(builder.permissions).toEqual({ preset: 'workspace-write', agentAdministration: false })
+  })
+})
+
+describe('quick commands', () => {
+  const apps: Record<string, string> = { notes: 'Notes', textedit: 'TextEdit', safari: 'Safari', music: 'Music', calculator: 'Calculator', cursor: 'Cursor' }
+  const resolve = (name: string): string | undefined => apps[name.toLowerCase()]
+  const parse = (text: string) => parseQuickCommand(text, resolve)
+
+  it('maps plain Mac requests to one mac_action', () => {
+    expect(parse('open my apple notes app and type hi there')).toMatchObject({ action: 'new_note', args: { body: 'hi there' } })
+    expect(parse('type Hello World in TextEdit')).toMatchObject({ action: 'type_text', args: { app: 'TextEdit', text: 'Hello World' } })
+    expect(parse('please open safari')).toMatchObject({ action: 'open_app', args: { app: 'Safari' } })
+    expect(parse('open youtube on chrome')).toMatchObject({ action: 'open_url', args: { url: 'https://www.youtube.com', browser: 'Google Chrome' } })
+    expect(parse('go to github.com')).toMatchObject({ action: 'open_url', args: { url: 'https://github.com' } })
+    expect(parse('search youtube for lofi beats')?.args.url).toBe('https://www.youtube.com/results?search_query=lofi%20beats')
+    expect(parse('google weather in london')).toMatchObject({ action: 'web_search', args: { query: 'weather in london' } })
+    expect(parse('chinese food near me')).toMatchObject({ action: 'maps_search', args: { query: 'chinese food near me' } })
+    expect(parse('quit calculator')).toMatchObject({ action: 'quit_app', args: { app: 'Calculator' } })
+    expect(parse('set volume to 30%')).toMatchObject({ action: 'volume', args: { level: 30 } })
+    expect(parse('next song')).toMatchObject({ action: 'music', args: { command: 'next' } })
+    expect(parse('remind me to buy milk')).toMatchObject({ action: 'new_reminder', args: { title: 'buy milk' } })
+    expect(parse('make a note that says call mum')).toMatchObject({ action: 'new_note', args: { body: 'call mum' } })
+  })
+
+  it('leaves anything that needs judgement, timing, Cursor, or an unknown app to the model', () => {
+    for (const text of [
+      'open youtube on chrome and open latest mr beast vid', 'remind me to call mum at 5pm', 'open the project', 'open cursor',
+      'open my project in cursor', 'type hi in cursor', 'open notes and then type hi', 'fix the failing test', 'what can you do',
+      'search for files that import react', 'open zoom',
+    ]) expect(parse(text), text).toBeUndefined()
+  })
+})
+
+describe('typed tool list', () => {
+  const tools = ['read', 'bash', 'mac_action', 'applescript', 'cua_driver_native__click', 'computer_screenshot', 'use_tools'].map(name => ({ name }))
+  const names = (request: string, opened: CapabilityCategory[] = []) => typedTools(tools, request, opened).map(tool => tool.name)
+
+  it('hides screen-driving tools unless the request is about the screen', () => {
+    expect(names('open notes and type hi')).toEqual(['read', 'bash', 'mac_action', 'applescript', 'use_tools'])
+    expect(names('open this file in cursor')).not.toContain('cua_driver_native__click')
+    expect(names('click the blue button on my screen')).toContain('cua_driver_native__click')
+    expect(names('move the mouse cursor to the dock')).toContain('computer_screenshot')
+    expect(names('open notes', ['COMPUTER'])).toContain('cua_driver_native__click')
   })
 })
 
