@@ -20,7 +20,7 @@ const EXACT: Readonly<Record<string, CapabilityCategory>> = {
   create_project: 'PROJECT', open_project: 'PROJECT', update_project: 'PROJECT', archive_project: 'PROJECT', assign_agent_to_project: 'PROJECT', project_status: 'PROJECT',
   remember: 'PROJECT', recall: 'PROJECT', forget: 'PROJECT',
   search_brain: 'SEARCH', index_folder: 'PROJECT', link_entities: 'PROJECT', unlink_entities: 'PROJECT', graph_query: 'PROJECT',
-  create_tool: 'TERMINAL', list_user_tools: 'TERMINAL',
+  create_tool: 'TERMINAL', list_user_tools: 'TERMINAL', mcp_servers: 'TERMINAL',
   editor_context: 'FILES', open_in_editor: 'FILES', repo_map: 'SEARCH', mac_action: 'COMPUTER',
   create_workflow: 'WORKFLOWS', workflow_status: 'WORKFLOWS', cancel_workflow: 'WORKFLOWS', retry_workflow_task: 'WORKFLOWS', finish_workflow: 'WORKFLOWS', ralph: 'WORKFLOWS',
   start_background_task: 'BACKGROUND_TASKS', list_background_tasks: 'BACKGROUND_TASKS', control_background_task: 'BACKGROUND_TASKS', report_task_progress: 'BACKGROUND_TASKS',
@@ -39,6 +39,7 @@ const PATTERNS: ReadonlyArray<readonly [RegExp, CapabilityCategory]> = [
   [/background|schedule|_task$/, 'BACKGROUND_TASKS'],
   [/search|fetch|mcp_resource/, 'SEARCH'],
   [/file|fs_|dir|path/, 'FILES'],
+  [/^mcp__/, 'TERMINAL'],
 ]
 
 /**

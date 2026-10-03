@@ -12,6 +12,7 @@ import { DevKit } from './dev/service.ts'
 import { HoloDeck, DEFAULT_HOLO_CONFIG } from './holo.ts'
 import { installPersonalAiHooks } from './hooks.ts'
 import { installLifeHooks } from './life/install.ts'
+import { installMcpHub } from './mcp/install.ts'
 import { LifeOs } from './life/service.ts'
 import { installPersonalAiRoutes } from './routes.ts'
 import { PersonalAi } from './service.ts'
@@ -114,6 +115,7 @@ export function apply(ctx: Context, config: Config): void {
     installPersonalAiTools(scoped, scoped.personalAi, config)
   })
   if (config.quickCommands) ctx.inject(['llm', 'agents', 'tools'], (scoped) => { installQuickCommands(scoped) })
+  ctx.inject(['tools'], (scoped) => { installMcpHub(scoped) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'webServer', 'connection'], (scoped) => {
     installPersonalAiRoutes(scoped, scoped.personalAi)
   })

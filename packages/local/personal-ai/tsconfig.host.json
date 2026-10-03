@@ -9,7 +9,8 @@
     "src/*.ts",
     "src/core/*.ts",
     "src/life/*.ts",
-    "src/dev/*.ts"
+    "src/dev/*.ts",
+    "src/mcp/*.ts"
   ],
   "references": [
     { "path": "../../../vendor/cordis" },
@@ -24,6 +25,7 @@
     { "path": "../../api/session-controller/tsconfig.host.json" },
     { "path": "../../host/webserver" },
     { "path": "../../llm/llm" },
+    { "path": "../../mcp/mcp-client" },
     { "path": "../../preset/agent-preset-registry" },
     { "path": "../../storage/storage-domain" },
     { "path": "../main-agents/tsconfig.host.json" }

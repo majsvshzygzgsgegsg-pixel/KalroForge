@@ -139,6 +139,14 @@ export function classifyRisk(tool: string, args: unknown, options: { readonly di
     return isReadOnlyCommand(command) ? { risk: 'LOW_RISK', reason: 'read-only command' } : { risk: 'MODIFYING', reason: 'command may change files' }
   }
   if (tool === 'applescript_dictionary') return { risk: 'LOW_RISK', reason: 'reads an app\'s scripting dictionary' }
+  if (tool === 'mcp_servers') {
+    const action = stringField(args, 'action')
+    if (action === 'list') return { risk: 'LOW_RISK', reason: 'lists connected MCP servers' }
+    if (action === 'add' || action === 'create' || action === 'import_cursor') {
+      return { risk: 'SENSITIVE', reason: `Give KairoForge a new MCP server that runs code (${action})` }
+    }
+    return { risk: 'MODIFYING', reason: `MCP server ${action}` }
+  }
   if (tool === 'mac_action') {
     const values = (typeof args === 'object' && args !== null ? args : {}) as MacActionArgs & { action?: unknown }
     const action = typeof values.action === 'string' ? values.action : ''
