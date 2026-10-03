@@ -145,7 +145,7 @@ describe('installed Cua Driver Loader composition', () => {
       parameters: { type: 'object', properties: { display: { type: 'integer', minimum: 0 } }, required: ['display'], additionalProperties: false },
     })
     const result = agent.session.snapshotEvents().find(event => event.type === 'tool/result')
-    expect(result?.data).toMatchObject({ message: { content: [{ type: 'text', text: 'Display 0' }, { type: 'image' }] } })
+    expect(result?.data).toMatchObject({ message: { content: [{ type: 'text', text: 'Display 0' }, { type: 'image' }, { type: 'text', text: 'structured: {"display":0}' }] } })
     if (result?.type !== 'tool/result') throw new Error('Missing durable screenshot result')
     const image = result.data.message.content.find(block => block.type === 'image')
     if (image?.type !== 'image') throw new Error('Missing durable screenshot image')

@@ -160,4 +160,12 @@ describe('MCP Hub', () => {
     await expect(hub.add({ name: 'Bad', transport: 'stdio', command: 'x', enabled: true, source: 'added' })).rejects.toThrow(/server name/)
     await hub.dispose()
   })
+
+  it('shuts down quietly after the host already stopped its servers', async () => {
+    const hub = new McpHub(ctx, home, join(home, 'cursor-mcp.json'))
+    expect((await hub.create(CALC)).state).toBe('connected')
+    await ctx.fiber.dispose()
+    await expect(hub.dispose()).resolves.toBeUndefined()
+    await hub.remove('calc')
+  })
 })

@@ -439,7 +439,7 @@ describe('coordinator prompt', () => {
 
 describe('voice toolbelt', () => {
   const all = ['read', 'bash', 'grep', 'remember', 'use_tools', 'open_holo', 'delegate_to_main_agent', 'cua_driver_native__click',
-    'create_checkpoint', 'spawn_teammate', 'create_workflow', 'schedule_create', 'create_goal'].map(name => ({ name }))
+    'mcp__cua-driver-mcp__click', 'create_checkpoint', 'spawn_teammate', 'create_workflow', 'schedule_create', 'create_goal'].map(name => ({ name }))
   const visible = (request: string, opened: string[] = []) =>
     voiceTools(all, voiceToolbelt(request, classifyDepth(request).depth, parseCategories(opened))).map(tool => tool.name)
 
@@ -465,6 +465,13 @@ describe('voice toolbelt', () => {
     expect(visible('use cursor to change the header')).toEqual(expect.arrayContaining(['read', 'bash', 'grep']))
     expect(visible('move the cursor to the top left')).toContain('cua_driver_native__click')
     expect(visible('click with the mouse cursor')).toContain('cua_driver_native__click')
+  })
+
+  it('gates the daemon driver behind screen requests like the in-process one', () => {
+    expect(visible('click the blue button on my screen')).toContain('mcp__cua-driver-mcp__click')
+    expect(visible('run the tests in this repo')).not.toContain('mcp__cua-driver-mcp__click')
+    expect(classifyRisk('mcp__cua-driver-mcp__click', { element_token: 's1:3' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('mcp__cua-driver-mcp__list_windows', {}).risk).toBe('LOW_RISK')
   })
 
   it('gives a short command that changes something the working toolset', () => {

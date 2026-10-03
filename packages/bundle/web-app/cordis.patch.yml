@@ -296,9 +296,18 @@
     # background. Needs Accessibility and Screen Recording for node.
     - id: computer-use
       name: '@deepseek-ai/dsh-computer-use'
+    # With CuaDriver.app installed (~/.local/bin/cua-driver), its daemon drives
+    # input and draws a visible agent cursor the user can watch; the MCP proxy
+    # starts the daemon on demand. Otherwise the in-process driver runs unseen.
+    - id: computer-use-cua-driver-mcp
+      name: '@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp'
+      disabled: !!js "process.platform !== 'darwin' || !process.getBuiltinModule('node:fs').existsSync(process.env.HOME + '/.local/bin/cua-driver')"
+      config:
+        command: !!js "process.env.HOME + '/.local/bin/cua-driver'"
+        agentCursor: true
     - id: computer-use-cua-driver-native
       name: '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'
-      disabled: !!js "process.platform !== 'darwin'"
+      disabled: !!js "process.platform !== 'darwin' || process.getBuiltinModule('node:fs').existsSync(process.env.HOME + '/.local/bin/cua-driver')"
 
     - id: office-to-pdf
       name: '@deepseek-ai/dsh-office-to-pdf'

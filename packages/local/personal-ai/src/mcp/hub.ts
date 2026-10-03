@@ -130,7 +130,8 @@ export class McpHub {
     const fiber = this.live.get(name)
     this.live.delete(name)
     this.status.set(name, { state: 'off', tools: [] })
-    await fiber?.dispose().catch(() => undefined)
+    // A fiber already torn down by host shutdown returns nothing from dispose().
+    await Promise.resolve(fiber?.dispose()).catch(() => undefined)
   }
 
   private view(entry: McpServerEntry): McpServerView {

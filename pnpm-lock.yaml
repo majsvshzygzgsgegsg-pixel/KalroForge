@@ -2606,6 +2606,9 @@ importers:
       '@deepseek-ai/dsh-deployment':
         specifier: workspace:*
         version: link:../../deploy/deployment
+      '@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp':
+        specifier: workspace:*
+        version: link:../../experimental/computer-use-cua-driver-mcp
       '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native':
         specifier: workspace:*
         version: link:../../experimental/computer-use-cua-driver-native
