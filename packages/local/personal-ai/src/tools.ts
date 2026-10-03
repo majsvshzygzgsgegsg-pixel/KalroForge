@@ -237,9 +237,9 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
   const isBuildMode = (agent: Agent): boolean => (BUILD_MODES as readonly string[]).includes(ctx.mainAgents.modeOf(agent))
   const devContext = (agent: Agent): string => {
     const kit = dev()
-    if (kit === undefined) return ''
+    if (kit === undefined || config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent))) return ''
     const text = kit.contextFor(agent.session.id, agent.session.header.cwd, requestOf(agent.session.id))
-    if (config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent)) || kit.editor() === undefined) return text
+    if (kit.editor() === undefined) return text
     return text === '' ? EDITOR_BUILD_GUIDANCE : `${text}\n\n${EDITOR_BUILD_GUIDANCE}`
   }
   /** Editor tools (every mode except the answer-only ones) plus `github` in the build modes. */

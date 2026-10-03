@@ -183,7 +183,7 @@ async function setup(
   // The harness has no preset registry; Sessions whose id starts with `fast-` report Fast Mode.
   const modeOf = ctx.mainAgents.modeOf.bind(ctx.mainAgents)
   vi.spyOn(ctx.mainAgents, 'modeOf').mockImplementation(agent => String(agent.session.id).startsWith('fast-') ? 'fast' : modeOf(agent))
-  await ctx.plugin(personalAi, { coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], confirmSensitive: true, holo })
+  await ctx.plugin(personalAi, { coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, confirmSensitive: true, holo })
   await vi.waitFor(() => { expect(ctx.get('personalAi')).toBeDefined() })
   await ctx.personalAi.whenReady()
   await vi.waitFor(() => { expect(ctx.get('holoDeck')).toBeDefined() })

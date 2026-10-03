@@ -25,6 +25,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { textOf } from '@local/main-agents'
 import { isLoopbackUrl } from '../core/autonomy.ts'
 import { editorContextText, sanitizeSnapshot, type EditorSnapshot } from '../core/editor.ts'
+import { isSecretPath } from '../core/risk.ts'
 import { LoopBreaker, suggestPaths } from '../core/reliability.ts'
 import { rankFiles, renderRepoMap } from '../core/repomap.ts'
 import type {} from '../life/service.ts'
@@ -52,6 +53,8 @@ const EDITOR_CLI: Readonly<Record<EditorKind, readonly string[]>> = {
   cursor: [...APP_DIRS.map(dir => join(dir, 'Cursor.app/Contents/Resources/app/bin/cursor')), '/usr/local/bin/cursor', '/opt/homebrew/bin/cursor'],
   vscode: [...APP_DIRS.map(dir => join(dir, 'Visual Studio Code.app/Contents/Resources/app/bin/code')), '/usr/local/bin/code', '/opt/homebrew/bin/code'],
 }
+/** Minimum gap between files KairoForge opens by itself, so parallel workers do not flood the editor. */
+const FOLLOW_GAP_MS = 1500
 /** How often KairoForge re-checks for editors that need the extension (a newly installed VS Code, an old version). */
 const AUTO_INSTALL_EVERY_MS = 10 * 60_000
 
@@ -114,6 +117,8 @@ export interface EditorTurn {
 export interface DevCounters {
   pathHints: number
   syntaxChecks: number
+  /** Edited files KairoForge opened in Cursor by itself. */
+  followedEdits?: number
   syntaxFailures: number
   loopStops: number
   jsonHints: number
@@ -170,7 +175,9 @@ export class DevKit extends Service {
   static inject = ['sessionController', 'personalAi']
 
   readonly loops = new LoopBreaker()
-  readonly counters: DevCounters = { pathHints: 0, syntaxChecks: 0, syntaxFailures: 0, loopStops: 0, jsonHints: 0, repoMaps: 0, warmups: 0 }
+  readonly counters: DevCounters = {
+    pathHints: 0, syntaxChecks: 0, syntaxFailures: 0, loopStops: 0, jsonHints: 0, repoMaps: 0, warmups: 0, followedEdits: 0,
+  }
   private readonly token = randomBytes(24).toString('base64url')
   private snapshot: EditorSnapshot | undefined
   private seenAt = 0
@@ -182,6 +189,9 @@ export class DevKit extends Service {
   private readonly warmedAt = new Map<string, number>()
   private lastProvider: string | undefined
   private autoInstalling = false
+  /** Files already opened in Cursor per session, for the current user request. */
+  private readonly followed = new Map<string, Set<string>>()
+  private lastFollowAt = 0
 
   /**
    * @param ctx - Host context.
@@ -439,6 +449,7 @@ export class DevKit extends Service {
       if (source?.kind === 'user' && source.form === undefined) {
         this.loops.reset(sessionId)
         this.frozen.delete(sessionId)
+        this.followed.delete(sessionId)
       }
     }
     const id = this.turnBySession.get(sessionId)
@@ -489,6 +500,29 @@ export class DevKit extends Service {
     const entries = await readdir(EDITOR_EXTENSIONS_DIR[editor]).catch(() => [])
     const versions = entries.filter(name => name.startsWith(`${EXTENSION_ID}-`)).map(name => name.slice(EXTENSION_ID.length + 1))
     return versions.sort(compareVersions).pop()
+  }
+
+  /**
+   * Show a file an agent just edited in Cursor, once per file per request,
+   * so the user watches the work happen in their editor.
+   * @param sessionId - editing agent's session.
+   * @param path - absolute path of the edited file.
+   * @returns whether the file was opened.
+   */
+  followEdit(sessionId: string, path: string): boolean {
+    const cli = this.editorCli(PREFERRED_EDITOR)
+    if (cli === undefined || isSecretPath(path) || !existsSync(path)) return false
+    const seen = this.followed.get(sessionId) ?? new Set<string>()
+    const now = Date.now()
+    if (seen.has(path) || now - this.lastFollowAt < FOLLOW_GAP_MS) return false
+    seen.add(path)
+    this.followed.set(sessionId, seen)
+    this.lastFollowAt = now
+    this.counters.followedEdits = (this.counters.followedEdits ?? 0) + 1
+    execFile(cli, ['-g', path], { timeout: 20_000 }, (error) => {
+      if (error !== null) this.ctx.logger.warn(`devkit: could not open ${path} in Cursor: ${error.message}`)
+    })
+    return true
   }
 
   /**

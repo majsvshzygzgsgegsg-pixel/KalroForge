@@ -127,7 +127,7 @@ async function enrich(dev: DevKit, exec: ToolExecution, result: ToolExecutionRes
  * @param ctx - Host context.
  * @param dev - DevKit service.
  */
-export function installDevHooks(ctx: Context, dev: DevKit): void {
+export function installDevHooks(ctx: Context, dev: DevKit, follows: (agent: Agent) => boolean = () => true): void {
   ctx.on('tools/pre-execute', async (exec: ToolExecution, next: () => Promise<PreToolDecision>): Promise<PreToolDecision> => {
     const key = exec.agent?.session.id
     const reason = key === undefined ? undefined : dev.loops.check(key, exec.name, exec.arguments)
@@ -151,6 +151,10 @@ export function installDevHooks(ctx: Context, dev: DevKit): void {
     const decision = await next()
     const key = exec.agent?.session.id
     if (key !== undefined) dev.loops.record(key, exec.name, exec.arguments, result.isError ? result.error.message : undefined)
+    if (exec.agent !== undefined && EDIT_TOOLS.has(exec.name) && decision.kind === 'accept' && follows(exec.agent)) {
+      const edited = editedPath(exec, result)
+      if (edited !== undefined) dev.followEdit(exec.agent.session.id, edited)
+    }
     if (decision.kind !== 'accept' || decision.value !== undefined || exec.signal.aborted) return decision
     const notes = await enrich(dev, exec, result).catch(() => [])
     if (notes.length === 0) return decision

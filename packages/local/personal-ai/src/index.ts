@@ -53,8 +53,10 @@ export interface Config {
   readonly coordinatorModes: string[]
   /** Modes whose top-level Sessions are measured (state and turn metrics) without the coordinator prompt or tools. */
   readonly observedModes: string[]
-  /** Answer-only modes: they still see the editor context, but get no editor tools. */
+  /** Answer-only modes (Chat): they do not use the editor at all. */
   readonly answerOnlyModes: string[]
+  /** Open each file an agent edits in Cursor (every mode except the answer-only ones). */
+  readonly followEdits: boolean
   /** Escalate SENSITIVE tool calls in coordinator Sessions to a confirmation when the preset would allow them silently. */
   readonly confirmSensitive: boolean
   /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
@@ -66,6 +68,7 @@ export const Config: z<Config> = z.object({
   coordinatorModes: z.array(z.string()).default(['standard']),
   observedModes: z.array(z.string()).default(['fast']),
   answerOnlyModes: z.array(z.string()).default(['chat']),
+  followEdits: z.boolean().default(true),
   confirmSensitive: z.boolean().default(true),
   holo: z.object({
     dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),
@@ -85,7 +88,12 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(LifeOs)
   ctx.inject(['lifeOs'], (scoped) => { installLifeHooks(scoped, scoped.lifeOs) })
   ctx.plugin(DevKit)
-  ctx.inject(['devKit'], (scoped) => { installDevHooks(scoped, scoped.devKit) })
+  ctx.inject(['devKit'], (scoped) => {
+    installDevHooks(scoped, scoped.devKit, (agent) => {
+      const mode = scoped.get('mainAgents')?.modeOf(agent)
+      return config.followEdits && (mode === undefined || !config.answerOnlyModes.includes(mode))
+    })
+  })
   ctx.inject(['devKit', 'webServer'], (scoped) => { installEditorBridge(scoped, scoped.devKit) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'agents', 'tools', 'systemPrompt'], (scoped) => {
     installPersonalAiHooks(scoped, scoped.personalAi, config)
