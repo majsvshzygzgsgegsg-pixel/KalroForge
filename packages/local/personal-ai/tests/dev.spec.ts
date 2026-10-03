@@ -9,6 +9,7 @@ import { classifyRisk, withoutPlainPushes } from '../src/core/risk.ts'
 import { EXTENSION_MANIFEST, EXTENSION_SOURCE } from '../src/dev/extension-source.ts'
 import { githubGate, githubUrl, parseRemote, parseSlug, renderGithubResponse, slimGithub } from '../src/dev/github.ts'
 import { RepoIndex } from '../src/dev/repo-index.ts'
+import { runOsascript } from '../src/dev/install.ts'
 import { compareVersions } from '../src/dev/service.ts'
 import { checkSyntax } from '../src/dev/syntax.ts'
 
@@ -180,6 +181,11 @@ describe('editor extension package', () => {
     await rm(dir, { recursive: true, force: true })
   })
 
+  it('polls a running turn quickly and keeps itself connected', () => {
+    expect(EXTENSION_SOURCE).toContain('setTimeout(resolve, 400)')
+    expect(EXTENSION_SOURCE).toContain('fs.watchFile(BRIDGE_FILE')
+  })
+
   it('compares extension versions numerically for auto-upgrade', () => {
     expect(compareVersions('0.10.0', '0.9.0')).toBeGreaterThan(0)
     expect(compareVersions('0.2.0', '0.2.0')).toBe(0)
@@ -192,6 +198,14 @@ describe('editor extension package', () => {
     expect(commands).toEqual(expect.arrayContaining(['kairoforge.askInMode', 'kairoforge.chooseMode']))
     for (const command of commands) expect(EXTENSION_SOURCE).toContain(`registerCommand('${command}'`)
     expect(EXTENSION_MANIFEST.contributes.configuration.properties['kairoforge.mode'].default).toBe('standard')
+  })
+})
+
+describe.runIf(process.platform === 'darwin')('applescript tool', () => {
+  it('returns the script result and reports script errors as failures', async () => {
+    expect(await runOsascript('return 2 + 3', 'AppleScript', AbortSignal.timeout(20_000))).toBe('5')
+    expect(await runOsascript('[1, 2].length * 7', 'JavaScript', AbortSignal.timeout(20_000))).toBe('14')
+    await expect(runOsascript('this is not applescript (', 'AppleScript', AbortSignal.timeout(20_000))).rejects.toThrow(/AppleScript failed/)
   })
 })
 

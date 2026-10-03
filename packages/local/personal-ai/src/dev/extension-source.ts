@@ -6,7 +6,7 @@
  */
 
 /** Extension version; bump when the source changes. */
-export const EXTENSION_VERSION = '0.3.0'
+export const EXTENSION_VERSION = '0.3.1'
 /** Marketplace-style id (publisher.name). */
 export const EXTENSION_ID = 'kairoforge.kairoforge-editor'
 
@@ -264,7 +264,7 @@ async function ask(prompt, label, mode) {
     let shown = 0
     let warned = false
     while (Date.now() - started < 30 * 60 * 1000) {
-      await new Promise(resolve => setTimeout(resolve, 900))
+      await new Promise(resolve => setTimeout(resolve, 400))
       let current
       try { current = await call('GET', '/turn/' + encodeURIComponent(turn.id)) } catch { continue }
       const updates = current.updates || []

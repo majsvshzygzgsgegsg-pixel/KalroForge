@@ -44,8 +44,8 @@ export const BUILD_MODES = ['self-edit', 'cordis', 'builder'] as const
 export const EDITOR_BUILD_GUIDANCE = [
   'Cursor is the user\'s editor in this mode. Files you edit open in Cursor automatically, inside their project window.',
   '- When Cursor\'s live context is shown above, start from it: the active file, cursor, selection, and Problems are the most likely target.',
-  '- After editing, call editor_context and fix any new errors or warnings it reports in the files you touched.',
-  '- When you finish, use open_in_editor on the most important changed file and line so the user sees the change in Cursor.',
+  '- Make all your edits first, then call editor_context once and fix any new errors or warnings in the files you touched. Do not call it after every edit.',
+  '- Do not call open_in_editor for files you edited; they are already open. Use it only to show a file you did not change.',
 ].join('\n')
 
 /** Shown instead of live context when the Cursor extension is not reporting. */

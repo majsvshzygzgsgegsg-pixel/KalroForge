@@ -51,6 +51,12 @@ const SENSITIVE_FILE = new RegExp([
   String.raw`(?:^|/)\.env(?:\.[\w-]+)?$`, String.raw`^/(?:etc|System|Library)/`,
 ].join('|'))
 const COMPUTER_READ = /screenshot|list|get_|read|observe|snapshot|describe|find/i
+/** AppleScript / JXA that runs shell commands, elevates, deletes, sends, types, powers off, or touches credentials. */
+const SENSITIVE_SCRIPT = new RegExp([
+  String.raw`\bdo\s+shell\s+script\b|\bdoShellScript\b|administrator\s+privileges`,
+  String.raw`|\bdelete\b|\bempty\b[^\n]*\btrash\b|\bsend\b|\.send\(|\bkeystroke\b|\bkey\s+code\b`,
+  String.raw`|\b(?:shut\s*down|restart|log\s*out)\b|\bpassword\b|\bkeychain\b|\bsecurity\s+find-`,
+].join(''), 'i')
 
 /**
  * Whether a path holds credentials, login items, shell startup files, env files, or system files.
@@ -99,6 +105,12 @@ export function classifyRisk(tool: string, args: unknown, options: { readonly di
     if (SENSITIVE_COMMAND.test(options.directPush === true ? withoutPlainPushes(command) : command)) return { risk: 'SENSITIVE', reason: `Run a sensitive command: ${command.slice(0, 80)}` }
     if (SECRET_PATH.test(command)) return { risk: 'SENSITIVE', reason: `Touch credentials or login items: ${command.slice(0, 80)}` }
     return isReadOnlyCommand(command) ? { risk: 'LOW_RISK', reason: 'read-only command' } : { risk: 'MODIFYING', reason: 'command may change files' }
+  }
+  if (tool === 'applescript') {
+    const script = stringField(args, 'script')
+    if (SENSITIVE_SCRIPT.test(script)) return { risk: 'SENSITIVE', reason: `Run a sensitive AppleScript: ${script.replaceAll(/\s+/g, ' ').slice(0, 80)}` }
+    if (findSensitive(script).sensitive) return { risk: 'SENSITIVE', reason: 'Run an AppleScript containing sensitive text' }
+    return { risk: 'MODIFYING', reason: 'controls Mac apps' }
   }
   const category = categoryOf(tool)
   if (category === 'FILES') {

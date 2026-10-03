@@ -206,6 +206,30 @@ describe('risk classes', () => {
     expect(classifyRisk('computer_type_text', { text: 'hello' }).risk).toBe('MODIFYING')
     expect(classifyRisk('computer_type_text', { text: 'my password is hunter2' }).risk).toBe('SENSITIVE')
   })
+
+  it('lets ordinary AppleScript through the normal path and makes risky scripts ask', () => {
+    expect(classifyRisk('applescript', { script: 'tell application "Music" to play' }).risk).toBe('MODIFYING')
+    expect(classifyRisk('applescript', { script: 'display notification "Build done" with title "KairoForge"' }).risk).toBe('MODIFYING')
+    for (const script of [
+      'do shell script "rm -rf ~/x"',
+      'do shell script "ls" with administrator privileges',
+      'tell application "Finder" to delete file "a.txt" of desktop',
+      'tell application "Finder" to empty the trash',
+      'tell application "Messages" to send "hi" to buddy "Bob"',
+      'tell application "System Events" to keystroke "q" using command down',
+      'tell application "System Events" to shut down',
+      'Application("Mail").send(message)',
+      'set p to "my password is hunter2"',
+    ]) expect(classifyRisk('applescript', { script }).risk, script).toBe('SENSITIVE')
+    expect(classifyRisk('bash', { command: 'osascript -e "beep"' }).risk).toBe('SENSITIVE')
+  })
+
+  it('opens Mac control for AppleScript requests only when they name it', () => {
+    expect(voiceToolbelt('run an applescript to play music', 'tool').open.has('COMPUTER')).toBe(true)
+    expect(voiceToolbelt('use apple script to show a notification', 'tool').open.has('COMPUTER')).toBe(true)
+    expect(voiceToolbelt('add a calendar component to the page', 'tool').open.has('COMPUTER')).toBe(false)
+    expect(categoryOf('applescript')).toBe('COMPUTER')
+  })
 })
 
 describe('assistant state', () => {

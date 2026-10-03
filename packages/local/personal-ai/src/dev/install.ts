@@ -4,8 +4,9 @@
  *   a hard loop stop, "did you mean" hints for missing paths, a syntax check
  *   after edits, and a clearer message for malformed tool arguments. They only
  *   refuse or add information; they never grant anything.
- * - Tools: editor_context, repo_map, open_in_editor, and `github` (REST API
- *   access for the GitHub-capable modes; account-level changes still ask).
+ * - Tools: editor_context, repo_map, open_in_editor, applescript (macOS; it
+ *   passes the normal approval path and risky scripts ask), and `github`
+ *   (REST API access for the GitHub-capable modes; account-level changes still ask).
  * - The editor bridge route (`/kairoforge-editor/*`) for the VS Code / Cursor
  *   extension, and the Command Center routes (`/personal-ai/dev/*`).
  */
@@ -30,6 +31,10 @@ import { checkSyntax, syntaxWarning } from './syntax.ts'
 export const EDITOR_BRIDGE_PATH = '/kairoforge-editor'
 
 const EDIT_TOOLS = new Set(['edit', 'write', 'str_replace_editor', 'apply_patch'])
+/** Name of the AppleScript / JXA tool. */
+export const APPLESCRIPT_TOOL = 'applescript'
+const OSASCRIPT = '/usr/bin/osascript'
+const MAX_SCRIPT_OUTPUT = 20_000
 const MAX_BRIDGE_BODY = 160 * 1024
 const LOOPBACK_HOST = /^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/
 
@@ -181,6 +186,45 @@ function openInEditor(dev: DevKit, path: string, line: number | undefined): Prom
 }
 
 /**
+ * Run an AppleScript or JavaScript for Automation script with `osascript`.
+ * @param script - script source.
+ * @param language - `AppleScript` or `JavaScript`.
+ * @param signal - aborts the script.
+ * @returns the script's result text.
+ */
+export function runOsascript(script: string, language: 'AppleScript' | 'JavaScript', signal: AbortSignal): Promise<string> {
+  return new Promise((done, fail) => {
+    execFile(OSASCRIPT, ['-l', language, '-e', script], { timeout: 60_000, maxBuffer: 4 * 1024 * 1024, signal }, (error, stdout, stderr) => {
+      if (error !== null) {
+        const detail = stderr.trim() || error.message
+        fail(new Error(`${language} failed: ${detail.slice(0, 2000)}`))
+        return
+      }
+      const out = stdout.trim()
+      done(out === '' ? 'The script ran and returned nothing.' : out.length > MAX_SCRIPT_OUTPUT ? `${out.slice(0, MAX_SCRIPT_OUTPUT)}…` : out)
+    })
+  })
+}
+
+function applescriptTool(): unknown {
+  return defineTool({
+    name: APPLESCRIPT_TOOL,
+    description: [
+      'Run an AppleScript (or JavaScript for Automation) on this Mac with osascript and return its result.',
+      'Use it to control Mac apps: Finder, Music, Safari, Mail, Calendar, Reminders, Notes, System Events, app windows, notifications.',
+      'Prefer the file and terminal tools for files and shell commands. Scripts that run shell commands, delete, send messages,',
+      'press keys, shut down, or touch passwords ask the user first.',
+    ].join(' '),
+    parameters: {
+      script: { type: 'string', required: true, description: 'Script source, e.g. tell application "Music" to play' },
+      language: { type: 'string', enum: ['AppleScript', 'JavaScript'], description: 'Default AppleScript.' },
+    },
+    output: TEXT_OUTPUT,
+    execute: (args, { signal }) => runOsascript(args.script, args.language === 'JavaScript' ? 'JavaScript' : 'AppleScript', signal),
+  })
+}
+
+/**
  * DevKit tools for the coordinator and main agents.
  * @param dev - DevKit service.
  * @param agent - the agent the tools are registered for.
@@ -299,6 +343,7 @@ export function devTools(dev: DevKit, agent: Agent): unknown[] {
         return openInEditor(dev, path, args.line === undefined ? undefined : Math.max(1, Math.round(args.line)))
       },
     }),
+    ...process.platform === 'darwin' ? [applescriptTool()] : [],
   ]
 }
 

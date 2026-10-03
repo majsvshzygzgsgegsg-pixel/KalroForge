@@ -15,7 +15,7 @@ import type { Config } from './index.ts'
 import type { PersonalAi } from './service.ts'
 
 /** Personal AI tools whose SENSITIVE calls always ask, whatever the preset says. */
-const OWN_GATED = new Set(['forget', 'archive_project', 'remember', 'create_tool'])
+const OWN_GATED = new Set(['forget', 'archive_project', 'remember', 'create_tool', 'applescript'])
 
 interface UserMessageData { readonly source?: { readonly kind?: string; readonly form?: string } }
 
