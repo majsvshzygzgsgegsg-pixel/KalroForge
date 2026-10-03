@@ -13,11 +13,14 @@ const VISIBLE_MS = 700
 const HIDDEN_MS = 4000
 const NOTICE_MS = 4000
 const MAX_TOASTS = 4
-const ANSWER_POLL_MS = 600
+const ANSWER_POLL_MS = 300
 /** Long enough for a turn that waits on an approval; the conversation keeps going after this. */
 const ANSWER_TIMEOUT_MS = 15 * 60_000
-/** A quick answer needs no acknowledgement; anything slower gets "On it" first. */
-const ACK_MS = 1500
+/** An answer this quick needs no acknowledgement; anything slower gets one first. */
+const ACK_MS = 300
+/** Silence this long while working gets a "still on it" line, at most {@link MAX_STILL} times a turn. */
+const STILL_MS = 7000
+const MAX_STILL = 3
 
 /** Everything the live surfaces render. */
 export interface LiveSnapshot {
@@ -27,11 +30,11 @@ export interface LiveSnapshot {
   readonly voiceAvailable: boolean
   readonly toasts: readonly Notice[]
   /** The latest Command Center exchange (spoken or typed). */
-  readonly exchange?: Exchange
+  readonly exchange?: Exchange | undefined
 }
 
 /** What KairoForge says while a turn runs: a Host update, or the acknowledgement once a turn is slow. */
-export type Progress = ConverseUpdate | { readonly kind: 'ack' }
+export type Progress = ConverseUpdate | { readonly kind: 'ack' | 'still'; readonly pick: number }
 
 /** One question to KairoForge from the Command Center and its answer. */
 export interface Exchange {
@@ -69,6 +72,8 @@ export interface LiveStore {
    * @returns false when voice is unavailable.
    */
   talk(describe: (progress: Progress) => string): boolean
+  /** Continue the conversation in a fresh Session (the old one stays in the chat list) and clear the transcript. */
+  newChat(): Promise<void>
   /** Refresh now (after a user action). */
   refresh(): Promise<void>
   dismissToast(id: string): void
@@ -192,15 +197,27 @@ export function createLiveStore(options: LiveStoreOptions = {}): LiveStore {
     let sessionId: string | undefined
     let said = 0
     let finished = false
+    let lastSaidAt = Date.now()
+    let lastKind: Progress['kind'] | undefined
+    let stills = 0
     const report = (progress: Progress): void => {
       if (finished || mine !== asking) return
       said++
+      lastSaidAt = Date.now()
+      lastKind = progress.kind
       publish({ exchange: { question: text, pending: true, progress, ...sessionId === undefined ? {} : { sessionId } } })
       onProgress?.(progress)
     }
     const shortcut = holoShortcut(text)
     if (shortcut !== undefined && options.holoReply !== undefined) return holo(text, shortcut, options.holoReply, mine)
-    const ack = setTimeout(() => { if (said === 0) report({ kind: 'ack' }) }, ACK_MS)
+    const pick = (): number => Math.floor(Math.random() * 1000)
+    const ack = setTimeout(() => { if (said === 0) report({ kind: 'ack', pick: pick() }) }, ACK_MS)
+    // A turn waiting on the user's approval is not "still working"; it already asked.
+    const still = setInterval(() => {
+      if (said === 0 || lastKind === 'approval' || stills >= MAX_STILL || Date.now() - lastSaidAt < STILL_MS) return
+      stills++
+      report({ kind: 'still', pick: pick() })
+    }, 1000)
     publish({ exchange: { question: text, pending: true } })
     try {
       const started = await api.converse(text)
@@ -235,6 +252,7 @@ export function createLiveStore(options: LiveStoreOptions = {}): LiveStore {
       throw error
     } finally {
       clearTimeout(ack)
+      clearInterval(still)
     }
   }
 
@@ -297,6 +315,12 @@ export function createLiveStore(options: LiveStoreOptions = {}): LiveStore {
         send: (text, say) => ask(text, say === undefined ? undefined : (progress) => { say(describe(progress)) }),
       })
       return true
+    },
+    async newChat() {
+      await api.newConversation()
+      asking++
+      publish({ exchange: undefined })
+      await poll()
     },
     refresh: poll,
     dismissToast(id) {

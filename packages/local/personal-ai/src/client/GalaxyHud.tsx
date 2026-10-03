@@ -5,7 +5,7 @@
  * only when the browser already granted microphone access, so the HUD never
  * raises its own permission prompt.
  */
-import { useEffect, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { OrbState } from '@local/galaxy'
 import type { LiveSnapshot, LiveStore } from './store.ts'
@@ -122,6 +122,38 @@ export function useMicWhileListening(listening: boolean): MediaStream | undefine
 }
 
 /**
+ * Full-screen state for the galaxy stage: the browser's full screen when it allows
+ * it, otherwise a fixed overlay; Esc or leaving browser full screen closes it.
+ * @returns the stage ref, whether it is full screen, and a toggle.
+ */
+function useFullScreen(): { readonly stage: RefObject<HTMLDivElement>; readonly full: boolean; readonly toggle: () => void } {
+  const stage = useRef<HTMLDivElement>(null)
+  const [full, setFull] = useState(false)
+  useEffect(() => {
+    if (!full) return
+    const element = stage.current
+    const onKey = (event: KeyboardEvent): void => { if (event.key === 'Escape') setFull(false) }
+    const onChange = (): void => { if (document.fullscreenElement === null) setFull(false) }
+    const enter = async (): Promise<void> => {
+      try {
+        await element?.requestFullscreen()
+      } catch {
+        // No browser full screen (or refused): the fixed overlay still fills the window.
+      }
+    }
+    void enter()
+    window.addEventListener('keydown', onKey)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('fullscreenchange', onChange)
+      if (element !== null && document.fullscreenElement === element) void document.exitFullscreen().catch(() => {})
+    }
+  }, [full])
+  return { stage, full, toggle: () => { setFull(value => !value) } }
+}
+
+/**
  * Render the HUD.
  * @param props - live snapshot, store, and copy.
  * @returns the galaxy with its state line and voice controls.
@@ -131,6 +163,8 @@ export function GalaxyHud({ live, store, t, openSession, assistantName }: Galaxy
   const orb: OrbState = live.error !== undefined ? 'error' : state?.orb ?? 'idle'
   const voice = store.provider()
   const mic = useMicWhileListening(callListening(live))
+  const { stage, full, toggle } = useFullScreen()
+  const [newChatError, setNewChatError] = useState<string | undefined>()
   const [prefs, setPrefs] = useState(readHudPrefs)
   useEffect(() => {
     const onChange = (): void => { setPrefs(readHudPrefs()) }
@@ -154,17 +188,44 @@ export function GalaxyHud({ live, store, t, openSession, assistantName }: Galaxy
   const line = live.error !== undefined
     ? t('state.offline', { message: live.error })
     : state === undefined ? t('state.connecting') : t(`state.${state.state}`)
+  const saying = exchange === undefined
+    ? ''
+    : exchange.pending
+      ? awaiting ? t('ask.needsApproval') : exchange.progress === undefined ? t('ask.thinking') : describeProgress(exchange.progress, t)
+      : exchange.error ?? exchange.reply ?? ''
 
   return (
     <section className={css.hud} aria-label={t('hud.label')}>
-      <GalaxyView
-        className={css.galaxy}
-        state={orb}
-        labels={labels}
-        micStream={mic}
-        performance={prefs.performance}
-        reducedMotion={prefs.reducedMotion}
-      />
+      <div
+        ref={stage}
+        role="button"
+        tabIndex={0}
+        className={full ? `${css.galaxyStage} ${css.galaxyFull}` : css.galaxyStage}
+        aria-label={full ? t('hud.exitFullScreen') : t('hud.fullScreen')}
+        title={full ? t('hud.exitFullScreen') : t('hud.fullScreen')}
+        onClick={toggle}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          toggle()
+        }}
+      >
+        <GalaxyView
+          className={css.galaxy}
+          state={orb}
+          labels={labels}
+          micStream={mic}
+          performance={prefs.performance}
+          reducedMotion={prefs.reducedMotion}
+        />
+        {full && (
+          <div className={css.fullCaption}>
+            <p className={css.stateLine}>{line}</p>
+            {heardNow !== '' && <p className={css.muted}>{heardNow}</p>}
+            {saying !== '' && <p>{saying}</p>}
+          </div>
+        )}
+      </div>
       <div className={css.hudInfo}>
         <p className={css.stateLine}>{line}</p>
         {state?.tool !== undefined && <p className={css.muted}>{t('state.tool', { tool: state.tool })}</p>}
@@ -194,11 +255,25 @@ export function GalaxyHud({ live, store, t, openSession, assistantName }: Galaxy
                   : <span>{exchange.reply === '' || exchange.reply === undefined ? t('ask.noText') : exchange.reply}</span>}
             </p>
           )}
-          {exchange?.sessionId !== undefined && (
-            <Button size="sm" variant={awaiting ? 'primary' : 'ghost'} onClick={() => { if (exchange.sessionId !== undefined) openSession(exchange.sessionId) }}>
-              {awaiting ? t('ask.openToApprove') : t('ask.openConversation')}
+          <div className={css.row}>
+            {exchange?.sessionId !== undefined && (
+              <Button size="sm" variant={awaiting ? 'primary' : 'ghost'} onClick={() => { if (exchange.sessionId !== undefined) openSession(exchange.sessionId) }}>
+                {awaiting ? t('ask.openToApprove') : t('ask.openConversation')}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={exchange?.pending === true}
+              onClick={() => {
+                setNewChatError(undefined)
+                store.newChat().catch((error: unknown) => { setNewChatError(error instanceof Error ? error.message : String(error)) })
+              }}
+            >
+              {t('ask.newChat')}
             </Button>
-          )}
+          </div>
+          {newChatError !== undefined && <p className={css.warning} role="alert">{t('ask.newChatFailed', { message: newChatError })}</p>}
         </div>
         <AskForm store={store} t={t} busy={exchange?.pending === true} assistantName={assistantName} />
         <div className={css.row}>

@@ -54,6 +54,8 @@ const NOTICE_LIMIT = 60
 const CONVERSE_LIMIT = 50
 const CONVERSE_MAX_CHARS = 4000
 const CONVERSE_REPLY_CHARS = 8000
+/** A conversation whose last model call sent more than this many tokens continues in a fresh Session: every turn resends the history. */
+const CONVERSE_FRESH_TOKENS = 90_000
 
 /** A Command Center turn still running in its conversation Session. */
 interface PendingConverse {
@@ -784,12 +786,34 @@ export class PersonalAi extends Service {
       : { ...turn, status: 'failed', error: redact(error).slice(0, 300), finishedAt })
   }
 
+  /**
+   * Start a fresh conversation Session. The old one stays in the chat list.
+   * @returns the new Session id.
+   */
+  async newConversation(): Promise<{ readonly sessionId: string }> {
+    const current = this.settings().conversationSessionId
+    if (current !== undefined && this.converseBySession.has(current)) {
+      throw new PersonalAiError('conflict', 'wait for the current answer, or stop it, before starting a new chat')
+    }
+    return { sessionId: await this.createConversation() }
+  }
+
+  /** Whether the last model call in a conversation sent so much history that the next turn should start fresh. */
+  private outgrown(sessionId: string): boolean {
+    const last = this.metrics(sessionId).recent[0]
+    return last !== undefined && (last.tokens ?? 0) / Math.max(1, last.steps) > CONVERSE_FRESH_TOKENS
+  }
+
   private async conversationSession(): Promise<string> {
     const known = this.settings().conversationSessionId
-    if (known !== undefined) {
+    if (known !== undefined && !this.outgrown(known)) {
       const resolved = await this.ctx.sessionController.resolveAgent(SessionId(known)).catch(() => undefined)
       if (resolved !== undefined && !('error' in resolved)) return known
     }
+    return this.createConversation()
+  }
+
+  private async createConversation(): Promise<string> {
     const project = this.activeProject()
     const created = await this.ctx.sessionController.create({
       agentPreset: 'standard',

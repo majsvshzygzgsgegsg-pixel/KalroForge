@@ -17,6 +17,12 @@ const TOOL_KEYS: Readonly<Record<string, readonly [read: PersonalAiKey, change: 
   BACKGROUND_TASKS: ['progress.background', 'progress.background'],
 }
 
+/** One of a phrase's `|`-separated wordings, fixed by the update so a re-render says the same thing. */
+function variant(lines: string, pick: number): string {
+  const all = lines.split('|')
+  return all[pick % all.length] ?? lines
+}
+
 /**
  * One progress update as a short spoken line.
  * @param progress - the update.
@@ -25,7 +31,8 @@ const TOOL_KEYS: Readonly<Record<string, readonly [read: PersonalAiKey, change: 
  */
 export function describeProgress(progress: Progress, t: Translate): string {
   switch (progress.kind) {
-    case 'ack': return t('progress.ack')
+    case 'ack': return variant(t('progress.ack'), progress.pick)
+    case 'still': return variant(t('progress.still'), progress.pick)
     case 'approval': return t('progress.approval')
     case 'say': return progress.text
     case 'tool': {

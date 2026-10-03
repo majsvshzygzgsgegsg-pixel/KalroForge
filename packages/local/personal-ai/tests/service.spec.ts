@@ -417,6 +417,13 @@ describe('personal ai', () => {
     await expect(ctx.personalAi.converse('   ')).rejects.toMatchObject({ code: 'invalid' })
     await expect(handlePersonalAiRoute(ctx.personalAi, ctx, 'GET', ['converse', 'missing'], new URLSearchParams(), undefined))
       .rejects.toMatchObject({ code: 'not-found' })
+
+    const fresh = (await handlePersonalAiRoute(ctx.personalAi, ctx, 'POST', ['converse', 'new'], new URLSearchParams(), {})).payload as { sessionId: string }
+    expect(fresh.sessionId).not.toBe(first.sessionId)
+    expect(ctx.personalAi.conversationSessionId()).toBe(fresh.sessionId)
+    const third = await ctx.personalAi.converse('Hello again')
+    expect(third.sessionId).toBe(fresh.sessionId)
+    await vi.waitFor(() => { expect(ctx.personalAi.converseTurn(third.id).status).toBe('done') })
   }, 30_000)
 
   it('narrates a Command Center turn while it works and keeps narration out of the answer', async () => {

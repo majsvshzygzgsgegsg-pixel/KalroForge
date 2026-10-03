@@ -488,3 +488,45 @@
     flex-flow: row wrap;
   }
 }
+
+.galaxyStage {
+  position: relative;
+  border-radius: 50%;
+  cursor: zoom-in;
+}
+
+.galaxyStage:focus-visible {
+  outline: 2px solid var(--pa-accent);
+  outline-offset: 4px;
+}
+
+.galaxyFull {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: radial-gradient(circle at 50% 45%, var(--pa-accent-soft), transparent 65%), var(--pa-space);
+  cursor: zoom-out;
+}
+
+.galaxyFull .galaxy {
+  width: min(92vw, 78vh);
+  max-height: none;
+}
+
+.fullCaption {
+  position: absolute;
+  right: 0;
+  bottom: 6vh;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 0 24px;
+  font-size: 18px;
+  text-align: center;
+}

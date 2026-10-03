@@ -386,6 +386,7 @@ export const api = {
   tools: (sessionId?: string) => request<ToolGroups>(sessionId === undefined ? 'tools' : `tools?session=${id(sessionId)}`),
   voice: (phase: VoicePhase) => request<StateView>('voice', { phase }),
   converse: (text: string) => request<ConverseTurn>('converse', { text }),
+  newConversation: () => request<{ readonly sessionId: string }>('converse/new', {}),
   converseTurn: (turnId: string) => request<ConverseTurn>(`converse/${id(turnId)}`),
   holo: () => request<HoloSnapshot>('holo'),
   holoOpen: () => request<HoloOpenResult>('holo/open', {}),

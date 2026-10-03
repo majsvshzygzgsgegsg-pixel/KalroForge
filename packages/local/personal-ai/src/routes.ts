@@ -371,7 +371,9 @@ export async function handlePersonalAiRoute(
       const input = parse(recommendBody, body)
       return ok(await service.recommend(input.task, input.project === undefined ? undefined : service.project(input.project).id))
     }
-    case 'converse': return ok(await service.converse(parse(converseBody, body).text))
+    case 'converse':
+      if (id === 'new') return ok(await service.newConversation())
+      return ok(await service.converse(parse(converseBody, body).text))
     case 'holo': return ok(await holoAction(deckOf(ctx), id, body))
     default:
   }
