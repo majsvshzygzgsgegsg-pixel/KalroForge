@@ -72,7 +72,7 @@
     "@deepseek-ai/dsh-util-workspace-path": "workspace:*",
     "@fortune-sheet/core": "1.0.4",
     "@fortune-sheet/react": "1.0.4",
-    "@testing-library/react": "^16.1.0",
+    "@testing-library/react": "^16.3.3",
     "@types/papaparse": "^5.3.16",
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.0",
