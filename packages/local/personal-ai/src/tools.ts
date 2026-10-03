@@ -17,7 +17,8 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { isTopLevelSession, messageBody } from '@local/main-agents'
 import { AGENT_TAGS, CAPABILITY_CATEGORIES, groupTools, proposeAgent, type AgentTag, type CapabilityCategory } from './core/capabilities.ts'
 import { classifyDepth, DEPTH_GUIDANCE } from './core/classifier.ts'
-import { parseCategories, typedTools, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
+import { cursorRouted, parseCategories, typedTools, USE_TOOLS, voiceToolbelt, voiceTools, type VoiceToolbelt } from './core/voice-tools.ts'
+import type { CursorHands } from './hands.ts'
 import { holoTools } from './holo-tools.ts'
 import type {} from './holo.ts'
 import { devTools, githubTool } from './dev/install.ts'
@@ -47,6 +48,14 @@ export const EDITOR_BUILD_GUIDANCE = [
   '- Make all your edits first, then call editor_context once and fix any new errors or warnings in the files you touched. Do not call it after every edit.',
   '- Do not call open_in_editor for files you edited; they are already open. Use it only to show a file you did not change.',
 ].join('\n')
+
+/** How to control the Mac while Cursor is KairoForge's hands. */
+export const CURSOR_HANDS_GUIDANCE = [
+  'Mac control goes through Cursor, which is your hands: for anything on the user\'s computer — apps, windows, clicking, typing, menus,',
+  'Finder, Safari, Music, Mail, Notes, Reminders, Calendar, settings, volume, the clipboard — call cursor_computer once with the whole',
+  'request (the user\'s words plus any detail you know). Your own Mac tools are off while Cursor is the hands. Cursor works with a visible',
+  'agent cursor the user can watch. Report its reply as it is; if the call fails, say what Cursor reported and do not claim it was done.',
+].join(' ')
 
 /** How to control the Mac: AppleScript first, never simulated input scripts. */
 export const MAC_CONTROL_GUIDANCE = [
@@ -131,9 +140,10 @@ export const VOICE_NARRATION = [
 /**
  * Coordinator prompt section for one personality.
  * @param personality - effective personality.
+ * @param cursorHands - Mac control goes through Cursor (`cursor_computer`) instead of KairoForge's own tools.
  * @returns prompt text.
  */
-export function coordinatorPrompt(personality: Personality): string {
+export function coordinatorPrompt(personality: Personality, cursorHands = false): string {
   const lines = [
     `You are ${personality.name}, the user's personal AI inside KairoForge. You are the coordinator: answer simple things yourself, use tools when a task needs them, and hand larger work to main agents, workflows, or background tasks.`,
     `Speaking style: ${personality.speakingStyle}. ${VERBOSITY[personality.verbosity]}`,
@@ -151,7 +161,7 @@ export function coordinatorPrompt(personality: Personality): string {
     'Running work: when the user asks to pause, stop, change, or constrain running work, use pause_task, resume_task, cancel_task, update_task, or add_task_constraint, and report the returned outcome exactly (applied, delivered, or rejected). Never resume possibly destructive work without checking its state first.',
     'Agents: recommend_agent ranks main agents for a task; if the user names a different agent, theirs wins. propose_agent drafts a new agent — show the proposal and create it with create_main_agent only after the user agrees.',
     'Computer control and sensitive actions go through KairoForge\'s normal approval prompts. If something is denied, do not look for a way around it.',
-    ...process.platform === 'darwin' ? [MAC_CONTROL_GUIDANCE] : [],
+    ...process.platform === 'darwin' ? [cursorHands ? CURSOR_HANDS_GUIDANCE : MAC_CONTROL_GUIDANCE] : [],
     'Life OS: search_brain searches the user\'s own indexed files (notes, PDFs, code) — use it for questions about their work or life before guessing. When the user tells you how people, projects, or problems relate ("Michael is my boss"), record it with link_entities; graph_query recalls it. When you notice you keep doing the same job by hand, write yourself a tool with create_tool.',
     CURSOR_MEANING,
     'Coding: when the user\'s editor is connected you are told its active file, cursor, selection, and problems — "this", "here", and "this error" mean them. Never guess a path: use the repo map you are given, or repo_map / glob, and read before editing. After an edit, a syntax check result may follow; fix a reported failure first. Files you edit open in Cursor automatically.',
@@ -165,9 +175,11 @@ export function coordinatorPrompt(personality: Personality): string {
  * @param ctx - Host context.
  * @param service - Personal AI service.
  * @param config - plugin configuration.
+ * @param hands - Cursor as the hands for Mac control, when installed.
  */
-export function installPersonalAiTools(ctx: Context, service: PersonalAi, config: Config): void {
+export function installPersonalAiTools(ctx: Context, service: PersonalAi, config: Config, hands?: CursorHands): void {
   type Role = 'coordinator' | 'observed' | 'agent' | 'editor'
+  const cursorHands = (): boolean => config.computerControl === 'cursor' && hands?.ready() === true
   const installed = new Map<Agent, { readonly key: string; readonly dispose: () => void }>()
   /** Groups the voice conversation opened with `use_tools`, for the request they were opened in. */
   const opened = new Map<string, { readonly request: string; readonly categories: Set<CapabilityCategory> }>()
@@ -301,13 +313,14 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
     return kit === undefined ? [] : devTools(kit, agent)
   }
   const isBuildMode = (agent: Agent): boolean => (BUILD_MODES as readonly string[]).includes(ctx.mainAgents.modeOf(agent))
-  const devContext = (agent: Agent): string => {
+  const devContext = (agent: Agent, routed = false): string => {
     const kit = dev()
     if (kit === undefined || config.answerOnlyModes.includes(ctx.mainAgents.modeOf(agent))) return ''
     const request = requestOf(agent.session.id)
     const text = kit.contextFor(agent.session.id, agent.session.header.cwd, request)
     const editor = `${kit.editor() === undefined ? `${EDITOR_BUILD_GUIDANCE}\n${EDITOR_OFFLINE_NOTE}` : EDITOR_BUILD_GUIDANCE}\n${CURSOR_MEANING}`
-    const guidance = process.platform === 'darwin' ? `${editor}\n${MAC_CONTROL_GUIDANCE}` : editor
+    const mac = routed && cursorHands() ? CURSOR_HANDS_GUIDANCE : MAC_CONTROL_GUIDANCE
+    const guidance = process.platform === 'darwin' ? `${editor}\n${mac}` : editor
     return text === '' ? guidance : `${text}\n\n${guidance}`
   }
   /** Editor tools (every mode except the answer-only ones) plus `github` in the build modes. */
@@ -560,7 +573,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
       disposers.push(scoped.systemPrompt.section({
         name: 'personal-ai:coordinator',
         order: scoped.systemPrompt.getSectionOrder('TEAM_POLICY') + 8,
-        text: () => coordinatorPrompt(service.personality()),
+        text: () => coordinatorPrompt(service.personality(), cursorHands()),
         interpolate: false,
       }))
       disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:coordinator-context', order: 130, text: () => contextText(agent) }))
@@ -575,7 +588,7 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
         order: 134,
         text: () => life()?.contextFor(requestOf(agent.session.id)) ?? '',
       }))
-      disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:dev', order: 135, text: () => devContext(agent) }))
+      disposers.push(scoped.systemPrompt.context({ name: 'personal-ai:dev', order: 135, text: () => devContext(agent, true) }))
       // Only the loop's own step assembly is trimmed; list_capabilities assembles without an Agent and still sees everything.
       disposers.push(scoped.on('system-prompt/assemble', async (_assembly, context, next) => {
         const assembled = await next()
@@ -584,9 +597,10 @@ export function installPersonalAiTools(ctx: Context, service: PersonalAi, config
         if (service.conversationSessionId() !== sessionId) {
           const extra = opened.get(sessionId)
           const request = requestOf(sessionId)
-          return { ...assembled, tools: typedTools(assembled.tools, request, extra?.request === request ? extra.categories : []) }
+          const typed = typedTools(assembled.tools, request, extra?.request === request ? extra.categories : [])
+          return { ...assembled, tools: cursorRouted(typed, cursorHands()) }
         }
-        return { ...assembled, tools: voiceTools(assembled.tools, toolbeltOf(sessionId)) }
+        return { ...assembled, tools: cursorRouted(voiceTools(assembled.tools, toolbeltOf(sessionId)), cursorHands()) }
       }))
       disposers.push(() => { opened.delete(agent.session.id) })
       service.liveOf(agent.session.id, ctx.mainAgents.modeOf(agent))

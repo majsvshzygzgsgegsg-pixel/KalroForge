@@ -8,6 +8,7 @@
  */
 import { isReadOnlyCommand } from '@local/main-agents'
 import { categoryOf } from './capabilities.ts'
+import { CURSOR_COMPUTER } from './cursor-hands.ts'
 import { macActionRisk, type MacActionArgs } from './mac-actions.ts'
 import { findSensitive } from './sensitive.ts'
 
@@ -111,11 +112,11 @@ const CATASTROPHIC_SCRIPT = /\b(?:erase|format)\s+disk\b/i
  * @returns a reason when the call must not run without the user, else undefined.
  */
 export function catastrophicReason(tool: string, args: unknown): string | undefined {
-  const command = tool === 'bash' || tool === 'pwsh' || tool === 'terminal_send'
-    ? stringField(args, 'command', 'text', 'input')
-    : tool === 'applescript' ? stringField(args, 'script') : ''
+  const shell = tool === 'bash' || tool === 'pwsh' || tool === 'terminal_send'
+  const scripted = tool === 'applescript' ? stringField(args, 'script') : tool === CURSOR_COMPUTER ? stringField(args, 'task') : ''
+  const command = shell ? stringField(args, 'command', 'text', 'input') : scripted
   if (command === '') return undefined
-  const ruinous = CATASTROPHIC_COMMAND.test(command) || (tool === 'applescript' && CATASTROPHIC_SCRIPT.test(command))
+  const ruinous = CATASTROPHIC_COMMAND.test(command) || (!shell && CATASTROPHIC_SCRIPT.test(command))
   if (!ruinous) return undefined
   return `Refused even with auto-approve on: "${command.replaceAll(/\s+/g, ' ').slice(0, 80)}" could wipe the disk, the home folder, or the Mac's protections. `
     + 'Do not retry it another way; tell the user exactly what to run themselves if they really want it.'
@@ -155,6 +156,11 @@ export function classifyRisk(tool: string, args: unknown, options: { readonly di
     const typed = [values.text, values.body, values.subject, values.title].filter(value => typeof value === 'string').join('\n')
     if (typed !== '' && findSensitive(typed).sensitive) return { risk: 'SENSITIVE', reason: `Mac action ${action} with sensitive text` }
     return risk === 'read' ? { risk: 'LOW_RISK', reason: 'reads Mac state' } : { risk: 'MODIFYING', reason: `Mac action ${action}` }
+  }
+  if (tool === CURSOR_COMPUTER) {
+    const task = stringField(args, 'task')
+    if (findSensitive(task).sensitive) return { risk: 'SENSITIVE', reason: 'Have Cursor act on the computer with sensitive text' }
+    return { risk: 'MODIFYING', reason: `Cursor acts on the computer: ${task.replaceAll(/\s+/g, ' ').slice(0, 80)}` }
   }
   if (tool === 'applescript') {
     const script = stringField(args, 'script')

@@ -7,6 +7,7 @@
  */
 import { CAPABILITY_CATEGORIES, categoryOf, type CapabilityCategory } from './capabilities.ts'
 import type { Depth } from './classifier.ts'
+import { CURSOR_COMPUTER } from './cursor-hands.ts'
 
 /** The tool that opens more capability groups for the rest of the request. */
 export const USE_TOOLS = 'use_tools'
@@ -23,7 +24,7 @@ const CORE_TOOLS: ReadonlySet<string> = new Set([
   'open_holo', 'close_holo', 'holo_status', 'holo_add', 'holo_update', 'holo_remove',
   'list_main_agents', 'recommend_agent', 'delegate_to_main_agent', 'list_background_tasks', 'start_background_task',
   'pause_task', 'resume_task', 'cancel_task', 'update_task',
-  'mac_action', 'applescript', 'applescript_dictionary',
+  'mac_action', 'applescript', 'applescript_dictionary', CURSOR_COMPUTER,
 ])
 
 /**
@@ -107,6 +108,28 @@ export function typedTools<T extends { readonly name: string }>(
 ): T[] {
   if (SCREEN_REQUEST.test(request) || [...opened].includes('COMPUTER')) return [...tools]
   return tools.filter(tool => CORE_TOOLS.has(tool.name) || categoryOf(tool.name) !== 'COMPUTER')
+}
+
+/**
+ * Whether a request is about driving the screen (clicking, typing into windows, the mouse, "take control").
+ * @param request - the user's message.
+ * @returns true for screen-driving requests.
+ */
+export function isScreenRequest(request: string): boolean {
+  return SCREEN_REQUEST.test(request)
+}
+
+/**
+ * Computer control through Cursor: while Cursor is the hands, {@link CURSOR_COMPUTER}
+ * replaces every other computer tool (mac_action, applescript, the Cua Driver);
+ * otherwise it is hidden and KairoForge's own computer tools stay.
+ * @param tools - the tools after the request's own filtering.
+ * @param cursor - whether Cursor is the hands right now (enabled, installed, and signed in).
+ * @returns the visible subset, in the original order.
+ */
+export function cursorRouted<T extends { readonly name: string }>(tools: readonly T[], cursor: boolean): T[] {
+  const routed = cursor && tools.some(tool => tool.name === CURSOR_COMPUTER)
+  return tools.filter(tool => tool.name === CURSOR_COMPUTER ? routed : !routed || categoryOf(tool.name) !== 'COMPUTER')
 }
 
 /**

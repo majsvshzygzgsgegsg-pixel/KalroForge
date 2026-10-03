@@ -9,6 +9,7 @@ import z from '@deepseek-ai/schemastery'
 import { installDevHooks, installEditorBridge } from './dev/install.ts'
 import { installQuickCommands } from './dev/quick.ts'
 import { DevKit } from './dev/service.ts'
+import { CursorHands, DEFAULT_CURSOR_AGENT, installCursorHands } from './hands.ts'
 import { HoloDeck, DEFAULT_HOLO_CONFIG } from './holo.ts'
 import { installPersonalAiHooks } from './hooks.ts'
 import { installLifeHooks } from './life/install.ts'
@@ -45,6 +46,8 @@ export * from './core/memory.ts'
 export * from './core/metrics.ts'
 export * from './core/risk.ts'
 export * from './core/sensitive.ts'
+export * from './core/cursor-hands.ts'
+export { CursorHands } from './hands.ts'
 
 /** Cordis plugin name. */
 export const name = 'local-personal-ai'
@@ -71,6 +74,13 @@ export interface Config {
   readonly autoApprove: boolean
   /** Run plain Mac commands ("open Notes and type hi", "volume 30") straight away, without a model round trip (macOS). */
   readonly quickCommands: boolean
+  /**
+   * Who does things on the Mac. `cursor`: requests go to the Cursor agent CLI (`cursor_computer`) while it is installed
+   * and signed in, and KairoForge's own computer tools are hidden; otherwise, and with `kairoforge`, KairoForge acts itself.
+   */
+  readonly computerControl: 'cursor' | 'kairoforge'
+  /** The Cursor agent CLI and the folder it acts from (its instructions and permissions live there). */
+  readonly cursorAgent: { readonly binary: string; readonly workspace: string }
   /** Holo Hands: the Holo Gestures checkout, its port, and whether KairoForge starts it. */
   readonly holo: { readonly dir: string; readonly port: number; readonly autoStart: boolean }
 }
@@ -85,6 +95,11 @@ export const Config: z<Config> = z.object({
   confirmSensitive: z.boolean().default(true),
   autoApprove: z.boolean().default(false),
   quickCommands: z.boolean().default(true),
+  computerControl: z.union(['cursor', 'kairoforge'] as const).default('cursor'),
+  cursorAgent: z.object({
+    binary: z.string().default(DEFAULT_CURSOR_AGENT.binary),
+    workspace: z.string().default(DEFAULT_CURSOR_AGENT.workspace),
+  }).default(DEFAULT_CURSOR_AGENT),
   holo: z.object({
     dir: z.string().default(DEFAULT_HOLO_CONFIG.dir),
     port: z.natural().default(DEFAULT_HOLO_CONFIG.port),
@@ -98,6 +113,8 @@ export const Config: z<Config> = z.object({
  * @param config - validated configuration.
  */
 export function apply(ctx: Context, config: Config): void {
+  const hands = new CursorHands(config.cursorAgent.binary, config.cursorAgent.workspace)
+  const cursorHands = (): boolean => config.computerControl === 'cursor' && hands.ready()
   ctx.plugin(PersonalAi)
   ctx.plugin(HoloDeck, config.holo)
   ctx.plugin(LifeOs)
@@ -112,9 +129,10 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['devKit', 'webServer'], (scoped) => { installEditorBridge(scoped, scoped.devKit) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'agents', 'tools', 'systemPrompt'], (scoped) => {
     installPersonalAiHooks(scoped, scoped.personalAi, config)
-    installPersonalAiTools(scoped, scoped.personalAi, config)
+    installPersonalAiTools(scoped, scoped.personalAi, config, hands)
   })
-  if (config.quickCommands) ctx.inject(['llm', 'agents', 'tools'], (scoped) => { installQuickCommands(scoped) })
+  if (config.quickCommands) ctx.inject(['llm', 'agents', 'tools'], (scoped) => { installQuickCommands(scoped, undefined, cursorHands) })
+  if (process.platform === 'darwin' && config.computerControl === 'cursor') ctx.inject(['tools'], (scoped) => { installCursorHands(scoped, hands) })
   ctx.inject(['tools'], (scoped) => { installMcpHub(scoped) })
   ctx.inject(['personalAi', 'holoDeck', 'orchestration', 'mainAgents', 'webServer', 'connection'], (scoped) => {
     installPersonalAiRoutes(scoped, scoped.personalAi)

@@ -11,7 +11,9 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { LlmAdapter, ToolCallId, type GenerateOptions, type LlmProviderInfo, type StreamChunk, type UserMessage } from '@deepseek-ai/dsh-llm'
 import { scopeOf } from '@deepseek-ai/dsh-scope'
 import { isTopLevelSession, messageBody } from '@local/main-agents'
-import { parseQuickCommand, type AppResolver, type QuickCommand } from '../core/quick-commands.ts'
+import { CURSOR_COMPUTER } from '../core/cursor-hands.ts'
+import { parseQuickCommand, type AppResolver } from '../core/quick-commands.ts'
+import { isScreenRequest } from '../core/voice-tools.ts'
 import { resolveInstalledApp } from './apps.ts'
 
 /** The local route that serves quick-command steps. */
@@ -23,9 +25,15 @@ interface Plan {
   readonly turn: number
   readonly step: number
   readonly callId: string
-  readonly command: QuickCommand
+  /** The one tool call to issue. */
+  readonly call: { readonly name: string; readonly args: object }
+  /** The reply once it succeeded; undefined replies with the tool's own `reply`. */
+  readonly done?: string
   ok?: boolean
 }
+
+/** Screen requests that are about Holo Hands, not the computer. */
+const HOLO = /\bholo\b/i
 
 function textChunks(text: string): StreamChunk[] {
   return [
@@ -66,10 +74,30 @@ class InstantAdapter extends LlmAdapter {
       yield * textChunks('I lost track of that request; please say it again.')
       return
     }
-    const answered = options.messages.some(message =>
+    const answer = options.messages.find(message =>
       'role' in message && message.role === 'tool' && String(message.toolCallId) === plan.callId)
-    const { action, args } = plan.command
-    yield * answered ? textChunks(plan.command.done) : toolCallChunks(plan.callId, MAC_ACTION, { action, ...args })
+    if (answer === undefined) {
+      yield * toolCallChunks(plan.callId, plan.call.name, plan.call.args)
+      return
+    }
+    yield * textChunks(plan.done ?? replyOf(answer) ?? 'Done.')
+  }
+}
+
+/** The `reply` field of a JSON tool result. */
+function replyOf(message: object): string | undefined {
+  const content = (message as { content?: unknown }).content
+  const text = Array.isArray(content)
+    ? content.map((block) => {
+      const { type, text: body } = block as { type?: unknown; text?: unknown }
+      return type === 'text' && typeof body === 'string' ? body : ''
+    }).join('')
+    : typeof content === 'string' ? content : ''
+  try {
+    const reply = (JSON.parse(text) as { reply?: unknown }).reply
+    return typeof reply === 'string' && reply.trim() !== '' ? reply.trim() : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -83,19 +111,34 @@ function lastUserRequest(messages: readonly UserMessage[]): string | undefined {
 
 /**
  * Install quick commands on every top-level Session that has mac_action (macOS only).
+ * While Cursor is the hands, plain Mac commands and screen requests go to `cursor_computer` instead.
  * @param ctx - Host context.
  * @param resolve - maps a spoken app name to an installed app.
+ * @param cursorHands - whether Cursor is the hands right now.
  */
-export function installQuickCommands(ctx: Context, resolve: AppResolver = resolveInstalledApp): void {
+export function installQuickCommands(
+  ctx: Context,
+  resolve: AppResolver = resolveInstalledApp,
+  cursorHands: () => boolean = () => false,
+): void {
   if (process.platform !== 'darwin') return
   const plans = new Map<string, Plan>()
   const routes = new Map<string, { readonly provider: string; readonly model: string }>()
   ctx.llm.registerAdapter([INSTANT_PROVIDER], new InstantAdapter(sessionId => plans.get(sessionId)))
   // Any top-level Session that can run mac_action (Lead, Fast, editor, and main-agent Sessions alike).
-  const hasMacAction = (agent: Agent): boolean => {
+  const has = (agent: Agent, tool: string): boolean => {
     if (!isTopLevelSession(agent.session.header)) return false
     const scope = scopeOf(agent.ctx)
-    return scope !== undefined && ctx.tools.get(MAC_ACTION, scope) !== undefined
+    return scope !== undefined && ctx.tools.get(tool, scope) !== undefined
+  }
+  const planFor = (agent: Agent, request: string): Pick<Plan, 'call' | 'done'> | undefined => {
+    const command = parseQuickCommand(request, resolve)
+    if (cursorHands() && has(agent, CURSOR_COMPUTER)) {
+      const forCursor = command !== undefined || (isScreenRequest(request) && !HOLO.test(request))
+      return forCursor ? { call: { name: CURSOR_COMPUTER, args: { task: request } } } : undefined
+    }
+    if (command === undefined || !has(agent, MAC_ACTION)) return undefined
+    return { call: { name: MAC_ACTION, args: { action: command.action, ...command.args } }, done: command.done }
   }
 
   ctx.on('agent/pre-step', async (payload, next) => {
@@ -104,9 +147,9 @@ export function installQuickCommands(ctx: Context, resolve: AppResolver = resolv
     const request = lastUserRequest(payload.messages)
     if (request === undefined) return decision
     plans.delete(sessionId)
-    if (decision.kind !== 'enter' || !hasMacAction(payload.agent)) return decision
-    const command = parseQuickCommand(request, resolve)
-    if (command !== undefined) plans.set(sessionId, { turn: payload.turn, step: payload.step, callId: `kf-quick-${randomUUID()}`, command })
+    if (decision.kind !== 'enter') return decision
+    const plan = planFor(payload.agent, request)
+    if (plan !== undefined) plans.set(sessionId, { turn: payload.turn, step: payload.step, callId: `kf-quick-${randomUUID()}`, ...plan })
     return decision
   }, true)
 

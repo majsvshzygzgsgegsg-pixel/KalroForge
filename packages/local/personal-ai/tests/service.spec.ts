@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
@@ -29,10 +29,12 @@ import ApprovalService from '@deepseek-ai/dsh-user-approval'
 import type { ApprovalOutcome } from '@deepseek-ai/dsh-user-approval'
 import * as mainAgents from '@local/main-agents'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
+import { CURSOR_COMPUTER } from '../src/core/cursor-hands.ts'
 import { isScratchWorkspace } from '../src/dev/service.ts'
 import * as personalAi from '../src/index.ts'
 import { handlePersonalAiRoute } from '../src/routes.ts'
 import { CURSOR_MEANING, EDITOR_BUILD_GUIDANCE, EDITOR_OFFLINE_NOTE, MAC_CONTROL_GUIDANCE } from '../src/tools.ts'
+import { fakeCursorAgent } from './fixtures/cursor-agent.ts'
 
 const SIGNAL = new AbortController().signal
 const roots: string[] = []
@@ -158,6 +160,8 @@ async function setup(
   bringUpEditor = false,
   autoApprove = false,
   quickCommands = false,
+  // Tests never drive the real Cursor CLI: computer control stays with KairoForge unless a test passes a fake one.
+  cursor?: { binary: string; workspace: string },
 ): Promise<Setup> {
   const ctx = new Context()
   contexts.add(ctx)
@@ -194,6 +198,8 @@ async function setup(
   })
   await ctx.plugin(personalAi, {
     coordinatorModes: ['standard'], observedModes: ['fast'], answerOnlyModes: ['chat'], followEdits: true, bringUpEditor, confirmSensitive: true, autoApprove, quickCommands, holo,
+    computerControl: cursor === undefined ? 'kairoforge' : 'cursor',
+    cursorAgent: cursor ?? { binary: join(tmpdir(), 'no-cursor-agent'), workspace: join(tmpdir(), 'no-cursor-hands') },
   })
   await vi.waitFor(() => { expect(ctx.get('personalAi')).toBeDefined() })
   await ctx.personalAi.whenReady()
@@ -489,6 +495,35 @@ describe('personal ai', () => {
     await vi.waitFor(() => { expect(calls.at(-1)).toEqual({ action: 'new_note', body: '67', show: true }) }, { timeout: 10_000 })
     await fast.whenIdle()
     expect(adapter.requests.length).toBe(modelCalls + 2)
+  }, 30_000)
+
+  it.runIf(process.platform === 'darwin')('sends Mac requests to Cursor and hides KairoForge\'s own computer tools while Cursor is the hands', async () => {
+    const root = tempDir('pai-cursor-')
+    const binary = join(root, 'cursor-agent')
+    writeFileSync(binary, fakeCursorAgent(root))
+    chmodSync(binary, 0o755)
+    const { ctx, adapter } = await setup(undefined, undefined, false, true, true, { binary, workspace: join(root, 'hands') })
+    const agent = await lead(ctx, 'lead-cursor')
+    const scope = scopeOf(agent.ctx)
+    if (scope === undefined) throw new Error('expected Agent scope')
+    const stepTools = async (): Promise<string[]> => (await ctx.systemPrompt.assemble({ scope, agent })).tools.map(tool => tool.name)
+    await vi.waitFor(async () => { expect(await stepTools()).toContain(CURSOR_COMPUTER) })
+    const names = await stepTools()
+    expect(await toolNames(ctx, agent)).toContain('mac_action')
+    expect(names).not.toContain('mac_action')
+    expect(names).not.toContain('applescript')
+    expect((await assembled(ctx, agent)).sections).toContain('Mac control goes through Cursor')
+
+    const modelCalls = adapter.requests.length
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'open my apple notes app and type hi' }], source: { kind: 'user' } }))
+    await vi.waitFor(() => {
+      const event = agent.session.snapshotEvents().findLast(entry => entry.type === 'assistant/message')
+      expect(JSON.stringify(event?.data ?? {})).toContain('Opened Notes and typed hi.')
+    }, { timeout: 15_000 })
+    await agent.whenIdle()
+    expect(adapter.requests.length).toBe(modelCalls)
+    const runs = readFileSync(join(root, 'runs.ndjson'), 'utf8').trim().split('\n').map(line => JSON.parse(line) as { args: string[] })
+    expect(runs.map(run => run.args.at(-1))).toEqual(['open my apple notes app and type hi'])
   }, 30_000)
 
   it('auto-approves a sensitive call with approval prompts off when autoApprove is on, without asking', async () => {
