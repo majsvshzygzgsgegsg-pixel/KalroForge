@@ -418,8 +418,8 @@ describe('personal ai', () => {
     const { ctx } = await setup(undefined, undefined, false, true)
     await ctx.plugin(ApprovalService)
     const lead = await ctx.agentLoop.create(SessionId('auto-approve-lead'), { provider: 'mock', model: 'lead' })
-    const request = { agent: lead, toolName: 'bash' } as never
-    const answered = await (ctx.waterfall(lead, 'approval/request', request, () => Promise.resolve<ApprovalOutcome>('unavailable')) as Promise<ApprovalOutcome>)
+    const waterfall = ctx.waterfall.bind(ctx) as unknown as (...args: unknown[]) => Promise<ApprovalOutcome>
+    const answered = await waterfall(lead, 'approval/request', { agent: lead, toolName: 'bash' }, () => Promise.resolve<ApprovalOutcome>('unavailable'))
     expect(answered).toBe('allowed-once')
   }, 30_000)
 
